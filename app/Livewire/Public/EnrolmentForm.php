@@ -1,0 +1,182 @@
+<?php
+
+namespace App\Livewire\Public;
+
+use App\Models\AcademicSession;
+use App\Models\ParentGuardian;
+use App\Models\SchoolClass;
+use App\Models\Student;
+use App\Notifications\EnrolmentSubmittedNotification;
+use App\Notifications\AdminNewEnrolmentNotification;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Livewire\Component;
+
+class EnrolmentForm extends Component
+{
+    // ── Step tracking ──
+    public int $step = 1;
+    public int $totalSteps = 4;
+
+    // ── Student details (Step 1) ──
+    public string $student_first_name   = '';
+    public string $student_last_name    = '';
+    public string $student_other_name   = '';
+    public string $student_gender       = '';
+    public string $student_dob          = '';
+    public string $class_applied_for    = '';
+    public string $medical_notes        = '';
+
+    // ── Primary parent (Step 2) ──
+    public string $parent1_name         = '';
+    public string $parent1_email        = '';
+    public string $parent1_phone        = '';
+    public string $parent1_address      = '';
+    public string $parent1_relationship = 'Mother';
+    public string $parent1_occupation   = '';
+
+    // ── Second parent (Step 3) — optional ──
+    public bool   $has_second_parent    = false;
+    public string $parent2_name         = '';
+    public string $parent2_email        = '';
+    public string $parent2_phone        = '';
+    public string $parent2_relationship = 'Father';
+    public string $parent2_occupation   = '';
+
+    // ── Emergency contact (Step 3) ──
+    public string $emergency_name         = '';
+    public string $emergency_phone        = '';
+    public string $emergency_relationship = '';
+
+    // ── Completion ──
+    public bool $submitted = false;
+
+    // ── Validation rules per step ──
+    protected function stepRules(): array
+    {
+        return [
+            1 => [
+                'student_first_name' => 'required|string|min:2|max:100',
+                'student_last_name'  => 'required|string|min:2|max:100',
+                'student_gender'     => 'required|in:Male,Female',
+                'student_dob'        => 'required|date|before:today',
+                'class_applied_for'  => 'required|exists:school_classes,name',
+            ],
+            2 => [
+                'parent1_name'         => 'required|string|min:2|max:150',
+                'parent1_email'        => 'required|email|max:200',
+                'parent1_phone'        => 'required|string|min:10|max:20',
+                'parent1_address'      => 'required|string|min:5|max:300',
+                'parent1_relationship' => 'required|string',
+            ],
+            3 => [
+                'emergency_name'  => 'required|string|min:2|max:150',
+                'emergency_phone' => 'required|string|min:10|max:20',
+                'emergency_relationship' => 'required|string|min:2',
+            ],
+        ];
+    }
+
+    public function nextStep(): void
+    {
+        $rules = $this->stepRules()[$this->step] ?? [];
+        $this->validate($rules);
+
+        // Extra: if second parent enabled on step 3, validate them too
+        if ($this->step === 3 && $this->has_second_parent) {
+            $this->validate([
+                'parent2_name'         => 'required|string|min:2|max:150',
+                'parent2_email'        => 'required|email|max:200|different:parent1_email',
+                'parent2_phone'        => 'required|string|min:10|max:20',
+                'parent2_relationship' => 'required|string',
+            ]);
+        }
+
+        $this->step++;
+    }
+
+    public function prevStep(): void
+    {
+        if ($this->step > 1) $this->step--;
+    }
+
+    public function submit(): void
+    {
+        // Validate step 4 is just a confirmation — no extra fields
+        // Final check on all critical fields
+        $this->validate([
+            'student_first_name' => 'required',
+            'student_last_name'  => 'required',
+            'parent1_email'      => 'required|email',
+        ]);
+
+        DB::transaction(function () {
+
+            // 1. Create the student record (status = pending)
+            $student = Student::create([
+                'admission_number'  => 'TEMP-' . strtoupper(Str::random(8)),
+                'first_name'        => trim($this->student_first_name),
+                'last_name'         => trim($this->student_last_name),
+                'other_name'        => trim($this->student_other_name),
+                'gender'            => $this->student_gender,
+                'date_of_birth'     => $this->student_dob,
+                'status'            => 'pending',
+                'class_applied_for' => $this->class_applied_for,
+                'medical_notes'     => trim($this->medical_notes),
+            ]);
+
+            // 2. Create primary parent record (no user account yet — pending approval)
+            $parent1 = ParentGuardian::create([
+                'user_id'                      => null, // set on approval
+                'phone'                        => $this->parent1_phone,
+                'address'                      => $this->parent1_address,
+                'occupation'                   => $this->parent1_occupation,
+                'relationship'                 => $this->parent1_relationship,
+                'emergency_contact_name'       => $this->emergency_name,
+                'emergency_contact_phone'      => $this->emergency_phone,
+                'emergency_contact_relationship' => $this->emergency_relationship,
+                // Store name + email temporarily in JSON meta
+                '_temp_name'  => $this->parent1_name,
+                '_temp_email' => $this->parent1_email,
+            ]);
+
+            // Link student ↔ parent1
+            $student->parents()->attach($parent1->id, [
+                'relationship'       => $this->parent1_relationship,
+                'is_primary_contact' => true,
+            ]);
+
+            // 3. Optional second parent
+            if ($this->has_second_parent && $this->parent2_name) {
+                $parent2 = ParentGuardian::create([
+                    'user_id'      => null,
+                    'phone'        => $this->parent2_phone,
+                    'relationship' => $this->parent2_relationship,
+                    'occupation'   => $this->parent2_occupation,
+                    '_temp_name'   => $this->parent2_name,
+                    '_temp_email'  => $this->parent2_email,
+                ]);
+
+                $student->parents()->attach($parent2->id, [
+                    'relationship'       => $this->parent2_relationship,
+                    'is_primary_contact' => false,
+                ]);
+            }
+
+            // 4. Notify all admins of new enrolment submission
+            User::whereIn('user_type', ['super_admin', 'admin'])->each(function ($admin) use ($student) {
+                $admin->notify(new AdminNewEnrolmentNotification($student));
+            });
+        });
+
+        $this->submitted = true;
+    }
+
+    public function render()
+    {
+        return view('livewire.public.enrolment-form', [
+            'classes' => SchoolClass::orderBy('order')->pluck('name'),
+        ])->layout('layouts.public', ['title' => 'Student Enrolment']);
+    }
+}

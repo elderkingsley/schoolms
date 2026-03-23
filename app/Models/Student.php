@@ -15,6 +15,7 @@ class Student extends Model
 
     protected $casts = [
         'date_of_birth' => 'date',
+        'status' => 'pending',
     ];
 
     public function getFullNameAttribute(): string
