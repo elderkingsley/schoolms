@@ -42,7 +42,6 @@ $PHP artisan event:cache
 
 echo "[ 7/8 ] Fixing permissions..."
 chmod -R 775 storage bootstrap/cache
-chown -R xtreme:www-data storage bootstrap/cache
 
 echo "[ 8/8 ] Restarting queue worker..."
 $PHP artisan queue:restart
