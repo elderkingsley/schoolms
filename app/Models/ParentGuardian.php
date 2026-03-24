@@ -10,7 +10,18 @@ class ParentGuardian extends Model
 {
     protected $table = 'parents';   // 'parents' is the actual DB table name
 
-    protected $fillable = ['user_id', 'phone', 'address', 'occupation'];
+    protected $fillable = [
+        'user_id',
+        'phone',
+        'address',
+        'occupation',
+        'relationship',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'emergency_contact_relationship',
+        '_temp_name',
+        '_temp_email',
+    ];
 
     public function user(): BelongsTo
     {
