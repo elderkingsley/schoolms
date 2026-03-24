@@ -1,5 +1,4 @@
 <?php
-// app/Notifications/ParentWelcomeNotification.php
 
 namespace App\Notifications;
 
@@ -27,10 +26,12 @@ class ParentWelcomeNotification extends Notification implements ShouldQueue
 
     public function toMail($notifiable): MailMessage
     {
+        $studentName = "{$this->student->first_name} {$this->student->last_name}";
+
         return (new MailMessage)
             ->subject('Welcome to Nurtureville — Your Portal is Ready')
             ->greeting("Dear {$this->parent->name},")
-            ->line("We are delighted to welcome {$this->student->full_name} to Nurtureville.")
+            ->line("We are delighted to welcome {$studentName} to Nurtureville.")
             ->line("Your parent portal account has been created. You can log in to view your child's results, fees, and lesson notes.")
             ->line("**Login Email:** {$this->parent->email}")
             ->line("**Temporary Password:** {$this->tempPassword}")

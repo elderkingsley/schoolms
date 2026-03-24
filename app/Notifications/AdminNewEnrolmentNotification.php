@@ -1,5 +1,4 @@
 <?php
-// app/Notifications/AdminNewEnrolmentNotification.php
 
 namespace App\Notifications;
 
@@ -15,15 +14,20 @@ class AdminNewEnrolmentNotification extends Notification implements ShouldQueue
 
     public function __construct(public Student $student) {}
 
-    public function via($notifiable): array { return ['mail']; }
+    public function via($notifiable): array
+    {
+        return ['mail'];
+    }
 
     public function toMail($notifiable): MailMessage
     {
+        $name = "{$this->student->first_name} {$this->student->last_name}";
+
         return (new MailMessage)
             ->subject('New Enrolment Submission — Action Required')
             ->greeting("Hello,")
             ->line("A new student enrolment has been submitted and is awaiting your review.")
-            ->line("**Student:** {$this->student->full_name}")
+            ->line("**Student:** {$name}")
             ->line("**Class Applied For:** {$this->student->class_applied_for}")
             ->action('Review in Admin Portal', url('/admin/enrolment/queue'))
             ->salutation('Nurtureville SMS');

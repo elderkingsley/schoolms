@@ -2,11 +2,9 @@
 
 namespace App\Livewire\Public;
 
-use App\Models\AcademicSession;
 use App\Models\ParentGuardian;
 use App\Models\SchoolClass;
 use App\Models\Student;
-use App\Notifications\EnrolmentSubmittedNotification;
 use App\Notifications\AdminNewEnrolmentNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +50,6 @@ class EnrolmentForm extends Component
     // ── Completion ──
     public bool $submitted = false;
 
-    // ── Validation rules per step ──
     protected function stepRules(): array
     {
         return [
@@ -71,8 +68,8 @@ class EnrolmentForm extends Component
                 'parent1_relationship' => 'required|string',
             ],
             3 => [
-                'emergency_name'  => 'required|string|min:2|max:150',
-                'emergency_phone' => 'required|string|min:10|max:20',
+                'emergency_name'         => 'required|string|min:2|max:150',
+                'emergency_phone'        => 'required|string|min:10|max:20',
                 'emergency_relationship' => 'required|string|min:2',
             ],
         ];
@@ -83,7 +80,6 @@ class EnrolmentForm extends Component
         $rules = $this->stepRules()[$this->step] ?? [];
         $this->validate($rules);
 
-        // Extra: if second parent enabled on step 3, validate them too
         if ($this->step === 3 && $this->has_second_parent) {
             $this->validate([
                 'parent2_name'         => 'required|string|min:2|max:150',
@@ -103,8 +99,6 @@ class EnrolmentForm extends Component
 
     public function submit(): void
     {
-        // Validate step 4 is just a confirmation — no extra fields
-        // Final check on all critical fields
         $this->validate([
             'student_first_name' => 'required',
             'student_last_name'  => 'required',
@@ -113,7 +107,7 @@ class EnrolmentForm extends Component
 
         DB::transaction(function () {
 
-            // 1. Create the student record (status = pending)
+            // 1. Create student record (status = pending)
             $student = Student::create([
                 'admission_number'  => 'TEMP-' . strtoupper(Str::random(8)),
                 'first_name'        => trim($this->student_first_name),
@@ -126,22 +120,20 @@ class EnrolmentForm extends Component
                 'medical_notes'     => trim($this->medical_notes),
             ]);
 
-            // 2. Create primary parent record (no user account yet — pending approval)
+            // 2. Create primary parent (no user account yet)
             $parent1 = ParentGuardian::create([
-                'user_id'                      => null, // set on approval
-                'phone'                        => $this->parent1_phone,
-                'address'                      => $this->parent1_address,
-                'occupation'                   => $this->parent1_occupation,
-                'relationship'                 => $this->parent1_relationship,
-                'emergency_contact_name'       => $this->emergency_name,
-                'emergency_contact_phone'      => $this->emergency_phone,
+                'user_id'                        => null,
+                'phone'                          => $this->parent1_phone,
+                'address'                        => $this->parent1_address,
+                'occupation'                     => $this->parent1_occupation,
+                'relationship'                   => $this->parent1_relationship,
+                'emergency_contact_name'         => $this->emergency_name,
+                'emergency_contact_phone'        => $this->emergency_phone,
                 'emergency_contact_relationship' => $this->emergency_relationship,
-                // Store name + email temporarily in JSON meta
-                '_temp_name'  => $this->parent1_name,
-                '_temp_email' => $this->parent1_email,
+                '_temp_name'                     => $this->parent1_name,
+                '_temp_email'                    => $this->parent1_email,
             ]);
 
-            // Link student ↔ parent1
             $student->parents()->attach($parent1->id, [
                 'relationship'       => $this->parent1_relationship,
                 'is_primary_contact' => true,
@@ -164,10 +156,12 @@ class EnrolmentForm extends Component
                 ]);
             }
 
-            // 4. Notify all admins of new enrolment submission
-            User::whereIn('user_type', ['super_admin', 'admin'])->each(function ($admin) use ($student) {
-                $admin->notify(new AdminNewEnrolmentNotification($student));
-            });
+            // 4. Notify admins — uses database queue, won't block form submission
+            User::whereIn('user_type', ['super_admin', 'admin'])
+                ->get()
+                ->each(function ($admin) use ($student) {
+                    $admin->notify(new AdminNewEnrolmentNotification($student));
+                });
         });
 
         $this->submitted = true;
