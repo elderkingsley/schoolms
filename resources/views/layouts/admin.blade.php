@@ -392,7 +392,23 @@
             </div>
         </div>
 
+        @php $pendingCount = \App\Models\Student::where('status', 'pending')->count(); @endphp
+
         <nav class="sidebar-nav">
+
+            <div class="nav-group">
+                <a href="{{ route('admin.dashboard') }}"
+                   class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <rect x="1" y="1" width="6" height="6" rx="1.5"/>
+                        <rect x="9" y="1" width="6" height="6" rx="1.5"/>
+                        <rect x="1" y="9" width="6" height="6" rx="1.5"/>
+                        <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+                    </svg>
+                    Dashboard
+                </a>
+            </div>
+
 
             <div class="nav-group">
                 <a href="{{ route('admin.dashboard') }}"
@@ -409,20 +425,33 @@
 
             <div class="nav-group">
                 <div class="nav-label">Academics</div>
-                <a href="#" class="nav-link {{ request()->routeIs('admin.students*') ? 'active' : '' }}">
+
+                <a href="{{ route('admin.students') }}"
+                   class="nav-link {{ request()->routeIs('admin.students*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <circle cx="8" cy="5" r="3"/>
                         <path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/>
                     </svg>
                     Students
                 </a>
-                <a href="#" class="nav-link {{ request()->routeIs('admin.enrolment*') ? 'active' : '' }}">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-                        <path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
-                        <path d="M5 7h6M5 10h4"/>
-                    </svg>
-                    Enrolment
+
+                <a href="{{ route('admin.enrolment.queue') }}"
+                   class="nav-link {{ request()->routeIs('admin.enrolment*') ? 'active' : '' }}"
+                   style="justify-content: space-between">
+                    <span style="display:flex;align-items:center;gap:9px">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                            <path d="M5 7h6M5 10h4"/>
+                        </svg>
+                        Enrolment
+                    </span>
+                    @if($pendingCount > 0)
+                        <span style="background:rgba(255,255,255,0.15);color:#fff;font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;min-width:20px;text-align:center">
+                            {{ $pendingCount }}
+                        </span>
+                    @endif
                 </a>
+
                 <a href="#" class="nav-link {{ request()->routeIs('admin.results*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <path d="M12 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
@@ -430,12 +459,66 @@
                     </svg>
                     Results
                 </a>
+
                 <a href="#" class="nav-link {{ request()->routeIs('admin.notes*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <path d="M4 1h8l3 3v11H1V1zM12 1v3h3"/>
                         <path d="M4 7h8M4 10h5"/>
                     </svg>
                     Lesson Notes
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-label">Finance</div>
+                <a href="#" class="nav-link {{ request()->routeIs('admin.fees*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+                        <path d="M1 6h14M5 10h2"/>
+                    </svg>
+                    Fee Structures
+                </a>
+                <a href="#" class="nav-link {{ request()->routeIs('admin.payments*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <path d="M8 1v14M5 4h4.5a2.5 2.5 0 0 1 0 5H5M5 9h5a2.5 2.5 0 0 1 0 5H5"/>
+                    </svg>
+                    Payments
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-label">Communication</div>
+                <a href="#" class="nav-link {{ request()->routeIs('admin.messages*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <path d="M14 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3l3 3 3-3h3a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                    </svg>
+                    Messages
+                </a>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-label">Settings</div>
+                <a href="#" class="nav-link {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <circle cx="6" cy="5" r="2.5"/>
+                        <path d="M1 14c0-2.761 2.239-4.5 5-4.5s5 1.739 5 4.5"/>
+                        <path d="M11 7.5c.828 0 1.5-.672 1.5-1.5S11.828 4.5 11 4.5M15 14c0-2-1.343-3.5-4-3.5"/>
+                    </svg>
+                    Users
+                </a>
+                <a href="#" class="nav-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <rect x="1" y="4" width="14" height="9" rx="1.5"/>
+                        <path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/>
+                    </svg>
+                    Classes & Subjects
+                </a>
+                <a href="#" class="nav-link {{ request()->routeIs('admin.sessions*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <rect x="1" y="2" width="14" height="13" rx="1.5"/>
+                        <path d="M1 6h14M5 1v2M11 1v2"/>
+                    </svg>
+                    Sessions & Terms
                 </a>
             </div>
 
