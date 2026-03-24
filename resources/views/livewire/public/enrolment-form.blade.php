@@ -202,6 +202,21 @@
 }
 
 .success-msg { font-size: 14px; color: var(--c-text-2); line-height: 1.6; }
+
+/* Photo upload */
+.photo-upload-area {
+    border: 2px dashed var(--c-border);
+    border-radius: 10px; padding: 20px;
+    text-align: center; cursor: pointer;
+    transition: border-color 150ms, background 150ms;
+    position: relative;
+}
+.photo-upload-area:hover { border-color: var(--c-accent); background: rgba(26,86,255,0.02); }
+.photo-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.photo-preview { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 8px; display: block; border: 2px solid var(--c-border); }
+.photo-placeholder { width: 64px; height: 64px; border-radius: 50%; background: var(--c-bg); border: 2px solid var(--c-border); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; color: var(--c-text-3); }
+.photo-hint { font-size: 12px; color: var(--c-text-3); margin-top: 4px; }
+.photo-hint strong { color: var(--c-accent); }
 </style>
 
 @if($submitted)
@@ -294,6 +309,33 @@
                 <div class="field">
                     <label>Medical / Health Notes</label>
                     <textarea wire:model="medical_notes" placeholder="Any allergies, conditions or medications the school should know about..."></textarea>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label>Passport Photograph <span style="font-size:10px;color:var(--c-text-3);font-weight:400">(optional but recommended)</span></label>
+                    <div class="photo-upload-area">
+                        <input type="file" wire:model="student_photo" accept="image/jpeg,image/png,image/webp">
+                        @if($student_photo)
+                            <img src="{{ $student_photo->temporaryUrl() }}" class="photo-preview" alt="Preview">
+                            <div style="font-size:12px;color:#15803D;font-weight:500">✓ Photo selected</div>
+                            <div class="photo-hint">Click to change</div>
+                        @else
+                            <div class="photo-placeholder">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="8" r="4"/>
+                                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                                </svg>
+                            </div>
+                            <div style="font-size:13px;font-weight:500;color:var(--c-text-2)">Upload passport photograph</div>
+                            <div class="photo-hint">JPG or PNG · <strong>Max 2MB</strong></div>
+                        @endif
+                        <div wire:loading wire:target="student_photo" style="font-size:12px;color:var(--c-accent);margin-top:6px">
+                            Uploading...
+                        </div>
+                    </div>
+                    @error('student_photo') <span class="field-error">{{ $message }}</span> @enderror
                 </div>
             </div>
         </div>
@@ -438,6 +480,15 @@
         <div class="form-card">
             <div class="step-label">Step 4 of {{ $totalSteps }}</div>
             <h2 class="step-title">Review & Submit</h2>
+
+            @if($student_photo)
+            <div style="text-align:center;margin-bottom:16px">
+                <img src="{{ $student_photo->temporaryUrl() }}"
+                     style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--c-border)"
+                     alt="Passport">
+                <div style="font-size:11px;color:var(--c-text-3);margin-top:4px">Passport photograph</div>
+            </div>
+            @endif
 
             <div class="review-section">
                 <div class="review-section-title">Child's Details</div>

@@ -35,6 +35,10 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         // Enrolment
         Route::get('/enrolment/queue', \App\Livewire\Admin\Enrolment\EnrolmentQueue::class)
             ->name('enrolment.queue');
+
+        // Student profile
+        Route::get('/students/{student}', \App\Livewire\Admin\Students\StudentProfile::class)
+            ->name('students.profile');
     });
 
 // ── Teacher routes ────────────────────────────────────────────────────────────

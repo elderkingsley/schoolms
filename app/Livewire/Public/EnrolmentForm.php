@@ -11,14 +11,19 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class EnrolmentForm extends Component
 {
+    use WithFileUploads;
+
     public int $step = 1;
     public int $totalSteps = 4;
 
+    // ── Student details (Step 1) ──
     public string $student_first_name   = '';
     public string $student_last_name    = '';
     public string $student_other_name   = '';
@@ -26,7 +31,9 @@ class EnrolmentForm extends Component
     public string $student_dob          = '';
     public string $class_applied_for    = '';
     public string $medical_notes        = '';
+    public $student_photo               = null; // uploaded file
 
+    // ── Primary parent (Step 2) ──
     public string $parent1_name         = '';
     public string $parent1_email        = '';
     public string $parent1_phone        = '';
@@ -34,6 +41,7 @@ class EnrolmentForm extends Component
     public string $parent1_relationship = 'Mother';
     public string $parent1_occupation   = '';
 
+    // ── Second parent (Step 3) — optional ──
     public bool   $has_second_parent    = false;
     public string $parent2_name         = '';
     public string $parent2_email        = '';
@@ -41,6 +49,7 @@ class EnrolmentForm extends Component
     public string $parent2_relationship = 'Father';
     public string $parent2_occupation   = '';
 
+    // ── Emergency contact (Step 3) ──
     public string $emergency_name         = '';
     public string $emergency_phone        = '';
     public string $emergency_relationship = '';
@@ -56,6 +65,7 @@ class EnrolmentForm extends Component
                 'student_gender'     => 'required|in:Male,Female',
                 'student_dob'        => 'required|date|before:today',
                 'class_applied_for'  => 'required|exists:school_classes,name',
+                'student_photo'      => 'nullable|image|max:2048', // 2MB max
             ],
             2 => [
                 'parent1_name'         => 'required|string|min:2|max:150',
@@ -100,15 +110,21 @@ class EnrolmentForm extends Component
             'student_first_name' => 'required',
             'student_last_name'  => 'required',
             'parent1_email'      => 'required|email',
+            'student_photo'      => 'nullable|image|max:2048',
         ]);
 
-        // Capture values before transaction closure
         $parentEmail  = $this->parent1_email;
         $parentName   = $this->parent1_name;
         $studentFirst = $this->student_first_name;
         $studentLast  = $this->student_last_name;
 
-        DB::transaction(function () use ($studentFirst, $studentLast, $parentEmail, $parentName) {
+        // Store photo before transaction
+        $photoPath = null;
+        if ($this->student_photo) {
+            $photoPath = $this->student_photo->store('student-photos', 'public');
+        }
+
+        DB::transaction(function () use ($studentFirst, $studentLast, $parentEmail, $parentName, $photoPath) {
 
             $student = Student::create([
                 'admission_number'  => 'TEMP-' . strtoupper(Str::random(8)),
@@ -120,6 +136,7 @@ class EnrolmentForm extends Component
                 'status'            => 'pending',
                 'class_applied_for' => $this->class_applied_for,
                 'medical_notes'     => trim($this->medical_notes),
+                'photo'             => $photoPath,
             ]);
 
             $parent1 = ParentGuardian::create([
@@ -156,7 +173,6 @@ class EnrolmentForm extends Component
                 ]);
             }
 
-            // Notify admins (queued)
             User::whereIn('user_type', ['super_admin', 'admin'])
                 ->get()
                 ->each(function ($admin) use ($student) {
@@ -164,8 +180,6 @@ class EnrolmentForm extends Component
                 });
         });
 
-        // Send confirmation to parent OUTSIDE the transaction
-        // so a mail failure does not roll back the student record
         try {
             Mail::to($parentEmail)->send(
                 new EnrolmentConfirmationMail($studentFirst, $studentLast, $parentName)

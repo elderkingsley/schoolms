@@ -3,7 +3,6 @@
 namespace App\Livewire\Admin\Students;
 
 use App\Models\AcademicSession;
-use App\Models\Enrolment;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use Livewire\Component;
@@ -13,12 +12,11 @@ class StudentList extends Component
 {
     use WithPagination;
 
-    public string $search      = '';
-    public string $filterClass = '';
+    public string $search       = '';
+    public string $filterClass  = '';
     public string $filterStatus = 'active';
 
-    // Reset pagination when filters change
-    public function updatedSearch(): void    { $this->resetPage(); }
+    public function updatedSearch(): void      { $this->resetPage(); }
     public function updatedFilterClass(): void  { $this->resetPage(); }
     public function updatedFilterStatus(): void { $this->resetPage(); }
 

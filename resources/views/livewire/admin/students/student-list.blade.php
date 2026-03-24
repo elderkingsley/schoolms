@@ -198,7 +198,8 @@
                         @php
                             $enrolment = $student->enrolments->first();
                         @endphp
-                        <tr>
+                        <tr onclick="window.location='{{ route('admin.students.profile', $student) }}'"
+                            title="View full profile">
                             <td>
                                 <div class="student-name">
                                     {{ $student->first_name }} {{ $student->last_name }}
