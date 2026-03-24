@@ -11,11 +11,12 @@ class Student extends Model
     protected $fillable = [
         'admission_number', 'first_name', 'last_name', 'other_name',
         'gender', 'date_of_birth', 'photo', 'status', 'notes',
+        'class_applied_for', 'medical_notes', 'approved_at', 'approved_by',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
-        'status' => 'pending',
+        'approved_at'   => 'datetime',
     ];
 
     public function getFullNameAttribute(): string
@@ -25,9 +26,13 @@ class Student extends Model
 
     public function parents(): BelongsToMany
     {
-        return $this->belongsToMany(ParentGuardian::class, 'parent_student', 'student_id', 'parent_id')
-                    ->withPivot(['relationship', 'is_primary_contact'])
-                    ->withTimestamps();
+        return $this->belongsToMany(
+            ParentGuardian::class,
+            'parent_student',
+            'student_id',
+            'parent_id'
+        )->withPivot(['relationship', 'is_primary_contact'])
+         ->withTimestamps();
     }
 
     public function enrolments(): HasMany
