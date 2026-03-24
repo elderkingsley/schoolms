@@ -18,17 +18,18 @@ class Dashboard extends Component
         $activeSession = AcademicSession::current();
         $activeTerm    = Term::current();
 
-        // Student counts
-        $totalStudents  = Student::count();
+        // Only count students that are actually in the school
+        // Exclude 'withdrawn' (rejected enrolments)
+        $totalStudents = Student::whereIn('status', ['active', 'pending'])->count();
+
         $activeStudents = $activeSession
             ? Enrolment::where('academic_session_id', $activeSession->id)
                        ->where('status', 'active')->count()
             : 0;
 
-        // Parent count
-        $totalParents = ParentGuardian::count();
+        // Only count parents who have a real user account (approved enrolments)
+        $totalParents = ParentGuardian::whereNotNull('user_id')->count();
 
-        // Fee figures — current term only
         $feesCollected   = 0;
         $feesOutstanding = 0;
 

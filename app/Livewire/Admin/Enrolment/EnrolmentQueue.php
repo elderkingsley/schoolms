@@ -1,8 +1,9 @@
 <?php
-// app/Livewire/Admin/Enrolment/EnrolmentQueue.php
 
 namespace App\Livewire\Admin\Enrolment;
 
+use App\Models\AcademicSession;
+use App\Models\Enrolment;
 use App\Models\ParentGuardian;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -18,31 +19,37 @@ class EnrolmentQueue extends Component
 {
     use WithPagination;
 
-    public ?int $reviewingId = null;    // student being reviewed
-    public string $assignedClass = '';
+    // Approval modal state
+    public ?int  $reviewingId    = null;
+    public string $assignedClass  = '';
     public string $admissionNumber = '';
+
+    // Reject confirmation modal state
+    public ?int  $rejectingId    = null;
+    public string $rejectStudentName = '';
+
+    // ── Approve flow ──────────────────────────────────────────────────────────
 
     public function approve(int $studentId): void
     {
         $student = Student::with('parents')->findOrFail($studentId);
 
-        $this->reviewingId    = $studentId;
-        $this->assignedClass  = $student->class_applied_for ?? '';
+        $this->reviewingId     = $studentId;
+        $this->assignedClass   = $student->class_applied_for ?? '';
         $this->admissionNumber = $this->generateAdmissionNumber();
     }
 
     public function confirmApproval(): void
     {
         $this->validate([
-            'assignedClass'    => 'required|exists:school_classes,name',
-            'admissionNumber'  => 'required|string|unique:students,admission_number',
+            'assignedClass'   => 'required|exists:school_classes,name',
+            'admissionNumber' => 'required|string|unique:students,admission_number',
         ]);
 
         $student = Student::with('parents')->findOrFail($this->reviewingId);
 
         DB::transaction(function () use ($student) {
 
-            // 1. Update student record
             $student->update([
                 'status'           => 'active',
                 'admission_number' => $this->admissionNumber,
@@ -50,12 +57,11 @@ class EnrolmentQueue extends Component
                 'approved_by'      => auth()->id(),
             ]);
 
-            // 2. Enrol in class for active session
-            $session = \App\Models\AcademicSession::current();
-            $class   = \App\Models\SchoolClass::where('name', $this->assignedClass)->first();
+            $session = AcademicSession::current();
+            $class   = SchoolClass::where('name', $this->assignedClass)->first();
 
             if ($session && $class) {
-                \App\Models\Enrolment::firstOrCreate([
+                Enrolment::firstOrCreate([
                     'student_id'          => $student->id,
                     'academic_session_id' => $session->id,
                 ], [
@@ -65,9 +71,8 @@ class EnrolmentQueue extends Component
                 ]);
             }
 
-            // 3. Create User accounts for each parent
             foreach ($student->parents as $parent) {
-                if ($parent->user_id) continue; // already has account
+                if ($parent->user_id) continue;
 
                 $tempPassword = Str::random(10);
 
@@ -80,24 +85,53 @@ class EnrolmentQueue extends Component
                 ]);
 
                 $user->assignRole('parent');
-
-                // Link user to parent record
                 $parent->update(['user_id' => $user->id]);
-
-                // Send welcome email with credentials
                 $user->notify(new ParentWelcomeNotification($user, $student, $tempPassword));
             }
         });
 
         $this->reviewingId = null;
-        session()->flash('success', "Student approved and parents notified.");
+        session()->flash('success', "Student approved successfully. Parent login credentials have been sent.");
     }
 
-    public function reject(int $studentId): void
+    public function cancelApproval(): void
     {
-        Student::findOrFail($studentId)->update(['status' => 'withdrawn']);
-        session()->flash('success', "Enrolment rejected.");
+        $this->reviewingId     = null;
+        $this->assignedClass   = '';
+        $this->admissionNumber = '';
     }
+
+    // ── Reject flow ───────────────────────────────────────────────────────────
+
+    // Step 1: show in-app confirmation modal
+    public function confirmReject(int $studentId): void
+    {
+        $student = Student::findOrFail($studentId);
+        $this->rejectingId       = $studentId;
+        $this->rejectStudentName = "{$student->first_name} {$student->last_name}";
+    }
+
+    // Step 2: admin confirmed — do the rejection
+    public function executeReject(): void
+    {
+        if (!$this->rejectingId) return;
+
+        Student::findOrFail($this->rejectingId)->update(['status' => 'withdrawn']);
+
+        $this->rejectingId       = null;
+        $this->rejectStudentName = '';
+
+        session()->flash('success', "Enrolment rejected and removed from queue.");
+    }
+
+    // Step 3: admin cancelled the rejection
+    public function cancelReject(): void
+    {
+        $this->rejectingId       = null;
+        $this->rejectStudentName = '';
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     protected function generateAdmissionNumber(): string
     {
