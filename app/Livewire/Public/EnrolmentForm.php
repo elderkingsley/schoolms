@@ -2,22 +2,23 @@
 
 namespace App\Livewire\Public;
 
+use App\Mail\EnrolmentConfirmationMail;
 use App\Models\ParentGuardian;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Notifications\AdminNewEnrolmentNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
 class EnrolmentForm extends Component
 {
-    // ── Step tracking ──
     public int $step = 1;
     public int $totalSteps = 4;
 
-    // ── Student details (Step 1) ──
     public string $student_first_name   = '';
     public string $student_last_name    = '';
     public string $student_other_name   = '';
@@ -26,7 +27,6 @@ class EnrolmentForm extends Component
     public string $class_applied_for    = '';
     public string $medical_notes        = '';
 
-    // ── Primary parent (Step 2) ──
     public string $parent1_name         = '';
     public string $parent1_email        = '';
     public string $parent1_phone        = '';
@@ -34,7 +34,6 @@ class EnrolmentForm extends Component
     public string $parent1_relationship = 'Mother';
     public string $parent1_occupation   = '';
 
-    // ── Second parent (Step 3) — optional ──
     public bool   $has_second_parent    = false;
     public string $parent2_name         = '';
     public string $parent2_email        = '';
@@ -42,12 +41,10 @@ class EnrolmentForm extends Component
     public string $parent2_relationship = 'Father';
     public string $parent2_occupation   = '';
 
-    // ── Emergency contact (Step 3) ──
     public string $emergency_name         = '';
     public string $emergency_phone        = '';
     public string $emergency_relationship = '';
 
-    // ── Completion ──
     public bool $submitted = false;
 
     protected function stepRules(): array
@@ -105,13 +102,18 @@ class EnrolmentForm extends Component
             'parent1_email'      => 'required|email',
         ]);
 
-        DB::transaction(function () {
+        // Capture values before transaction closure
+        $parentEmail  = $this->parent1_email;
+        $parentName   = $this->parent1_name;
+        $studentFirst = $this->student_first_name;
+        $studentLast  = $this->student_last_name;
 
-            // 1. Create student record (status = pending)
+        DB::transaction(function () use ($studentFirst, $studentLast, $parentEmail, $parentName) {
+
             $student = Student::create([
                 'admission_number'  => 'TEMP-' . strtoupper(Str::random(8)),
-                'first_name'        => trim($this->student_first_name),
-                'last_name'         => trim($this->student_last_name),
+                'first_name'        => trim($studentFirst),
+                'last_name'         => trim($studentLast),
                 'other_name'        => trim($this->student_other_name),
                 'gender'            => $this->student_gender,
                 'date_of_birth'     => $this->student_dob,
@@ -120,7 +122,6 @@ class EnrolmentForm extends Component
                 'medical_notes'     => trim($this->medical_notes),
             ]);
 
-            // 2. Create primary parent (no user account yet)
             $parent1 = ParentGuardian::create([
                 'user_id'                        => null,
                 'phone'                          => $this->parent1_phone,
@@ -130,8 +131,8 @@ class EnrolmentForm extends Component
                 'emergency_contact_name'         => $this->emergency_name,
                 'emergency_contact_phone'        => $this->emergency_phone,
                 'emergency_contact_relationship' => $this->emergency_relationship,
-                '_temp_name'                     => $this->parent1_name,
-                '_temp_email'                    => $this->parent1_email,
+                '_temp_name'                     => $parentName,
+                '_temp_email'                    => $parentEmail,
             ]);
 
             $student->parents()->attach($parent1->id, [
@@ -139,7 +140,6 @@ class EnrolmentForm extends Component
                 'is_primary_contact' => true,
             ]);
 
-            // 3. Optional second parent
             if ($this->has_second_parent && $this->parent2_name) {
                 $parent2 = ParentGuardian::create([
                     'user_id'      => null,
@@ -156,13 +156,27 @@ class EnrolmentForm extends Component
                 ]);
             }
 
-            // 4. Notify admins — uses database queue, won't block form submission
+            // Notify admins (queued)
             User::whereIn('user_type', ['super_admin', 'admin'])
                 ->get()
                 ->each(function ($admin) use ($student) {
                     $admin->notify(new AdminNewEnrolmentNotification($student));
                 });
         });
+
+        // Send confirmation to parent OUTSIDE the transaction
+        // so a mail failure does not roll back the student record
+        try {
+            Mail::to($parentEmail)->send(
+                new EnrolmentConfirmationMail($studentFirst, $studentLast, $parentName)
+            );
+        } catch (\Exception $e) {
+            Log::error('Enrolment confirmation mail failed', [
+                'email'   => $parentEmail,
+                'student' => "{$studentFirst} {$studentLast}",
+                'error'   => $e->getMessage(),
+            ]);
+        }
 
         $this->submitted = true;
     }
