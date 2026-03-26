@@ -7,7 +7,18 @@
 .queue-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
 @media(max-width:640px){ .queue-stats { grid-template-columns:1fr 1fr; } }
 
-.queue-stat { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); padding:16px; }
+.queue-stat {
+    background:var(--c-surface); border:1px solid var(--c-border);
+    border-radius:var(--r-md); padding:16px;
+    display:block; text-decoration:none; color:inherit;
+    transition: box-shadow var(--dur), transform var(--dur), border-color var(--dur);
+}
+.queue-stat:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+    border-color: rgba(26,86,255,0.2);
+    cursor: pointer;
+}
 .qs-val { font-size:28px; font-weight:700; font-family:var(--f-mono); letter-spacing:-0.04em; color:var(--c-text-1); line-height:1; }
 .qs-lbl { font-size:11px; font-weight:500; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.06em; margin-top:6px; }
 
@@ -103,47 +114,6 @@
 .btn-ghost { padding:11px 20px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:14px; cursor:pointer; font-family:var(--f-sans); }
 .btn-ghost:hover { background:var(--c-bg); }
 
-
-/* Rejection modal */
-.reject-modal-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px);
-    z-index:50; display:flex; align-items:center; justify-content:center; padding:16px;
-}
-.reject-modal-box {
-    background:var(--c-surface); border-radius:16px; width:100%; max-width:420px;
-    padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.2);
-}
-.reject-modal-icon {
-    width:48px; height:48px; border-radius:50%;
-    background:rgba(190,18,60,0.08); border:1px solid rgba(190,18,60,0.15);
-    display:flex; align-items:center; justify-content:center;
-    margin:0 auto 16px; color:#BE123C;
-}
-.reject-modal-title {
-    font-size:16px; font-weight:700; color:var(--c-text-1);
-    text-align:center; letter-spacing:-0.02em; margin-bottom:6px;
-}
-.reject-modal-sub {
-    font-size:13px; color:var(--c-text-3); text-align:center;
-    line-height:1.5; margin-bottom:20px;
-}
-.reject-student-name {
-    font-weight:600; color:var(--c-text-1);
-}
-.reject-actions { display:flex; gap:10px; }
-.btn-cancel-reject {
-    flex:1; padding:11px; background:none; border:1px solid var(--c-border);
-    color:var(--c-text-2); border-radius:8px; font-size:14px; cursor:pointer;
-    font-family:var(--f-sans); transition:background 150ms;
-}
-.btn-cancel-reject:hover { background:var(--c-bg); }
-.btn-confirm-reject {
-    flex:1; padding:11px; background:#BE123C; color:#fff;
-    border:none; border-radius:8px; font-size:14px; font-weight:500;
-    cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms;
-}
-.btn-confirm-reject:hover { opacity:0.9; }
-
 .empty-state { padding:48px 20px; text-align:center; }
 .empty-title { font-size:14px; font-weight:600; color:var(--c-text-1); margin-bottom:4px; }
 .empty-sub   { font-size:12px; color:var(--c-text-3); }
@@ -163,18 +133,21 @@
 </div>
 
 <div class="queue-stats">
-    <div class="queue-stat">
-        <div class="qs-val">{{ $pending->total() }}</div>
+    {{-- Pending → this same page (enrolment queue) --}}
+    <a href="{{ route('admin.enrolment.queue') }}" class="queue-stat" style="border-top:2px solid #B45309">
+        <div class="qs-val" style="color:#B45309">{{ $pending->total() }}</div>
         <div class="qs-lbl">Pending Review</div>
-    </div>
-    <div class="queue-stat">
-        <div class="qs-val">{{ \App\Models\Student::where('status','active')->count() }}</div>
+    </a>
+    {{-- Active → students list filtered to active --}}
+    <a href="{{ route('admin.students') }}?filterStatus=active" class="queue-stat" style="border-top:2px solid #15803D">
+        <div class="qs-val" style="color:#15803D">{{ \App\Models\Student::where('status','active')->count() }}</div>
         <div class="qs-lbl">Active Students</div>
-    </div>
-    <div class="queue-stat">
+    </a>
+    {{-- Rejected → students list filtered to withdrawn --}}
+    <a href="{{ route('admin.students') }}?filterStatus=withdrawn" class="queue-stat" style="border-top:2px solid var(--c-text-3)">
         <div class="qs-val">{{ \App\Models\Student::where('status','withdrawn')->count() }}</div>
         <div class="qs-lbl">Rejected</div>
-    </div>
+    </a>
 </div>
 
 <div class="panel">
@@ -243,7 +216,8 @@
                                         Approve
                                     </button>
                                     <button class="btn-reject"
-                                        wire:click.stop="$set('rejectingId', {{ $student->id }})"
+                                        wire:click.stop="reject({{ $student->id }})"
+                                        wire:confirm="Reject this enrolment? A notification email will be sent to the parent."
                                         wire:loading.attr="disabled">
                                         Reject
                                     </button>
@@ -260,44 +234,6 @@
         @endif
     @endif
 </div>
-
-
-{{-- ── Rejection confirmation modal ── --}}
-@if($rejectingId)
-    @php $rejectStudent = \App\Models\Student::find($rejectingId); @endphp
-    @if($rejectStudent)
-    <div class="reject-modal-overlay">
-        <div class="reject-modal-box">
-            <div class="reject-modal-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="15" y1="9" x2="9" y2="15"/>
-                    <line x1="9" y1="9" x2="15" y2="15"/>
-                </svg>
-            </div>
-            <div class="reject-modal-title">Reject Enrolment?</div>
-            <div class="reject-modal-sub">
-                You are about to reject the enrolment application for<br>
-                <span class="reject-student-name">{{ $rejectStudent->first_name }} {{ $rejectStudent->last_name }}</span>.<br><br>
-                A notification email will be sent to the parent informing them of this decision.
-                This action cannot be undone.
-            </div>
-            <div class="reject-actions">
-                <button class="btn-cancel-reject" wire:click="$set('rejectingId', null)">
-                    Cancel
-                </button>
-                <button class="btn-confirm-reject"
-                    wire:click="reject({{ $rejectingId }})"
-                    wire:loading.attr="disabled"
-                    wire:loading.class="opacity-50">
-                    <span wire:loading.remove wire:target="reject({{ $rejectingId }})">Confirm Rejection</span>
-                    <span wire:loading wire:target="reject({{ $rejectingId }})">Rejecting...</span>
-                </button>
-            </div>
-        </div>
-    </div>
-    @endif
-@endif
 
 {{-- Approval modal --}}
 @if($reviewingId)

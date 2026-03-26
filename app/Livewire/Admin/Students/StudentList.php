@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Students;
 use App\Models\AcademicSession;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -13,7 +14,11 @@ class StudentList extends Component
     use WithPagination;
 
     public string $search       = '';
+
+    #[Url]  // syncs with ?filterClass= in the URL
     public string $filterClass  = '';
+
+    #[Url]  // syncs with ?filterStatus= in the URL
     public string $filterStatus = 'active';
 
     public function updatedSearch(): void      { $this->resetPage(); }
