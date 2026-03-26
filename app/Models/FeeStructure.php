@@ -1,5 +1,4 @@
 <?php
-// app/Models/FeeStructure.php
 
 namespace App\Models;
 
@@ -9,11 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FeeStructure extends Model
 {
     protected $fillable = [
-        'academic_session_id', 'term_id', 'school_class_id',
-        'item_name', 'amount',
+        'fee_item_id', 'academic_session_id',
+        'term_id', 'school_class_id', 'amount',
     ];
 
     protected $casts = ['amount' => 'decimal:2'];
+
+    public function feeItem(): BelongsTo
+    {
+        return $this->belongsTo(FeeItem::class);
+    }
 
     public function session(): BelongsTo
     {

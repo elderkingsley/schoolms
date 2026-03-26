@@ -5,11 +5,10 @@ use Illuminate\Support\Facades\Route;
 // ── Webhook routes — CSRF exempt ──────────────────────────────────────────────
 Route::post('/webhooks/paystack', [\App\Http\Controllers\WebhookController::class, 'paystack'])
     ->name('webhooks.paystack');
-
 Route::post('/webhooks/monnify', [\App\Http\Controllers\WebhookController::class, 'monnify'])
     ->name('webhooks.monnify');
 
-// ── Public routes — no auth required ─────────────────────────────────────────
+// ── Public routes ─────────────────────────────────────────────────────────────
 Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
 
 // ── Auth routes (Breeze) ──────────────────────────────────────────────────────
@@ -31,14 +30,18 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         // Students
         Route::get('/students', \App\Livewire\Admin\Students\StudentList::class)
             ->name('students');
+        Route::get('/students/{student}', \App\Livewire\Admin\Students\StudentProfile::class)
+            ->name('students.profile');
 
         // Enrolment
         Route::get('/enrolment/queue', \App\Livewire\Admin\Enrolment\EnrolmentQueue::class)
             ->name('enrolment.queue');
 
-        // Student profile
-        Route::get('/students/{student}', \App\Livewire\Admin\Students\StudentProfile::class)
-            ->name('students.profile');
+        // Fees
+        Route::get('/fees/items',     \App\Livewire\Admin\Fees\FeeItemManager::class)
+            ->name('fees.items');
+        Route::get('/fees/structure', \App\Livewire\Admin\Fees\FeeStructureManager::class)
+            ->name('fees.structure');
     });
 
 // ── Teacher routes ────────────────────────────────────────────────────────────

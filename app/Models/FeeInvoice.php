@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class FeeInvoice extends Model
 {
     protected $fillable = [
-        'student_id', 'term_id', 'total_amount',
-        'amount_paid', 'balance', 'status',
+        'student_id', 'term_id',
+        'total_amount', 'amount_paid', 'balance', 'status',
     ];
 
     protected $casts = [
@@ -32,5 +32,23 @@ class FeeInvoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(FeePayment::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(FeeInvoiceItem::class);
+    }
+
+    public function recalculateTotal(): void
+    {
+        $total = $this->items()->sum('amount');
+        $paid  = $this->payments()->sum('amount');
+
+        $this->update([
+            'total_amount' => $total,
+            'amount_paid'  => $paid,
+            'balance'      => max(0, $total - $paid),
+            'status'       => $paid >= $total ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+        ]);
     }
 }
