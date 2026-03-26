@@ -11,10 +11,10 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@nurtureville.test'],
+            ['email' => 'admin@nurturevilleschool.org'],
             [
                 'name'      => 'Super Admin',
-                'password'  => Hash::make('password'),
+                'password'  => Hash::make('change_me'),
                 'user_type' => 'super_admin',
                 'is_active' => true,
             ]
