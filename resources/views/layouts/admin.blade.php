@@ -470,6 +470,13 @@
                     </svg>
                     Fee Items
                 </a>
+                <a href="{{ route('admin.fees.invoices') }}" class="nav-link {{ request()->routeIs('admin.fees.invoices*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <rect x="2" y="1" width="12" height="14" rx="1.5"/>
+                        <path d="M5 5h6M5 8h6M5 11h3"/>
+                    </svg>
+                    Invoices
+                </a>
                 <a href="#" class="nav-link {{ request()->routeIs('admin.payments*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <path d="M8 1v14M5 4h4.5a2.5 2.5 0 0 1 0 5H5M5 9h5a2.5 2.5 0 0 1 0 5H5"/>
