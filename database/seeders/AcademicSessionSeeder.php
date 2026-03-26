@@ -11,7 +11,7 @@ class AcademicSessionSeeder extends Seeder
     public function run(): void
     {
         $session = AcademicSession::firstOrCreate(
-            ['name' => '2024/2025'],
+            ['name' => '2025/2026'],
             ['is_active' => true]
         );
 
