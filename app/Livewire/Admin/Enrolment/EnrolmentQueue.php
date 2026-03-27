@@ -21,7 +21,7 @@ class EnrolmentQueue extends Component
     use WithPagination;
 
     public ?int  $reviewingId    = null;
-    public ?int  $rejectingId    = null; // drives the rejection modal
+    public ?int  $rejectingId    = null;
     public string $assignedClass  = '';
     public string $admissionNumber = '';
 
@@ -90,7 +90,6 @@ class EnrolmentQueue extends Component
         $student = Student::with('parents')->findOrFail($studentId);
         $student->update(['status' => 'withdrawn']);
 
-        // Send rejection email to every parent
         foreach ($student->parents as $parent) {
             $email      = $parent->_temp_email ?? $parent->user?->email;
             $parentName = $parent->_temp_name  ?? $parent->user?->name ?? 'Parent';
@@ -114,15 +113,34 @@ class EnrolmentQueue extends Component
             }
         }
 
-        $this->rejectingId = null; // close modal
+        $this->rejectingId = null;
         session()->flash('success', 'Enrolment rejected and parent(s) notified by email.');
     }
 
     protected function generateAdmissionNumber(): string
     {
-        $year  = now()->format('Y');
-        $count = Student::whereYear('created_at', $year)->count() + 1;
-        return 'NV/' . $year . '/' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        $year   = now()->format('Y');
+        $prefix = "NV/{$year}/";
+
+        // Find the highest sequence number already used this year.
+        // We look only at approved students (status = active) whose admission
+        // number matches the NV/YYYY/NNNN format, so pending TEMP- numbers
+        // are never counted and two simultaneous approvals can't collide.
+        $last = Student::where('admission_number', 'like', $prefix . '%')
+            ->where('status', 'active')
+            ->orderByRaw('CAST(SUBSTRING_INDEX(admission_number, "/", -1) AS UNSIGNED) DESC')
+            ->value('admission_number');
+
+        if ($last) {
+            // Extract the numeric part after the last "/" and add 1
+            $lastSequence = (int) last(explode('/', $last));
+            $next         = $lastSequence + 1;
+        } else {
+            // No approved students this year yet — start at 1
+            $next = 1;
+        }
+
+        return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
     }
 
     public function render()
