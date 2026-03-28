@@ -4,22 +4,19 @@ namespace App\Livewire\Admin\Fees;
 
 use App\Models\FeeItem;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class FeeItemManager extends Component
 {
-    use WithPagination;
-
     // Form fields
-    public string  $name        = '';
-    public string  $description = '';
-    public string  $type        = 'compulsory';
-    public bool    $is_active   = true;
+    public string $name        = '';
+    public string $description = '';
+    public string $type        = 'compulsory';
+    public bool   $is_active   = true;
 
     // State
-    public bool    $showForm    = false;
-    public ?int    $editingId   = null;
-    public ?int    $deletingId  = null;
+    public bool  $showForm  = false;
+    public ?int  $editingId = null;
+    public ?int  $deletingId = null;
 
     protected function rules(): array
     {
@@ -34,7 +31,7 @@ class FeeItemManager extends Component
     public function openCreate(): void
     {
         $this->resetForm();
-        $this->showForm = true;
+        $this->showForm  = true;
         $this->editingId = null;
     }
 
@@ -57,13 +54,53 @@ class FeeItemManager extends Component
             FeeItem::findOrFail($this->editingId)->update($data);
             session()->flash('success', 'Fee item updated.');
         } else {
-            FeeItem::create($data);
+            // New items go to the bottom of the list
+            $maxOrder = FeeItem::max('sort_order') ?? 0;
+            FeeItem::create(array_merge($data, ['sort_order' => $maxOrder + 1]));
             session()->flash('success', 'Fee item created.');
         }
 
         $this->showForm = false;
         $this->resetForm();
     }
+
+    // ─── Reordering ───────────────────────────────────────────────────────────
+
+    public function moveUp(int $id): void
+    {
+        $item = FeeItem::findOrFail($id);
+
+        // Find the item immediately above this one (next lower sort_order)
+        $above = FeeItem::where('sort_order', '<', $item->sort_order)
+            ->orderByDesc('sort_order')
+            ->first();
+
+        if (! $above) return; // Already at the top
+
+        // Swap their sort_order values
+        [$item->sort_order, $above->sort_order] = [$above->sort_order, $item->sort_order];
+        $item->save();
+        $above->save();
+    }
+
+    public function moveDown(int $id): void
+    {
+        $item = FeeItem::findOrFail($id);
+
+        // Find the item immediately below this one (next higher sort_order)
+        $below = FeeItem::where('sort_order', '>', $item->sort_order)
+            ->orderBy('sort_order')
+            ->first();
+
+        if (! $below) return; // Already at the bottom
+
+        // Swap their sort_order values
+        [$item->sort_order, $below->sort_order] = [$below->sort_order, $item->sort_order];
+        $item->save();
+        $below->save();
+    }
+
+    // ─── Delete ───────────────────────────────────────────────────────────────
 
     public function confirmDelete(int $id): void
     {
@@ -72,11 +109,10 @@ class FeeItemManager extends Component
 
     public function delete(): void
     {
-        if (!$this->deletingId) return;
+        if (! $this->deletingId) return;
 
         $item = FeeItem::findOrFail($this->deletingId);
 
-        // Check if used in any fee structure
         if ($item->feeStructures()->exists()) {
             session()->flash('error', "Cannot delete \"{$item->name}\" — it is used in a fee structure. Deactivate it instead.");
             $this->deletingId = null;
@@ -91,7 +127,7 @@ class FeeItemManager extends Component
     public function toggleActive(int $id): void
     {
         $item = FeeItem::findOrFail($id);
-        $item->update(['is_active' => !$item->is_active]);
+        $item->update(['is_active' => ! $item->is_active]);
     }
 
     public function cancelForm(): void
@@ -111,7 +147,8 @@ class FeeItemManager extends Component
 
     public function render()
     {
-        $items = FeeItem::orderBy('type')->orderBy('name')->paginate(20);
+        // Now ordered by sort_order, not name
+        $items = FeeItem::orderBy('sort_order')->get();
 
         return view('livewire.admin.fees.fee-item-manager', compact('items'))
             ->layout('layouts.admin', ['title' => 'Fee Items']);

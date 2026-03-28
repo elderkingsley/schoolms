@@ -26,16 +26,13 @@
 .data-table th { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.08em; padding:10px 20px; text-align:left; background:var(--c-bg); border-bottom:1px solid var(--c-border); }
 .data-table td { padding:14px 20px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
 .data-table tr:last-child td { border-bottom:none; }
-.data-table tr:hover td { background:var(--c-bg); }
+.data-table tr:hover td { background:#fafaf8; }
 
 .item-name { font-weight:600; color:var(--c-text-1); }
-.item-desc { font-size:11px; color:var(--c-text-3); margin-top:2px; }
 
 .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:500; }
 .badge-compulsory { background:rgba(26,86,255,0.08); color:var(--c-accent); }
 .badge-optional   { background:rgba(180,83,9,0.08);   color:#B45309; }
-.badge-active     { background:rgba(21,128,61,0.08);   color:#15803D; }
-.badge-inactive   { background:rgba(100,100,100,0.08); color:#666; }
 .badge-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 
 .row-actions { display:flex; align-items:center; gap:8px; }
@@ -43,6 +40,17 @@
 .btn-sm:hover { background:var(--c-bg); }
 .btn-sm-danger { color:var(--c-danger); border-color:rgba(190,18,60,0.2); }
 .btn-sm-danger:hover { background:rgba(190,18,60,0.06); }
+
+/* Up/down reorder buttons */
+.order-btns { display:flex; flex-direction:column; gap:2px; }
+.btn-order {
+    width:22px; height:22px; border-radius:4px; border:1px solid var(--c-border);
+    background:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    color:var(--c-text-3); transition:background 150ms, color 150ms;
+    padding:0;
+}
+.btn-order:hover { background:var(--c-bg); color:var(--c-text-1); }
+.btn-order:disabled { opacity:0.2; cursor:not-allowed; }
 
 /* Toggle */
 .toggle { width:36px; height:20px; background:var(--c-border); border-radius:10px; position:relative; cursor:pointer; transition:background 200ms; border:none; }
@@ -67,7 +75,6 @@
 }
 .field-error { font-size:11px; color:var(--c-danger); margin-top:4px; }
 
-/* Type selector */
 .type-toggle { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .type-opt {
     padding:10px; border:2px solid var(--c-border); border-radius:8px;
@@ -84,7 +91,6 @@
 .btn-ghost { padding:11px 20px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:14px; cursor:pointer; font-family:var(--f-sans); }
 .btn-ghost:hover { background:var(--c-bg); }
 
-/* Delete confirm */
 .delete-modal-box { background:var(--c-surface); border-radius:16px; width:100%; max-width:400px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.2); text-align:center; }
 .delete-icon { width:48px; height:48px; border-radius:50%; background:rgba(190,18,60,0.08); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; color:#BE123C; }
 .delete-title { font-size:16px; font-weight:700; color:var(--c-text-1); margin-bottom:6px; }
@@ -111,7 +117,7 @@
 <div class="pg-header">
     <div>
         <h1 class="pg-title">Fee Items</h1>
-        <p class="pg-sub">Manage the catalogue of fee items used to build fee structures.</p>
+        <p class="pg-sub">Manage the catalogue of fee items. Use ↑↓ to set the order they appear on invoices and fee structures.</p>
     </div>
     <button class="btn-new" wire:click="openCreate">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -126,7 +132,7 @@
     <div class="panel-head">
         <span class="panel-title">All Fee Items</span>
         <span style="font-size:11px;color:var(--c-text-3)">
-            {{ $items->total() }} item{{ $items->total() !== 1 ? 's' : '' }}
+            {{ $items->count() }} item{{ $items->count() !== 1 ? 's' : '' }}
         </span>
     </div>
 
@@ -140,6 +146,7 @@
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th style="width:48px">Order</th>
                         <th>Item Name</th>
                         <th>Type</th>
                         <th class="hide-mobile">Description</th>
@@ -148,33 +155,57 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($items as $item)
+                    @foreach($items as $loop_item)
+                        @php $isFirst = $loop->first; $isLast = $loop->last; @endphp
                         <tr>
+                            {{-- Up / Down buttons --}}
                             <td>
-                                <div class="item-name">{{ $item->name }}</div>
+                                <div class="order-btns">
+                                    <button
+                                        class="btn-order"
+                                        wire:click="moveUp({{ $loop_item->id }})"
+                                        @if($isFirst) disabled @endif
+                                        title="Move up">
+                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            <path d="M2 7l3-4 3 4"/>
+                                        </svg>
+                                    </button>
+                                    <button
+                                        class="btn-order"
+                                        wire:click="moveDown({{ $loop_item->id }})"
+                                        @if($isLast) disabled @endif
+                                        title="Move down">
+                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            <path d="M2 3l3 4 3-4"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </td>
                             <td>
-                                <span class="badge badge-{{ $item->type }}">
+                                <div class="item-name">{{ $loop_item->name }}</div>
+                            </td>
+                            <td>
+                                <span class="badge badge-{{ $loop_item->type }}">
                                     <span class="badge-dot"></span>
-                                    {{ ucfirst($item->type) }}
+                                    {{ ucfirst($loop_item->type) }}
                                 </span>
                             </td>
                             <td class="hide-mobile">
                                 <span style="font-size:12px;color:var(--c-text-3)">
-                                    {{ $item->description ?? '—' }}
+                                    {{ $loop_item->description ?? '—' }}
                                 </span>
                             </td>
                             <td>
                                 <button
-                                    class="toggle {{ $item->is_active ? 'on' : '' }}"
-                                    wire:click="toggleActive({{ $item->id }})"
-                                    title="{{ $item->is_active ? 'Active — click to deactivate' : 'Inactive — click to activate' }}">
+                                    class="toggle {{ $loop_item->is_active ? 'on' : '' }}"
+                                    wire:click="toggleActive({{ $loop_item->id }})"
+                                    title="{{ $loop_item->is_active ? 'Active — click to deactivate' : 'Inactive — click to activate' }}">
                                 </button>
                             </td>
                             <td>
                                 <div class="row-actions">
-                                    <button class="btn-sm" wire:click="openEdit({{ $item->id }})">Edit</button>
-                                    <button class="btn-sm btn-sm-danger" wire:click="confirmDelete({{ $item->id }})">Delete</button>
+                                    <button class="btn-sm" wire:click="openEdit({{ $loop_item->id }})">Edit</button>
+                                    <button class="btn-sm btn-sm-danger" wire:click="confirmDelete({{ $loop_item->id }})">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -182,12 +213,6 @@
                 </tbody>
             </table>
         </div>
-
-        @if($items->hasPages())
-            <div style="padding:14px 20px;border-top:1px solid var(--c-border)">
-                {{ $items->links() }}
-            </div>
-        @endif
     @endif
 </div>
 

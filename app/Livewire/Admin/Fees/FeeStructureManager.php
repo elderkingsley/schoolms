@@ -118,8 +118,8 @@ class FeeStructureManager extends Component
             ->orderBy('id')
             ->get();
 
-        $compulsoryItems = FeeItem::active()->compulsory()->orderBy('name')->get();
-        $optionalItems   = FeeItem::active()->optional()->orderBy('name')->get();
+        $compulsoryItems = FeeItem::active()->compulsory()->orderBy('sort_order')->get();
+        $optionalItems   = FeeItem::active()->optional()->orderBy('sort_order')->get();
         $classes         = SchoolClass::orderBy('order')->get();
 
         // Previous term for "copy from" convenience
