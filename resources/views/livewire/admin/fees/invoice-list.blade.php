@@ -233,8 +233,8 @@
                             </span>
                         </td>
                         <td>
-                            {{-- View link — will become route('admin.fees.invoices.show', $invoice) once InvoiceDetail is built --}}
-                            <a href="#" class="link-view">View →</a>
+                            <a href="{{ route('admin.fees.invoices.show', $invoice) }}"
+                               class="link-view">View →</a>
                         </td>
                     </tr>
                 @endforeach

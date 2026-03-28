@@ -46,9 +46,10 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         // Fees — invoices
         Route::get('/fees/invoices',          \App\Livewire\Admin\Fees\InvoiceList::class)
             ->name('fees.invoices');
-        // InvoiceDetail route — uncomment once InvoiceDetail component is built
-        // Route::get('/fees/invoices/{invoice}', \App\Livewire\Admin\Fees\InvoiceDetail::class)
-        //     ->name('fees.invoices.show');
+        Route::get('/fees/invoices/{invoice}', \App\Livewire\Admin\Fees\InvoiceDetail::class)
+            ->name('fees.invoices.show');
+        Route::get('/fees/invoices/{invoice}/pdf', \App\Http\Controllers\Admin\InvoicePdfController::class)
+            ->name('fees.invoices.pdf');
     });
 
 // ── Teacher routes ────────────────────────────────────────────────────────────
