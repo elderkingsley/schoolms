@@ -63,21 +63,42 @@ class EnrolmentQueue extends Component
             }
 
             foreach ($student->parents as $parent) {
+                // Skip if this parent already has a portal account linked
                 if ($parent->user_id) continue;
 
-                $tempPassword = Str::random(10);
+                $tempEmail = $parent->_temp_email;
 
-                $user = User::create([
-                    'name'      => $parent->_temp_name,
-                    'email'     => $parent->_temp_email,
-                    'password'  => Hash::make($tempPassword),
-                    'user_type' => 'parent',
-                    'is_active' => true,
-                ]);
+                if (! $tempEmail) continue;
 
-                $user->assignRole('parent');
-                $parent->update(['user_id' => $user->id]);
-                $user->notify(new ParentWelcomeNotification($user, $student, $tempPassword));
+                // A parent may have a second child being enrolled. Their User row
+                // already exists from the first approval — if we try to INSERT again
+                // MySQL throws a unique constraint violation on users.email.
+                // Solution: find the existing User by email, or create a fresh one.
+                $existingUser = User::where('email', $tempEmail)->first();
+
+                if ($existingUser) {
+                    // Parent already has an account — just link this parent record
+                    // to it and send a simpler notification (no temp password needed,
+                    // they already know their credentials)
+                    $parent->update(['user_id' => $existingUser->id]);
+                    // Notify about the new student being linked to their account
+                    $existingUser->notify(new ParentWelcomeNotification($existingUser, $student, null));
+                } else {
+                    // Brand new parent — create the User account as before
+                    $tempPassword = Str::random(10);
+
+                    $user = User::create([
+                        'name'      => $parent->_temp_name,
+                        'email'     => $tempEmail,
+                        'password'  => Hash::make($tempPassword),
+                        'user_type' => 'parent',
+                        'is_active' => true,
+                    ]);
+
+                    $user->assignRole('parent');
+                    $parent->update(['user_id' => $user->id]);
+                    $user->notify(new ParentWelcomeNotification($user, $student, $tempPassword));
+                }
             }
         });
 
