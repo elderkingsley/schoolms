@@ -50,7 +50,7 @@
 .structure-table tr:hover td:first-child { background:rgba(26,86,255,0.02); }
 
 .amount-input {
-    width:100px; padding:7px 10px;
+    width:110px; padding:7px 10px;
     border:1px solid var(--c-border); border-radius:6px;
     font-size:13px; font-family:var(--f-mono);
     text-align:right; background:var(--c-bg);
@@ -160,7 +160,14 @@
                                             inputmode="numeric"
                                             class="amount-input"
                                             wire:model.lazy="amounts.{{ $item->id }}.{{ $class->id }}"
-                                            placeholder="0">
+                                            placeholder="—"
+                                            x-data
+                                            x-on:focus="$el.value = $el.value.replace(/,/g, '')"
+                                            x-on:blur="
+                                                let raw = $el.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+                                                if (raw === '' || raw === '0') { $el.value = ''; return; }
+                                                $el.value = parseInt(raw, 10).toLocaleString('en-NG');
+                                            ">
                                     </td>
                                 @endforeach
                             </tr>
@@ -205,7 +212,14 @@
                                             inputmode="numeric"
                                             class="amount-input"
                                             wire:model.lazy="amounts.{{ $item->id }}.{{ $class->id }}"
-                                            placeholder="0">
+                                            placeholder="—"
+                                            x-data
+                                            x-on:focus="$el.value = $el.value.replace(/,/g, '')"
+                                            x-on:blur="
+                                                let raw = $el.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+                                                if (raw === '' || raw === '0') { $el.value = ''; return; }
+                                                $el.value = parseInt(raw, 10).toLocaleString('en-NG');
+                                            ">
                                     </td>
                                 @endforeach
                             </tr>
