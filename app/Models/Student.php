@@ -45,6 +45,11 @@ class Student extends Model
         return $this->hasMany(Result::class);
     }
 
+    public function feeInvoices(): HasMany
+    {
+        return $this->hasMany(FeeInvoice::class);
+    }
+
     public function currentEnrolment(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         $activeSession = AcademicSession::current();

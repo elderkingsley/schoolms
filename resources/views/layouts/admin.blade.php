@@ -457,14 +457,6 @@
 
             <div class="nav-group">
                 <div class="nav-label">Finance</div>
-
-                <a href="{{ route('admin.fees.items') }}" class="nav-link {{ request()->routeIs('admin.fees.items') ? 'active' : '' }}">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-                        <path d="M2 4h12M2 8h8M2 12h10"/>
-                    </svg>
-                    Fee Items
-                </a>
-
                 <a href="{{ route('admin.fees.structure') }}" class="nav-link {{ request()->routeIs('admin.fees.structure') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <rect x="1" y="3" width="14" height="10" rx="1.5"/>
@@ -472,7 +464,12 @@
                     </svg>
                     Fee Structure
                 </a>
-
+                <a href="{{ route('admin.fees.items') }}" class="nav-link {{ request()->routeIs('admin.fees.items') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <path d="M2 4h12M2 8h8M2 12h10"/>
+                    </svg>
+                    Fee Items
+                </a>
                 <a href="{{ route('admin.fees.invoices') }}" class="nav-link {{ request()->routeIs('admin.fees.invoices*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <rect x="2" y="1" width="12" height="14" rx="1.5"/>
@@ -490,7 +487,7 @@
 
             <div class="nav-group">
                 <div class="nav-label">Communication</div>
-                <a href="#" class="nav-link {{ request()->routeIs('admin.messages*') ? 'active' : '' }}">
+                <a href="{{ route('admin.messages') }}" class="nav-link {{ request()->routeIs('admin.messages*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <path d="M14 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3l3 3 3-3h3a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
                     </svg>

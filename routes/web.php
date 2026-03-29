@@ -23,33 +23,25 @@ Route::middleware(['auth', 'role:super_admin|admin'])
     ->name('admin.')
     ->group(function () {
 
-        // Dashboard
-        Route::get('/dashboard', \App\Livewire\Admin\Dashboard::class)
-            ->name('dashboard');
+        Route::get('/dashboard', \App\Livewire\Admin\Dashboard::class)->name('dashboard');
 
         // Students
-        Route::get('/students', \App\Livewire\Admin\Students\StudentList::class)
-            ->name('students');
-        Route::get('/students/{student}', \App\Livewire\Admin\Students\StudentProfile::class)
-            ->name('students.profile');
+        Route::get('/students',           \App\Livewire\Admin\Students\StudentList::class)->name('students');
+        Route::get('/students/{student}', \App\Livewire\Admin\Students\StudentProfile::class)->name('students.profile');
 
         // Enrolment
-        Route::get('/enrolment/queue', \App\Livewire\Admin\Enrolment\EnrolmentQueue::class)
-            ->name('enrolment.queue');
+        Route::get('/enrolment/queue', \App\Livewire\Admin\Enrolment\EnrolmentQueue::class)->name('enrolment.queue');
 
-        // Fees — catalogue & structure
-        Route::get('/fees/items',     \App\Livewire\Admin\Fees\FeeItemManager::class)
-            ->name('fees.items');
-        Route::get('/fees/structure', \App\Livewire\Admin\Fees\FeeStructureManager::class)
-            ->name('fees.structure');
+        // Fees
+        Route::get('/fees/items',                  \App\Livewire\Admin\Fees\FeeItemManager::class)->name('fees.items');
+        Route::get('/fees/structure',              \App\Livewire\Admin\Fees\FeeStructureManager::class)->name('fees.structure');
+        Route::get('/fees/invoices',               \App\Livewire\Admin\Fees\InvoiceList::class)->name('fees.invoices');
+        Route::get('/fees/invoices/{invoice}',     \App\Livewire\Admin\Fees\InvoiceDetail::class)->name('fees.invoices.show');
+        Route::get('/fees/invoices/{invoice}/pdf', \App\Http\Controllers\Admin\InvoicePdfController::class)->name('fees.invoices.pdf');
 
-        // Fees — invoices
-        Route::get('/fees/invoices',          \App\Livewire\Admin\Fees\InvoiceList::class)
-            ->name('fees.invoices');
-        Route::get('/fees/invoices/{invoice}', \App\Livewire\Admin\Fees\InvoiceDetail::class)
-            ->name('fees.invoices.show');
-        Route::get('/fees/invoices/{invoice}/pdf', \App\Http\Controllers\Admin\InvoicePdfController::class)
-            ->name('fees.invoices.pdf');
+        // Messages
+        Route::get('/messages',         \App\Livewire\Admin\Messages\MessageInbox::class)->name('messages');
+        Route::get('/messages/compose', \App\Livewire\Admin\Messages\MessageCompose::class)->name('messages.compose');
     });
 
 // ── Teacher routes ────────────────────────────────────────────────────────────
@@ -57,8 +49,7 @@ Route::middleware(['auth', 'role:teacher'])
     ->prefix('teacher')
     ->name('teacher.')
     ->group(function () {
-        Route::get('/dashboard', \App\Livewire\Teacher\Dashboard::class)
-            ->name('dashboard');
+        Route::get('/dashboard', \App\Livewire\Teacher\Dashboard::class)->name('dashboard');
     });
 
 // ── Parent routes ─────────────────────────────────────────────────────────────
@@ -66,6 +57,10 @@ Route::middleware(['auth', 'role:parent'])
     ->prefix('parent')
     ->name('parent.')
     ->group(function () {
-        Route::get('/dashboard', \App\Livewire\Parent\Dashboard::class)
-            ->name('dashboard');
+        Route::get('/dashboard',      \App\Livewire\Parent\Dashboard::class)->name('dashboard');
+        Route::get('/children',       \App\Livewire\Parent\ChildrenList::class)->name('children');
+        Route::get('/fees',           \App\Livewire\Parent\FeeInvoices::class)->name('fees');
+        Route::get('/fees/{invoice}', \App\Livewire\Parent\InvoiceView::class)->name('fees.show');
+        Route::get('/results',        \App\Livewire\Parent\Results::class)->name('results');
+        Route::get('/messages',       \App\Livewire\Parent\Messages::class)->name('messages');
     });

@@ -1,5 +1,4 @@
 <?php
-// app/Models/MessageRecipient.php
 
 namespace App\Models;
 
@@ -20,5 +19,17 @@ class MessageRecipient extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(ParentGuardian::class, 'parent_id');
+    }
+
+    public function isRead(): bool
+    {
+        return $this->read_at !== null;
+    }
+
+    public function markRead(): void
+    {
+        if (! $this->read_at) {
+            $this->update(['read_at' => now()]);
+        }
     }
 }
