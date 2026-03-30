@@ -23,9 +23,13 @@ class InvoiceList extends Component
     public bool   $selectAll         = false;
 
     // Modals
-    public bool   $showConfirmModal  = false;
-    public bool   $showSendModal     = false;
-    public int    $sendBatchSize     = 10;
+    public bool   $showConfirmModal      = false;
+    public bool   $showSendModal         = false;
+    public bool   $showDeleteModal       = false;   // bulk delete confirmation
+    public int    $sendBatchSize         = 10;
+    public int    $deletableCount        = 0;       // resolved before showing modal
+    public int    $skippedCount          = 0;       // paid/partial — will be skipped
+    public string $deleteScope           = '';      // 'selected' | 'all'
 
     public ?string $generationMessage = null;
 
@@ -145,6 +149,91 @@ class InvoiceList extends Component
         $invoice->delete();
         $this->selectedIds = array_values(array_filter($this->selectedIds, fn($id) => $id !== (string)$invoiceId));
         session()->flash('success', "Invoice for {$name} deleted.");
+    }
+
+    /**
+     * Open confirmation modal for deleting the currently selected invoices.
+     * Counts eligible vs ineligible before showing the modal so the admin
+     * knows exactly what will happen.
+     */
+    public function confirmDeleteSelected(): void
+    {
+        if (empty($this->selectedIds)) return;
+
+        $invoices = FeeInvoice::whereIn('id', $this->selectedIds)
+            ->withCount('payments')
+            ->get();
+
+        $this->deletableCount = $invoices
+            ->filter(fn($i) => $i->status === 'unpaid' && $i->payments_count === 0)
+            ->count();
+
+        $this->skippedCount  = $invoices->count() - $this->deletableCount;
+        $this->deleteScope   = 'selected';
+        $this->showDeleteModal = true;
+    }
+
+    /**
+     * Open confirmation modal for deleting ALL deletable invoices
+     * matching the current term/tab/filter combination.
+     */
+    public function confirmDeleteAll(): void
+    {
+        $all = $this->buildQuery()
+            ->where('status', 'unpaid')
+            ->withCount('payments')
+            ->get();
+
+        $this->deletableCount = $all->filter(fn($i) => $i->payments_count === 0)->count();
+        $this->skippedCount   = $all->count() - $this->deletableCount;
+        $this->deleteScope    = 'all';
+        $this->showDeleteModal = true;
+    }
+
+    /**
+     * Execute the bulk delete after the admin confirms in the modal.
+     * Only deletes invoices that are: status=unpaid AND no payments recorded.
+     * Paid, partial, or invoices with any payment are silently skipped — never deleted.
+     */
+    public function executeDelete(): void
+    {
+        $this->showDeleteModal = false;
+
+        if ($this->deleteScope === 'selected') {
+            $invoices = FeeInvoice::whereIn('id', $this->selectedIds)
+                ->withCount('payments')
+                ->get();
+        } else {
+            $invoices = $this->buildQuery()
+                ->where('status', 'unpaid')
+                ->withCount('payments')
+                ->get();
+        }
+
+        $deleted = 0;
+        $skipped = 0;
+
+        foreach ($invoices as $invoice) {
+            if ($invoice->status === 'unpaid' && $invoice->payments_count === 0) {
+                $invoice->delete();
+                $deleted++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        $this->selectedIds  = [];
+        $this->selectAll    = false;
+        $this->deletableCount = 0;
+        $this->skippedCount   = 0;
+
+        $msg = "{$deleted} invoice(s) deleted.";
+        if ($skipped > 0) {
+            $msg .= " {$skipped} skipped (paid or part-paid invoices cannot be deleted).";
+        }
+
+        session()->flash('success', $msg);
+        $this->resetPage();
     }
 
     protected function buildQuery()

@@ -37,6 +37,8 @@
 .btn-bulk:hover { background:rgba(26,86,255,0.08); }
 .btn-bulk-green { background:#15803D; color:#fff; border-color:#15803D; }
 .btn-bulk-green:hover { opacity:0.9; }
+.btn-bulk-red { background:var(--c-danger); color:#fff; border-color:var(--c-danger); }
+.btn-bulk-red:hover { opacity:0.9; }
 
 /* Table */
 .panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); overflow:hidden; }
@@ -79,6 +81,8 @@
 .btn-secondary:hover { background:var(--c-bg); }
 .btn-send-all  { padding:9px 16px; background:#15803D; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
 .btn-send-all:hover { opacity:0.9; }
+.btn-delete-all { padding:9px 16px; background:none; border:1px solid rgba(190,18,60,0.3); color:var(--c-danger); border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:background 150ms; }
+.btn-delete-all:hover { background:rgba(190,18,60,0.06); }
 
 /* Checkbox */
 input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-accent); cursor:pointer; }
@@ -97,7 +101,8 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
 .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
 .btn-cancel  { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); }
 .btn-confirm { padding:9px 20px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
-.btn-confirm-green { padding:9px 20px; background:#15803D; color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
+.btn-confirm-green  { padding:9px 20px; background:#15803D; color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
+.btn-confirm-danger { padding:9px 20px; background:var(--c-danger); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
 
 .empty-state { padding:48px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
 .pag-wrap { padding:14px 20px; border-top:1px solid var(--c-border); }
@@ -127,6 +132,9 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 Send All Drafts
             </button>
         @endif
+        <button class="btn-delete-all" wire:click="confirmDeleteAll">
+            🗑 Delete All Deletable
+        </button>
         <button class="btn-generate" wire:click="confirmGenerate">
             + Generate Invoices
         </button>
@@ -200,6 +208,9 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
         <button class="btn-bulk btn-bulk-green" wire:click="sendSelected"
             wire:confirm="Send invoices to {{ count($selectedIds) }} parent(s) now?">
             ✉ Send Selected
+        </button>
+        <button class="btn-bulk btn-bulk-red" wire:click="confirmDeleteSelected">
+            🗑 Delete Selected
         </button>
         <button class="btn-bulk" wire:click="$set('selectedIds', [])">Clear selection</button>
     </div>
@@ -361,6 +372,63 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 <span wire:loading.remove>Send {{ $sendBatchSize }} Invoice(s)</span>
                 <span wire:loading>Queuing…</span>
             </button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Bulk delete confirmation modal --}}
+@if($showDeleteModal)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title" style="color:var(--c-danger);">
+            @if($deleteScope === 'selected')
+                Delete {{ count($selectedIds) }} Selected Invoice(s)?
+            @else
+                Delete All Deletable Invoices?
+            @endif
+        </div>
+
+        @if($deletableCount > 0)
+            <div style="background:rgba(190,18,60,0.05);border:1px solid rgba(190,18,60,0.2);border-radius:8px;padding:14px;margin-bottom:16px;">
+                <div style="font-size:13px;font-weight:600;color:var(--c-danger);margin-bottom:4px;">
+                    {{ $deletableCount }} invoice(s) will be permanently deleted.
+                </div>
+                <div style="font-size:12px;color:var(--c-text-2);line-height:1.5;">
+                    Only invoices that are <strong>unpaid</strong> with <strong>no recorded payments</strong> will be deleted.
+                    This action cannot be undone.
+                </div>
+            </div>
+        @endif
+
+        @if($skippedCount > 0)
+            <div style="background:rgba(180,83,9,0.05);border:1px solid rgba(180,83,9,0.2);border-radius:8px;padding:14px;margin-bottom:16px;">
+                <div style="font-size:13px;font-weight:600;color:#B45309;margin-bottom:4px;">
+                    {{ $skippedCount }} invoice(s) will be skipped.
+                </div>
+                <div style="font-size:12px;color:var(--c-text-2);line-height:1.5;">
+                    Invoices with recorded payments or a partial/paid status cannot be deleted —
+                    they are financial records.
+                </div>
+            </div>
+        @endif
+
+        @if($deletableCount === 0)
+            <div style="font-size:13px;color:var(--c-text-2);margin-bottom:20px;line-height:1.5;">
+                None of the selected invoices can be deleted. Only unpaid invoices with no
+                recorded payments are eligible.
+            </div>
+        @endif
+
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showDeleteModal', false)">Cancel</button>
+            @if($deletableCount > 0)
+                <button class="btn-confirm-danger" wire:click="executeDelete"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove>Delete {{ $deletableCount }} Invoice(s)</span>
+                    <span wire:loading>Deleting…</span>
+                </button>
+            @endif
         </div>
     </div>
 </div>
