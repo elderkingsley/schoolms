@@ -178,8 +178,10 @@ class JuicyWayService
 {
     $url = $this->baseUrl . $path;
 
-    $response = Http::withToken($this->apiKey)
-        ->withHeaders(['Accept' => 'application/json'])
+    $response = Http::withHeaders([
+        'Authorization' => $this->apiKey, // Send the raw key without 'Bearer'
+        'Accept' => 'application/json',
+    ])
         ->timeout(30)
         // REMOVE "Response" type hint from $r
         ->retry(2, 2000, function (\Throwable $e, $r) {
