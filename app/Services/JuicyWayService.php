@@ -175,15 +175,18 @@ class JuicyWayService
      * Throws \RuntimeException on non-2xx responses.
      */
     protected function request(string $method, string $path, array $data = []): array
-    {
-        $url = $this->baseUrl . $path;
+{
+    $url = $this->baseUrl . $path;
 
-        $response = Http::withToken($this->apiKey)
-            ->withHeaders(['Accept' => 'application/json'])
-            ->timeout(30)
-            // CHANGE \Exception to \Throwable HERE:
-            ->retry(2, 2000, fn(\Throwable $e, Response $r) => $r->status() === 429)
-            ->{strtolower($method)}($url, $data);
+    $response = Http::withToken($this->apiKey)
+        ->withHeaders(['Accept' => 'application/json'])
+        ->timeout(30)
+        // REMOVE "Response" type hint from $r
+        ->retry(2, 2000, function (\Throwable $e, $r) {
+            // Check if $r is actually a Response object before checking status
+            return $r instanceof \Illuminate\Http\Client\Response && $r->status() === 429;
+        })
+        ->{strtolower($method)}($url, $data);
 
         if ($response->failed()) {
             $body   = $response->body();
