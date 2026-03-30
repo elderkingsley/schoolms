@@ -15,77 +15,111 @@ class MessageCompose extends Component
     public string $body          = '';
     public string $recipientType = 'all';
 
-    // Used when recipientType = 'class'
     public ?int $classId = null;
+    public ?int $termId  = null;
 
-    // Used when recipientType = 'term'
-    public ?int $termId = null;
-
-    // Used when recipientType = 'individual'
-    // Stores selected parent IDs
+    // Individual recipient IDs
     public array $selectedParentIds = [];
 
-    // Search for individual parents
+    // Live search
     public string $parentSearch  = '';
     public array  $parentResults = [];
 
-    // Preview state
-    public bool  $previewing      = false;
-    public int   $previewCount    = 0;
+    // Preview
+    public bool $previewing   = false;
+    public int  $previewCount = 0;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    public function mount(): void
+    {
+        // Support pre-populating from the Users page "Email" button:
+        // /admin/messages/compose?parent=123
+        $parentId = request()->query('parent');
+        if ($parentId) {
+            $parent = ParentGuardian::with('user', 'students')->find($parentId);
+            if ($parent) {
+                $this->recipientType      = 'individual';
+                $this->selectedParentIds  = [$parent->id];
+            }
+        }
+    }
+
+    // ── Rules ─────────────────────────────────────────────────────────────────
 
     protected function rules(): array
     {
         return [
-            'subject'       => 'required|string|min:3|max:200',
-            'body'          => 'required|string|min:10',
-            'recipientType' => 'required|in:all,class,term,unpaid,individual',
-            'classId'       => 'required_if:recipientType,class|nullable|exists:school_classes,id',
-            'termId'        => 'required_if:recipientType,term|nullable|exists:terms,id',
-            'selectedParentIds' => 'required_if:recipientType,individual|array',
-            'selectedParentIds.*' => 'exists:parents,id',
+            'subject'               => 'required|string|min:3|max:200',
+            'body'                  => 'required|string|min:10',
+            'recipientType'         => 'required|in:all,class,term,unpaid,individual',
+            'classId'               => 'required_if:recipientType,class|nullable|exists:school_classes,id',
+            'termId'                => 'required_if:recipientType,term|nullable|exists:terms,id',
+            'selectedParentIds'     => 'required_if:recipientType,individual|array',
+            'selectedParentIds.*'   => 'exists:parents,id',
         ];
     }
 
+    // ── Recipient type change ─────────────────────────────────────────────────
+
     public function updatedRecipientType(): void
     {
-        $this->previewing = false;
-        $this->previewCount = 0;
+        $this->previewing        = false;
+        $this->previewCount      = 0;
         $this->selectedParentIds = [];
-        $this->parentSearch = '';
-        $this->parentResults = [];
+        $this->parentSearch      = '';
+        $this->parentResults     = [];
     }
 
+    // ── Live parent search ────────────────────────────────────────────────────
+
+    /**
+     * Fires on every keystroke (wire:model.live, no debounce floor).
+     * Starts searching from the very first character typed.
+     */
     public function updatedParentSearch(): void
     {
-        if (strlen($this->parentSearch) < 2) {
+        $term = trim($this->parentSearch);
+
+        if ($term === '') {
             $this->parentResults = [];
             return;
         }
 
         $this->parentResults = ParentGuardian::whereNotNull('user_id')
-            ->where(function ($q) {
-                $q->where('_temp_name', 'like', "%{$this->parentSearch}%")
-                  ->orWhereHas('user', fn($u) =>
-                      $u->where('name', 'like', "%{$this->parentSearch}%")
-                        ->orWhere('email', 'like', "%{$this->parentSearch}%")
-                  )
-                  ->orWhereHas('students', fn($s) =>
-                      $s->where('first_name', 'like', "%{$this->parentSearch}%")
-                        ->orWhere('last_name', 'like', "%{$this->parentSearch}%")
-                        ->orWhere('admission_number', 'like', "%{$this->parentSearch}%")
-                  );
+            ->where(function ($q) use ($term) {
+                // Search parent's own name (stored on User)
+                $q->whereHas('user', fn($u) =>
+                        $u->where('name',  'like', "{$term}%")   // starts-with for speed
+                          ->orWhere('name',  'like', "%{$term}%")  // also contains
+                          ->orWhere('email', 'like', "{$term}%")
+                    )
+                    // Search temp name (pre-portal parents)
+                    ->orWhere('_temp_name', 'like', "{$term}%")
+                    ->orWhere('_temp_name', 'like', "%{$term}%")
+                    // Search by child's name
+                    ->orWhereHas('students', fn($s) =>
+                        $s->where('first_name', 'like', "{$term}%")
+                          ->orWhere('last_name',  'like', "{$term}%")
+                          ->orWhere('admission_number', 'like', "%{$term}%")
+                    );
             })
             ->with('user', 'students')
             ->limit(8)
             ->get()
+            // Exclude already-selected parents from dropdown
+            ->reject(fn($p) => in_array($p->id, $this->selectedParentIds))
             ->map(fn($p) => [
                 'id'       => $p->id,
                 'name'     => $p->user?->name ?? $p->_temp_name ?? 'Unknown',
-                'email'    => $p->user?->email ?? '—',
+                'email'    => $p->user?->email ?? $p->_temp_email ?? '—',
                 'children' => $p->students->pluck('first_name')->join(', '),
             ])
+            ->values()
             ->toArray();
     }
+
+    // ── Add / Remove individual recipients ───────────────────────────────────
 
     public function addParent(int $parentId): void
     {
@@ -103,10 +137,11 @@ class MessageCompose extends Component
         );
     }
 
+    // ── Preview & Send ────────────────────────────────────────────────────────
+
     public function preview(): void
     {
         $this->validate();
-
         $this->previewCount = $this->resolveCount();
         $this->previewing   = true;
     }
@@ -116,13 +151,13 @@ class MessageCompose extends Component
         $this->validate();
 
         $message = Message::create([
-            'sender_id'      => auth()->id(),
-            'subject'        => $this->subject,
-            'body'           => $this->body,
-            'recipient_type' => $this->recipientType,
-            'school_class_id'=> $this->classId,
-            'term_id'        => $this->termId,
-            'recipient_count'=> 0,
+            'sender_id'       => auth()->id(),
+            'subject'         => $this->subject,
+            'body'            => $this->body,
+            'recipient_type'  => $this->recipientType,
+            'school_class_id' => $this->classId,
+            'term_id'         => $this->termId,
+            'recipient_count' => 0,
         ]);
 
         SendBulkMessageJob::dispatch(
@@ -147,9 +182,11 @@ class MessageCompose extends Component
         )->count();
     }
 
+    // ── Render ────────────────────────────────────────────────────────────────
+
     public function render()
     {
-        $classes = SchoolClass::orderBy('order')->get();
+        $classes = SchoolClass::ordered()->get();
         $terms   = Term::with('session')->orderByDesc('id')->get();
 
         $selectedParents = count($this->selectedParentIds)

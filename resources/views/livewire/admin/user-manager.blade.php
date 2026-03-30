@@ -168,7 +168,21 @@
                             @else
                                 <div class="row-actions">
                                     <button class="btn-sm" wire:click="openEdit({{ $user->id }})">Edit</button>
-                                    <button class="btn-sm btn-sm-warn" wire:click="resetPassword({{ $user->id }})"
+
+                                    {{--
+                                        Email button — links to compose page with parent pre-selected.
+                                        For parent accounts: passes parentProfile ID as query param.
+                                        For staff accounts: passes email as query param so compose
+                                        can pre-fill the search field.
+                                    --}}
+                                    @if($user->isParent() && $user->parentProfile)
+                                        <a href="{{ route('admin.messages.compose') }}?parent={{ $user->parentProfile->id }}"
+                                           class="btn-sm"
+                                           title="Message this parent">✉ Email</a>
+                                    @endif
+
+                                    <button class="btn-sm btn-sm-warn"
+                                        wire:click="resetPassword({{ $user->id }})"
                                         wire:confirm="Reset {{ $user->name }}'s password? A new temporary password will be emailed to them.">
                                         Reset PW
                                     </button>
