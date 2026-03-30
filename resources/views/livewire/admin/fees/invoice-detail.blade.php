@@ -1,110 +1,107 @@
 <div>
 <style>
-/* ── Back link ── */
-.back-link {
-    display:inline-flex; align-items:center; gap:6px;
-    font-size:13px; color:var(--c-text-3); text-decoration:none;
-    margin-bottom:20px; transition:color 150ms;
-}
+.back-link { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--c-text-3); text-decoration:none; margin-bottom:20px; transition:color 150ms; }
 .back-link:hover { color:var(--c-text-1); }
 
-/* ── Invoice header card ── */
-.inv-header {
-    background:var(--c-surface); border:1px solid var(--c-border);
-    border-radius:var(--r-md); padding:24px;
-    display:flex; justify-content:space-between; align-items:flex-start;
-    flex-wrap:wrap; gap:20px; margin-bottom:20px;
-}
+/* Header card */
+.inv-header { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); padding:24px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:20px; margin-bottom:20px; }
 .inv-student-name { font-size:20px; font-weight:700; color:var(--c-text-1); letter-spacing:-0.03em; }
 .inv-meta { font-size:13px; color:var(--c-text-3); margin-top:4px; }
 .inv-adm  { font-family:var(--f-mono); font-size:12px; color:var(--c-text-3); margin-top:2px; }
-
 .inv-amounts { display:flex; gap:24px; flex-wrap:wrap; }
 .inv-amount-block { text-align:right; }
 .inv-amount-label { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.08em; }
 .inv-amount-value { font-size:22px; font-weight:700; letter-spacing:-0.03em; margin-top:2px; font-family:var(--f-mono); }
-.inv-amount-value.total    { color:var(--c-text-1); }
-.inv-amount-value.paid     { color:var(--c-success); }
-.inv-amount-value.balance  { color:var(--c-danger); }
+.inv-amount-value.total   { color:var(--c-text-1); }
+.inv-amount-value.paid    { color:#15803D; }
+.inv-amount-value.balance { color:var(--c-danger); }
 
-/* ── Status badge ── */
+/* Badges */
 .badge { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:500; }
 .badge-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 .badge-unpaid  { background:rgba(190,18,60,0.08);  color:var(--c-danger); }
-.badge-partial { background:rgba(180,83,9,0.08);   color:var(--c-warning); }
-.badge-paid    { background:rgba(21,128,61,0.08);   color:var(--c-success); }
+.badge-partial { background:rgba(180,83,9,0.08);   color:#B45309; }
+.badge-paid    { background:rgba(21,128,61,0.08);   color:#15803D; }
+.badge-draft   { background:rgba(100,100,100,0.08); color:#666; }
+.badge-sent    { background:rgba(26,86,255,0.08);   color:var(--c-accent); }
+.badge-admin  { background:rgba(180,83,9,0.08);  color:#B45309; font-size:10px; padding:2px 6px; border-radius:4px; }
+.badge-system { background:rgba(26,86,255,0.06); color:var(--c-accent); font-size:10px; padding:2px 6px; border-radius:4px; }
+.badge-custom { background:rgba(100,100,100,0.08); color:#666; font-size:10px; padding:2px 6px; border-radius:4px; }
 
-/* ── Flash ── */
+/* Flash */
 .flash { padding:12px 16px; border-radius:var(--r-sm); margin-bottom:16px; font-size:13px; font-weight:500; }
 .flash-success { background:rgba(21,128,61,0.08); border:1px solid rgba(21,128,61,0.2); color:#15803D; }
-.flash-error   { background:rgba(190,18,60,0.08);  border:1px solid rgba(190,18,60,0.2);  color:#BE123C; }
+.flash-error   { background:rgba(190,18,60,0.08); border:1px solid rgba(190,18,60,0.2); color:var(--c-danger); }
 
-/* ── Grid ── */
+/* Lock banner */
+.lock-banner { background:rgba(180,83,9,0.06); border:1px solid rgba(180,83,9,0.2); border-radius:var(--r-sm); padding:10px 16px; margin-bottom:16px; font-size:12px; color:#B45309; display:flex; align-items:center; gap:8px; }
+
+/* Grid */
 .detail-grid { display:grid; grid-template-columns:1fr; gap:16px; margin-bottom:20px; }
 @media(min-width:900px) { .detail-grid { grid-template-columns:1.6fr 1fr; } }
 
-/* ── Panel ── */
+/* Panels */
 .panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); overflow:hidden; }
-.panel-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--c-border); }
+.panel-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--c-border); flex-wrap:wrap; gap:8px; }
 .panel-title { font-size:13px; font-weight:600; color:var(--c-text-1); }
 
-/* ── Tables ── */
+/* Tables */
 .data-table { width:100%; border-collapse:collapse; }
 .data-table th { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.08em; padding:10px 20px; text-align:left; background:var(--c-bg); border-bottom:1px solid var(--c-border); }
 .data-table th.right, .data-table td.right { text-align:right; }
-.data-table td { padding:13px 20px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
+.data-table td { padding:12px 20px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
 .data-table tr:last-child td { border-bottom:none; }
 .data-table tr:hover td { background:#fafaf8; }
 .mono { font-family:var(--f-mono); font-size:12px; }
-
-/* ── Total row ── */
 .total-row td { font-weight:700; background:var(--c-bg) !important; border-top:2px solid var(--c-border); }
 
-/* ── Admin added badge ── */
-.badge-admin { background:rgba(180,83,9,0.08); color:#B45309; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:6px; }
-.badge-system { background:rgba(26,86,255,0.06); color:var(--c-accent); font-size:10px; padding:2px 6px; border-radius:4px; margin-left:6px; }
+/* Item action buttons in table */
+.item-actions { display:flex; align-items:center; gap:5px; justify-content:flex-end; }
+.btn-icon { width:28px; height:28px; border-radius:6px; border:1px solid var(--c-border); background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--c-text-3); transition:all 150ms; padding:0; flex-shrink:0; }
+.btn-icon:hover { background:var(--c-bg); color:var(--c-text-1); }
+.btn-icon-danger:hover { border-color:rgba(190,18,60,0.3); color:var(--c-danger); background:rgba(190,18,60,0.04); }
 
-/* ── Buttons ── */
+/* Buttons */
 .btn-primary { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
 .btn-primary:hover { opacity:0.9; }
-.btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
-.btn-ghost { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:background 150ms; }
+.btn-ghost { display:inline-flex; align-items:center; gap:6px; padding:7px 13px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:background 150ms; }
 .btn-ghost:hover { background:var(--c-bg); }
+.btn-danger { display:inline-flex; align-items:center; gap:6px; padding:7px 13px; background:none; border:1px solid rgba(190,18,60,0.3); color:var(--c-danger); border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:background 150ms; }
+.btn-danger:hover { background:rgba(190,18,60,0.06); }
+.btn-send { display:inline-flex; align-items:center; gap:6px; padding:7px 13px; background:#15803D; color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
+.btn-send:hover { opacity:0.9; }
 
-/* ── Empty state ── */
-.empty-cell { padding:28px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
-
-/* ── Info rows (student details) ── */
+/* Info rows */
 .info-row { display:flex; justify-content:space-between; padding:11px 20px; border-bottom:1px solid var(--c-border); font-size:13px; }
 .info-row:last-child { border-bottom:none; }
 .info-label { color:var(--c-text-3); font-size:12px; }
 .info-value { color:var(--c-text-1); font-weight:500; text-align:right; }
+.empty-cell { padding:28px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
+.btn-pdf { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:13px; font-weight:500; text-decoration:none; transition:background 150ms; }
+.btn-pdf:hover { background:var(--c-bg); }
 
-/* ── Modal ── */
+/* Tabs within add modal */
+.mode-tabs { display:flex; gap:2px; background:var(--c-bg); border:1px solid var(--c-border); border-radius:7px; padding:3px; margin-bottom:16px; }
+.mode-tab { flex:1; padding:7px; border-radius:5px; border:none; background:none; font-size:12px; font-weight:500; color:var(--c-text-3); cursor:pointer; font-family:var(--f-sans); transition:all 150ms; }
+.mode-tab.active { background:var(--c-surface); color:var(--c-text-1); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+
+/* Modal */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
-.modal-box { background:var(--c-surface); border-radius:16px; width:100%; max-width:440px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
-.modal-title { font-size:16px; font-weight:700; color:var(--c-text-1); letter-spacing:-0.02em; margin-bottom:20px; }
-.form-field { margin-bottom:16px; }
+.modal-box { background:var(--c-surface); border-radius:16px; width:100%; max-width:460px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+.modal-title { font-size:16px; font-weight:700; color:var(--c-text-1); letter-spacing:-0.02em; margin-bottom:6px; }
+.modal-sub   { font-size:13px; color:var(--c-text-3); margin-bottom:18px; }
+.form-field { margin-bottom:14px; }
 .form-field label { display:block; font-size:12px; font-weight:500; color:var(--c-text-2); margin-bottom:5px; }
-.form-field input, .form-field select {
-    width:100%; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px;
-    font-family:var(--f-sans); font-size:14px; color:var(--c-text-1);
-    background:var(--c-bg); outline:none; transition:border-color 150ms; -webkit-appearance:none;
-}
+.form-field input, .form-field select { width:100%; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; font-family:var(--f-sans); font-size:14px; color:var(--c-text-1); background:var(--c-bg); outline:none; transition:border-color 150ms; -webkit-appearance:none; }
 .form-field input:focus, .form-field select:focus { border-color:var(--c-accent); background:#fff; box-shadow:0 0 0 3px rgba(26,86,255,0.08); }
 .field-error { font-size:11px; color:var(--c-danger); margin-top:4px; }
-.modal-actions { display:flex; gap:10px; margin-top:24px; justify-content:flex-end; }
-.btn-cancel { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); color:var(--c-text-2); }
-.btn-cancel:hover { background:var(--c-bg); }
+.field-hint  { font-size:11px; color:var(--c-text-3); margin-top:4px; }
+.modal-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+.btn-cancel  { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); }
 .btn-confirm { padding:9px 20px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
-.btn-confirm:hover { opacity:0.9; }
-
-/* ── PDF link ── */
-.btn-pdf { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:13px; font-weight:500; text-decoration:none; transition:background 150ms; }
-.btn-pdf:hover { background:var(--c-bg); color:var(--c-text-1); }
+.btn-confirm-danger { padding:9px 20px; background:var(--c-danger); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
 </style>
 
-{{-- Flash --}}
 @if(session('success'))
     <div class="flash flash-success">✓ {{ session('success') }}</div>
 @endif
@@ -112,13 +109,22 @@
     <div class="flash flash-error">⚠ {{ session('error') }}</div>
 @endif
 
-{{-- Back link --}}
 <a href="{{ route('admin.fees.invoices') }}" class="back-link">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M10 3L5 8l5 5"/>
-    </svg>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 3L5 8l5 5"/></svg>
     All Invoices
 </a>
+
+{{-- Edit lock warning --}}
+@if(! $this->canEdit())
+    <div class="lock-banner">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3" y="7" width="10" height="8" rx="1.5"/>
+            <path d="M5 7V5a3 3 0 0 1 6 0v2"/>
+        </svg>
+        Fee items are locked because payments have been recorded against this invoice.
+        Remove all payments first to re-enable editing.
+    </div>
+@endif
 
 {{-- Invoice header --}}
 <div class="inv-header">
@@ -126,45 +132,60 @@
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="inv-student-name">{{ $invoice->student->full_name }}</span>
             <span class="badge badge-{{ $invoice->status }}">
-                <span class="badge-dot"></span>
-                {{ ucfirst($invoice->status) }}
+                <span class="badge-dot"></span>{{ ucfirst($invoice->status) }}
             </span>
+            @if($invoice->isSent())
+                <span class="badge badge-sent">
+                    <span class="badge-dot"></span>Sent {{ $invoice->sent_at->format('d M Y') }}
+                </span>
+            @else
+                <span class="badge badge-draft">
+                    <span class="badge-dot"></span>Draft
+                </span>
+            @endif
         </div>
         <div class="inv-meta">
             {{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}
-            @php
-                $enrolment = $invoice->student->enrolments
-                    ->where('academic_session_id', $invoice->term->academic_session_id)
-                    ->first();
-            @endphp
-            @if($enrolment)
-                · {{ $enrolment->schoolClass->display_name }}
-            @endif
+            @php $enrolment = $invoice->student->enrolments
+                ->where('academic_session_id', $invoice->term->academic_session_id)->first(); @endphp
+            @if($enrolment) · {{ $enrolment->schoolClass->display_name }} @endif
         </div>
         <div class="inv-adm">{{ $invoice->student->admission_number }}</div>
     </div>
 
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px;">
-        {{-- Action buttons --}}
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
             <a href="{{ route('admin.fees.invoices.pdf', $invoice) }}" target="_blank" class="btn-pdf">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path d="M4 1h6l4 4v10H2V1z"/><path d="M10 1v4h4"/>
-                    <path d="M5 9h6M5 11h4"/>
                 </svg>
-                Download PDF
+                PDF
             </a>
+
+            @if($invoice->isDraft())
+                <button class="btn-send" wire:click="sendInvoice"
+                    wire:confirm="Send this invoice to {{ $invoice->student->full_name }}'s parents?"
+                    wire:loading.attr="disabled">
+                    ✉ Send to Parent
+                </button>
+            @endif
+
             @if($invoice->status !== 'paid')
                 <button class="btn-primary" wire:click="openPayForm">
-                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M8 3v10M3 8h10"/>
+                    + Record Payment
+                </button>
+            @endif
+
+            @if($this->canDelete())
+                <button class="btn-danger" wire:click="confirmDelete">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M2 4h12M5 4V2h6v2M6 7v6M10 7v6M3 4l1 10h8l1-10"/>
                     </svg>
-                    Record Payment
+                    Delete Invoice
                 </button>
             @endif
         </div>
 
-        {{-- Amount summary --}}
         <div class="inv-amounts">
             <div class="inv-amount-block">
                 <div class="inv-amount-label">Total</div>
@@ -185,19 +206,21 @@
 {{-- Two-column grid --}}
 <div class="detail-grid">
 
-    {{-- LEFT: Line items + Payment history --}}
+    {{-- LEFT: Line items + payment history --}}
     <div style="display:flex;flex-direction:column;gap:16px;">
 
         {{-- Fee line items --}}
         <div class="panel">
             <div class="panel-head">
-                <span class="panel-title">Fee Breakdown</span>
-                @if($invoice->status !== 'paid')
-                    <button class="btn-ghost" style="font-size:12px;padding:6px 12px;" wire:click="openAddItem">
-                        + Add Optional Item
+                <span class="panel-title">Fee Items</span>
+                @if($this->canEdit())
+                    <button class="btn-ghost" wire:click="openAddItem">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 2v12M2 8h12"/></svg>
+                        Add Item
                     </button>
                 @endif
             </div>
+
             @if($invoice->items->isEmpty())
                 <div class="empty-cell">No line items on this invoice.</div>
             @else
@@ -207,24 +230,48 @@
                             <th>Item</th>
                             <th>Source</th>
                             <th class="right">Amount</th>
+                            @if($this->canEdit())<th class="right">Actions</th>@endif
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($invoice->items as $item)
                             <tr>
-                                <td>{{ $item->item_name }}</td>
+                                <td style="font-weight:500;">{{ $item->item_name }}</td>
                                 <td>
-                                    @if($item->added_by === 'admin')
+                                    @if(is_null($item->fee_item_id))
+                                        <span class="badge-custom">Custom</span>
+                                    @elseif($item->added_by === 'admin')
                                         <span class="badge-admin">Admin</span>
                                     @else
                                         <span class="badge-system">System</span>
                                     @endif
                                 </td>
                                 <td class="right mono">₦{{ number_format($item->amount, 0) }}</td>
+                                @if($this->canEdit())
+                                <td class="right">
+                                    <div class="item-actions">
+                                        {{-- Edit amount --}}
+                                        <button class="btn-icon" wire:click="openEditItem({{ $item->id }})" title="Edit amount">
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                                                <path d="M11 2l3 3-9 9H2v-3z"/>
+                                            </svg>
+                                        </button>
+                                        {{-- Remove item --}}
+                                        <button class="btn-icon btn-icon-danger"
+                                            wire:click="removeItem({{ $item->id }})"
+                                            wire:confirm="Remove '{{ $item->item_name }}' from this invoice?"
+                                            title="Remove item">
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                                                <path d="M2 4h12M5 4V2h6v2M6 7v6M10 7v6M3 4l1 10h8l1-10"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                                @endif
                             </tr>
                         @endforeach
                         <tr class="total-row">
-                            <td colspan="2">Total</td>
+                            <td colspan="{{ $this->canEdit() ? 3 : 2 }}">Total</td>
                             <td class="right mono">₦{{ number_format($invoice->total_amount, 0) }}</td>
                         </tr>
                     </tbody>
@@ -258,7 +305,7 @@
                                 <td>{{ $payment->paid_at->format('d M Y') }}</td>
                                 <td>{{ $payment->method }}</td>
                                 <td class="mono" style="color:var(--c-text-3)">{{ $payment->receipt_number }}</td>
-                                <td class="right mono" style="color:var(--c-success)">₦{{ number_format($payment->amount, 0) }}</td>
+                                <td class="right mono" style="color:#15803D">₦{{ number_format($payment->amount, 0) }}</td>
                             </tr>
                         @endforeach
                         <tr class="total-row">
@@ -271,42 +318,26 @@
         </div>
     </div>
 
-    {{-- RIGHT: Student & invoice details --}}
+    {{-- RIGHT: Student info + invoice metadata --}}
     <div style="display:flex;flex-direction:column;gap:16px;">
 
-        {{-- Student info --}}
         <div class="panel">
             <div class="panel-head">
                 <span class="panel-title">Student</span>
                 <a href="{{ route('admin.students.profile', $invoice->student) }}"
                    style="font-size:12px;color:var(--c-accent);text-decoration:none;">View Profile →</a>
             </div>
-            <div class="info-row">
-                <span class="info-label">Full Name</span>
-                <span class="info-value">{{ $invoice->student->full_name }}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Admission No.</span>
-                <span class="info-value mono">{{ $invoice->student->admission_number }}</span>
-            </div>
+            <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">{{ $invoice->student->full_name }}</span></div>
+            <div class="info-row"><span class="info-label">Admission No.</span><span class="info-value mono">{{ $invoice->student->admission_number }}</span></div>
             @if($enrolment)
-            <div class="info-row">
-                <span class="info-label">Class</span>
-                <span class="info-value">{{ $enrolment->schoolClass->display_name }}</span>
-            </div>
+            <div class="info-row"><span class="info-label">Class</span><span class="info-value">{{ $enrolment->schoolClass->display_name }}</span></div>
             @endif
-            <div class="info-row">
-                <span class="info-label">Gender</span>
-                <span class="info-value">{{ $invoice->student->gender }}</span>
-            </div>
+            <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ $invoice->student->gender }}</span></div>
         </div>
 
-        {{-- Parent contacts --}}
         @if($invoice->student->parents->isNotEmpty())
         <div class="panel">
-            <div class="panel-head">
-                <span class="panel-title">Parent / Guardian</span>
-            </div>
+            <div class="panel-head"><span class="panel-title">Parent / Guardian</span></div>
             @foreach($invoice->student->parents as $parent)
                 <div class="info-row" style="flex-direction:column;gap:2px;">
                     <span class="info-value" style="text-align:left;">
@@ -321,33 +352,27 @@
         </div>
         @endif
 
-        {{-- Invoice metadata --}}
         <div class="panel">
-            <div class="panel-head">
-                <span class="panel-title">Invoice Details</span>
-            </div>
+            <div class="panel-head"><span class="panel-title">Invoice Details</span></div>
+            <div class="info-row"><span class="info-label">Invoice ID</span><span class="info-value mono">#{{ str_pad($invoice->id, 6, '0', STR_PAD_LEFT) }}</span></div>
+            <div class="info-row"><span class="info-label">Term</span><span class="info-value">{{ $invoice->term->name }}</span></div>
+            <div class="info-row"><span class="info-label">Session</span><span class="info-value">{{ $invoice->term->session->name }}</span></div>
+            <div class="info-row"><span class="info-label">Generated</span><span class="info-value">{{ $invoice->created_at->format('d M Y') }}</span></div>
             <div class="info-row">
-                <span class="info-label">Invoice ID</span>
-                <span class="info-value mono">#{{ str_pad($invoice->id, 6, '0', STR_PAD_LEFT) }}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Term</span>
-                <span class="info-value">{{ $invoice->term->name }}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Session</span>
-                <span class="info-value">{{ $invoice->term->session->name }}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Generated</span>
-                <span class="info-value">{{ $invoice->created_at->format('d M Y') }}</span>
+                <span class="info-label">Sent to Parent</span>
+                <span class="info-value">
+                    @if($invoice->sent_at)
+                        {{ $invoice->sent_at->format('d M Y, g:ia') }}
+                    @else
+                        <span style="color:var(--c-text-3)">Not sent yet</span>
+                    @endif
+                </span>
             </div>
             <div class="info-row">
                 <span class="info-label">Status</span>
                 <span class="info-value">
                     <span class="badge badge-{{ $invoice->status }}">
-                        <span class="badge-dot"></span>
-                        {{ ucfirst($invoice->status) }}
+                        <span class="badge-dot"></span>{{ ucfirst($invoice->status) }}
                     </span>
                 </span>
             </div>
@@ -356,22 +381,24 @@
     </div>
 </div>
 
+{{-- ═══════════════════════════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════════════════════════ --}}
+
 {{-- Record payment modal --}}
 @if($showPayForm)
 <div class="modal-overlay">
     <div class="modal-box">
         <div class="modal-title">Record Payment</div>
+        <div class="modal-sub">{{ $invoice->student->full_name }} · Balance: ₦{{ number_format($invoice->balance, 0) }}</div>
 
         <div class="form-field">
             <label>Amount (₦) <span style="color:var(--c-danger)">*</span></label>
             <input type="text" inputmode="numeric" wire:model="payAmount" placeholder="0"
                 x-data
-                x-on:focus="$el.value = $el.value.replace(/,/g, '')"
-                x-on:blur="let r=$el.value.replace(/,/g,'').replace(/[^0-9]/g,''); $el.value=r?parseInt(r).toLocaleString('en-NG'):''">
+                x-on:focus="$el.value=$el.value.replace(/,/g,'')"
+                x-on:blur="let r=$el.value.replace(/,/g,'').replace(/[^0-9]/g,'');$el.value=r?parseInt(r).toLocaleString('en-NG'):''">
             @error('payAmount') <div class="field-error">{{ $message }}</div> @enderror
-            <div style="font-size:11px;color:var(--c-text-3);margin-top:4px;">
-                Balance due: ₦{{ number_format($invoice->balance, 0) }}
-            </div>
         </div>
 
         <div class="form-field">
@@ -392,46 +419,123 @@
 
         <div class="modal-actions">
             <button class="btn-cancel" wire:click="$set('showPayForm', false)">Cancel</button>
-            <button class="btn-confirm" wire:click="recordPayment">
-                <span wire:loading.remove wire:target="recordPayment">Record Payment</span>
-                <span wire:loading wire:target="recordPayment">Saving…</span>
+            <button class="btn-confirm" wire:click="recordPayment"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>Record Payment</span>
+                <span wire:loading>Saving…</span>
             </button>
         </div>
     </div>
 </div>
 @endif
 
-{{-- Add optional item modal --}}
+{{-- Add item modal --}}
 @if($showAddItem)
 <div class="modal-overlay">
     <div class="modal-box">
-        <div class="modal-title">Add Optional Item</div>
+        <div class="modal-title">Add Fee Item</div>
+        <div class="modal-sub">Choose from your fee catalogue or enter a custom item.</div>
 
-        <div class="form-field">
-            <label>Fee Item <span style="color:var(--c-danger)">*</span></label>
-            <select wire:model="addItemId">
-                <option value="">Select a fee item…</option>
-                @foreach($optionalItems as $opt)
-                    <option value="{{ $opt->id }}">{{ $opt->name }}</option>
-                @endforeach
-            </select>
-            @error('addItemId') <div class="field-error">{{ $message }}</div> @enderror
+        {{-- Mode toggle --}}
+        <div class="mode-tabs">
+            <button class="mode-tab {{ $addMode === 'catalogue' ? 'active' : '' }}"
+                wire:click="$set('addMode', 'catalogue')">From Catalogue</button>
+            <button class="mode-tab {{ $addMode === 'custom' ? 'active' : '' }}"
+                wire:click="$set('addMode', 'custom')">Custom Item</button>
         </div>
+
+        @if($addMode === 'catalogue')
+            <div class="form-field">
+                <label>Fee Item <span style="color:var(--c-danger)">*</span></label>
+                <select wire:model.live="addItemId">
+                    <option value="">Select a fee item…</option>
+                    @foreach($availableItems as $item)
+                        <option value="{{ $item->id }}">
+                            {{ $item->name }} ({{ ucfirst($item->type) }})
+                        </option>
+                    @endforeach
+                </select>
+                @error('addItemId') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+        @else
+            <div class="form-field">
+                <label>Item Name <span style="color:var(--c-danger)">*</span></label>
+                <input type="text" wire:model="addCustomName" placeholder="e.g. Late Registration Fee">
+                <div class="field-hint">This item will not be added to your fee catalogue.</div>
+                @error('addCustomName') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+        @endif
 
         <div class="form-field">
             <label>Amount (₦) <span style="color:var(--c-danger)">*</span></label>
-            <input type="text" inputmode="numeric" wire:model="addItemAmount" placeholder="0"
-                x-data
-                x-on:focus="$el.value = $el.value.replace(/,/g, '')"
-                x-on:blur="let r=$el.value.replace(/,/g,'').replace(/[^0-9]/g,''); $el.value=r?parseInt(r).toLocaleString('en-NG'):''">
+            <input type="number" wire:model="addItemAmount" placeholder="0" min="1">
+            @if($addMode === 'catalogue' && $addItemId)
+                <div class="field-hint">
+                    Auto-filled from fee structure. Edit if needed.
+                </div>
+            @endif
             @error('addItemAmount') <div class="field-error">{{ $message }}</div> @enderror
         </div>
 
         <div class="modal-actions">
             <button class="btn-cancel" wire:click="$set('showAddItem', false)">Cancel</button>
-            <button class="btn-confirm" wire:click="addOptionalItem">
-                <span wire:loading.remove wire:target="addOptionalItem">Add to Invoice</span>
-                <span wire:loading wire:target="addOptionalItem">Adding…</span>
+            <button class="btn-confirm" wire:click="addItem"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>Add to Invoice</span>
+                <span wire:loading>Adding…</span>
+            </button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Edit item amount modal --}}
+@if($showEditItem)
+    @php $editingItem = $invoice->items->firstWhere('id', $editingItemId); @endphp
+    @if($editingItem)
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">Edit Amount</div>
+            <div class="modal-sub">{{ $editingItem->item_name }}</div>
+
+            <div class="form-field">
+                <label>Amount (₦) <span style="color:var(--c-danger)">*</span></label>
+                <input type="number" wire:model="editingItemAmount" min="1" autofocus>
+                @error('editingItemAmount') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" wire:click="$set('showEditItem', false)">Cancel</button>
+                <button class="btn-confirm" wire:click="saveItemAmount"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove>Save Amount</span>
+                    <span wire:loading>Saving…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+@endif
+
+{{-- Delete invoice confirm --}}
+@if($showDeleteConfirm)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Delete Invoice?</div>
+        <div class="modal-sub">
+            This will permanently delete the invoice for
+            <strong>{{ $invoice->student->full_name }}</strong>
+            ({{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}).
+            <br><br>
+            This action cannot be undone. The student's fee structure assignment remains intact
+            and a new invoice can be regenerated from the invoices list if needed.
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showDeleteConfirm', false)">Cancel</button>
+            <button class="btn-confirm-danger" wire:click="deleteInvoice"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>Delete Invoice</span>
+                <span wire:loading>Deleting…</span>
             </button>
         </div>
     </div>

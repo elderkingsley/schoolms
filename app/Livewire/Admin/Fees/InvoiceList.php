@@ -131,6 +131,22 @@ class InvoiceList extends Component
         session()->flash('success', "{$drafts->count()} invoice(s) queued for delivery to all parents.");
     }
 
+    public function deleteInvoice(int $invoiceId): void
+    {
+        $invoice = FeeInvoice::findOrFail($invoiceId);
+
+        // Guard: only delete unpaid invoices with no payments
+        if ($invoice->status !== 'unpaid' || $invoice->payments()->exists()) {
+            session()->flash('error', 'Only unpaid invoices with no recorded payments can be deleted.');
+            return;
+        }
+
+        $name = $invoice->student->full_name;
+        $invoice->delete();
+        $this->selectedIds = array_values(array_filter($this->selectedIds, fn($id) => $id !== (string)$invoiceId));
+        session()->flash('success', "Invoice for {$name} deleted.");
+    }
+
     protected function buildQuery()
     {
         return FeeInvoice::with('student', 'term.session')

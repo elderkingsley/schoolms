@@ -66,6 +66,8 @@
 .btn-sm:hover { background:var(--c-bg); }
 .btn-sm-send { background:#15803D; color:#fff; border-color:#15803D; }
 .btn-sm-send:hover { opacity:0.9; }
+.btn-sm-danger { color:var(--c-danger); border-color:rgba(190,18,60,0.2); }
+.btn-sm-danger:hover { background:rgba(190,18,60,0.06); }
 .btn-sm-link { color:var(--c-accent); text-decoration:none; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:500; border:1px solid var(--c-border); }
 .btn-sm-link:hover { background:var(--c-bg); }
 
@@ -293,6 +295,13 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                                 @endif
                                 <a href="{{ route('admin.fees.invoices.show', $invoice) }}"
                                    class="btn-sm-link">View</a>
+                                @if($invoice->status === 'unpaid' && $invoice->payments()->count() === 0)
+                                    <button class="btn-sm btn-sm-danger"
+                                        wire:click="deleteInvoice({{ $invoice->id }})"
+                                        wire:confirm="Delete this invoice for {{ $invoice->student->full_name }}? This cannot be undone.">
+                                        Delete
+                                    </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
