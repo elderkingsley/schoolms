@@ -178,16 +178,29 @@
                         <tr onclick="window.location='{{ route('admin.students.profile', $student) }}'"
                             title="Click to view full profile">
                             <td>
-                                <div class="student-name">
-                                    {{ $student->first_name }} {{ $student->last_name }}
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:var(--c-accent-bg);flex-shrink:0;overflow:hidden;border:2px solid var(--c-border);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--c-accent);">
+                                        @if($student->photo)
+                                            <img src="{{ Storage::url($student->photo) }}"
+                                                 alt="{{ $student->first_name }}"
+                                                 style="width:100%;height:100%;object-fit:cover;">
+                                        @else
+                                            {{ strtoupper(substr($student->first_name, 0, 1)) }}
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <div class="student-name">
+                                            {{ $student->first_name }} {{ $student->last_name }}
+                                        </div>
+                                        <div class="student-meta">
+                                            {{ $student->gender }} ·
+                                            {{ $student->date_of_birth?->format('d M Y') ?? '—' }}
+                                        </div>
+                                        @if($student->medical_notes)
+                                            <div class="student-meta" style="color:#B45309">⚕ Medical notes on file</div>
+                                        @endif
+                                    </div>
                                 </div>
-                                <div class="student-meta">
-                                    {{ $student->gender }} ·
-                                    {{ $student->date_of_birth?->format('d M Y') ?? '—' }}
-                                </div>
-                                @if($student->medical_notes)
-                                    <div class="student-meta" style="color:#B45309">⚕ Medical notes on file</div>
-                                @endif
                             </td>
                             <td class="hide-mobile">
                                 <span class="badge badge-pending">
@@ -284,7 +297,7 @@
                 <select wire:model="assignedClass">
                     <option value="">Select class</option>
                     @foreach($classes as $class)
-                        <option value="{{ $class->id }}">{{ $class->display_name }}</option>
+                        <option value="{{ $class }}">{{ $class }}</option>
                     @endforeach
                 </select>
                 @error('assignedClass') <div class="field-error">{{ $message }}</div> @enderror

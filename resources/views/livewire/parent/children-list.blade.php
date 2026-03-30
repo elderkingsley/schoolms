@@ -47,7 +47,17 @@
     @foreach($children as $child)
         <div class="child-card">
             <div class="child-header">
-                <div class="child-avatar">{{ strtoupper(substr($child->first_name, 0, 1)) }}</div>
+                <div class="child-avatar"
+                     style="{{ $child->photo ? 'background:none;padding:0;overflow:hidden;' : '' }}">
+                    @if($child->photo)
+                        <img src="{{ Storage::url($child->photo) }}"
+                             alt="{{ $child->full_name }}"
+                             style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                             onerror="this.style.display='none'">
+                    @else
+                        {{ strtoupper(substr($child->first_name, 0, 1)) }}
+                    @endif
+                </div>
                 <div style="flex:1">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <span class="child-name">{{ $child->full_name }}</span>

@@ -40,8 +40,9 @@ $PHP artisan view:clear
 $PHP artisan view:cache
 $PHP artisan event:cache
 
-echo "[ 7/8 ] Fixing permissions..."
+echo "[ 7/8 ] Fixing permissions and storage symlink..."
 chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+$PHP artisan storage:link --force 2>/dev/null || true
 
 echo "[ 8/8 ] Restarting queue worker..."
 $PHP artisan queue:restart

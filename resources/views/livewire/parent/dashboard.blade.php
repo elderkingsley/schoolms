@@ -94,7 +94,17 @@
                 $feeStatus  = $invoice?->status ?? null;
             @endphp
             <a href="{{ route('parent.fees') }}?child={{ $child->id }}" class="child-card">
-                <div class="child-avatar">{{ strtoupper(substr($child->first_name, 0, 1)) }}</div>
+                <div class="child-avatar"
+                     style="{{ $child->photo ? 'background:none;padding:0;overflow:hidden;' : '' }}">
+                    @if($child->photo)
+                        <img src="{{ Storage::url($child->photo) }}"
+                             alt="{{ $child->full_name }}"
+                             style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                             onerror="this.style.display='none'">
+                    @else
+                        {{ strtoupper(substr($child->first_name, 0, 1)) }}
+                    @endif
+                </div>
                 <div class="child-name">{{ $child->full_name }}</div>
                 <div class="child-class">{{ $enrolment?->schoolClass?->display_name ?? 'Class not assigned' }}</div>
                 <div class="child-adm">{{ $child->admission_number }}</div>

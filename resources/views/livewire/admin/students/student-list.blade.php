@@ -201,17 +201,31 @@
                         <tr onclick="window.location='{{ route('admin.students.profile', $student) }}'"
                             title="View full profile">
                             <td>
-                                <div class="student-name">
-                                    {{ $student->first_name }} {{ $student->last_name }}
-                                    @if($student->other_name)
-                                        <span style="font-weight:400;color:var(--c-text-3)">
-                                            {{ $student->other_name }}
-                                        </span>
-                                    @endif
-                                </div>
-                                <div class="student-meta">
-                                    {{ $student->gender }} ·
-                                    {{ $student->date_of_birth?->format('d M Y') ?? '—' }}
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <div style="width:36px;height:36px;border-radius:50%;background:var(--c-accent-bg);flex-shrink:0;overflow:hidden;border:1px solid var(--c-border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--c-accent);">
+                                        @if($student->photo)
+                                            <img src="{{ Storage::url($student->photo) }}"
+                                                 alt="{{ $student->first_name }}"
+                                                 style="width:100%;height:100%;object-fit:cover;"
+                                                 onerror="this.style.display='none';this.parentElement.innerHTML='{{ strtoupper(substr($student->first_name, 0, 1)) }}'">
+                                        @else
+                                            {{ strtoupper(substr($student->first_name, 0, 1)) }}
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <div class="student-name">
+                                            {{ $student->first_name }} {{ $student->last_name }}
+                                            @if($student->other_name)
+                                                <span style="font-weight:400;color:var(--c-text-3)">
+                                                    {{ $student->other_name }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="student-meta">
+                                            {{ $student->gender }} ·
+                                            {{ $student->date_of_birth?->format('d M Y') ?? '—' }}
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                             <td class="hide-mobile">
@@ -219,7 +233,7 @@
                             </td>
                             <td class="hide-mobile">
                                 @if($enrolment && $enrolment->schoolClass)
-                                    {{ $enrolment->schoolClass->name }}
+                                    {{ $enrolment->schoolClass->display_name }}
                                 @elseif($student->class_applied_for)
                                     <span style="color:var(--c-text-3);font-size:12px">
                                         Applied: {{ $student->class_applied_for }}

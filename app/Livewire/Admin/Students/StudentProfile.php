@@ -132,25 +132,53 @@ class StudentProfile extends Component
             'notes'           => 'nullable|string|max:1000',
             'medicalNotes'    => 'nullable|string|max:1000',
             'classAppliedFor' => 'nullable|string|max:100',
+            'newPhoto'        => 'nullable|image|max:2048|mimes:jpeg,png,webp',
         ]);
 
-        $this->student->update([
-            'first_name'       => $data['firstName'],
-            'last_name'        => $data['lastName'],
-            'other_name'       => $data['otherName'] ?: null,
-            'gender'           => $data['gender'],
-            'date_of_birth'    => $data['dateOfBirth'] ?: null,
-            'status'           => $data['status'],
-            'notes'            => $data['notes'] ?: null,
-            'medical_notes'    => $data['medicalNotes'] ?: null,
-            'class_applied_for'=> $data['classAppliedFor'] ?: null,
-        ]);
+        $updates = [
+            'first_name'        => $data['firstName'],
+            'last_name'         => $data['lastName'],
+            'other_name'        => $data['otherName'] ?: null,
+            'gender'            => $data['gender'],
+            'date_of_birth'     => $data['dateOfBirth'] ?: null,
+            'status'            => $data['status'],
+            'notes'             => $data['notes'] ?: null,
+            'medical_notes'     => $data['medicalNotes'] ?: null,
+            'class_applied_for' => $data['classAppliedFor'] ?: null,
+        ];
 
+        // Handle photo upload — store new, delete old
+        if ($this->newPhoto) {
+            // Delete the previous photo if one existed
+            if ($this->student->photo && Storage::disk('public')->exists($this->student->photo)) {
+                Storage::disk('public')->delete($this->student->photo);
+            }
+
+            $updates['photo'] = $this->newPhoto->store('student-photos', 'public');
+            $this->newPhoto   = null;
+        }
+
+        $this->student->update($updates);
         $this->student->refresh();
         $this->editing = false;
 
         session()->flash('success', 'Student record updated successfully.');
     }
+
+    /**
+     * Remove the student's photo entirely (revert to initials avatar).
+     */
+    public function removePhoto(): void
+    {
+        if ($this->student->photo && Storage::disk('public')->exists($this->student->photo)) {
+            Storage::disk('public')->delete($this->student->photo);
+        }
+
+        $this->student->update(['photo' => null]);
+        $this->student->refresh();
+        session()->flash('success', 'Photo removed.');
+    }
+
 
     public function render()
     {

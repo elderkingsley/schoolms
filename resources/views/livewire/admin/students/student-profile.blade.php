@@ -187,7 +187,53 @@
 
     <div class="edit-grid">
 
-        <div class="form-field">
+        {{-- Photo upload -- spans full width on all screen sizes --}}
+        <div class="form-field" style="grid-column:1/-1;">
+            <label>Student Photo</label>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+
+                {{-- Current / preview photo --}}
+                <div style="width:72px;height:72px;border-radius:50%;overflow:hidden;border:2px solid var(--c-border);background:var(--c-accent-bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--c-accent);">
+                    @if($newPhoto)
+                        <img src="{{ $newPhoto->temporaryUrl() }}"
+                             style="width:100%;height:100%;object-fit:cover;" alt="Preview">
+                    @elseif($student->photo)
+                        <img src="{{ Storage::url($student->photo) }}"
+                             style="width:100%;height:100%;object-fit:cover;" alt="{{ $student->full_name }}"
+                             onerror="this.style.display='none'">
+                    @else
+                        {{ strtoupper(substr($student->first_name, 0, 1)) }}
+                    @endif
+                </div>
+
+                {{-- Upload controls --}}
+                <div style="flex:1;min-width:160px;">
+                    <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--c-border);border-radius:8px;font-size:12px;font-weight:500;color:var(--c-text-2);cursor:pointer;background:var(--c-surface);transition:background 150ms;"
+                           onmouseover="this.style.background='var(--c-bg)'"
+                           onmouseout="this.style.background='var(--c-surface)'">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M8 2v9M4 6l4-4 4 4"/><path d="M2 13h12"/>
+                        </svg>
+                        {{ $newPhoto ? 'Change Photo' : ($student->photo ? 'Replace Photo' : 'Upload Photo') }}
+                        <input type="file" wire:model="newPhoto" accept="image/jpeg,image/png,image/webp"
+                               style="display:none;">
+                    </label>
+                    <div style="font-size:11px;color:var(--c-text-3);margin-top:5px;">
+                        JPG, PNG or WebP · max 2MB
+                    </div>
+                    @error('newPhoto')
+                        <div class="field-error">{{ $message }}</div>
+                    @enderror
+                    @if($student->photo && !$newPhoto)
+                        <button type="button" wire:click="removePhoto"
+                            wire:confirm="Remove this student's photo?"
+                            style="margin-top:6px;background:none;border:none;font-size:11px;color:var(--c-danger);cursor:pointer;font-family:var(--f-sans);padding:0;">
+                            Remove photo
+                        </button>
+                    @endif
+                </div>
+            </div>
+        </div>
             <label>First Name <span style="color:var(--c-danger)">*</span></label>
             <input type="text" wire:model="firstName" placeholder="First name">
             @error('firstName') <div class="field-error">{{ $message }}</div> @enderror
