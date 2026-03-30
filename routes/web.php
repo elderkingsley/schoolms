@@ -17,7 +17,15 @@ require __DIR__.'/auth.php';
 // ── Redirect root to login ────────────────────────────────────────────────────
 Route::get('/', fn() => redirect()->route('login'));
 
-// ── Admin routes ──────────────────────────────────────────────────────────────
+// ── Force password change — available to ALL authenticated users ───────────────
+Route::middleware('auth')->group(function () {
+    Route::get('/password/change',  [\App\Http\Controllers\ChangePasswordController::class, 'show'])
+        ->name('password.change');
+    Route::post('/password/change', [\App\Http\Controllers\ChangePasswordController::class, 'update'])
+        ->name('password.change.update');
+});
+
+// ── Admin routes (admin + super_admin) ────────────────────────────────────────
 Route::middleware(['auth', 'role:super_admin|admin'])
     ->prefix('admin')
     ->name('admin.')
@@ -52,6 +60,9 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         Route::get('/results/entry',                 \App\Livewire\Admin\Results\ResultEntry::class)->name('results.entry');
         Route::get('/results/overview',              \App\Livewire\Admin\Results\ResultsOverview::class)->name('results.overview');
         Route::get('/results/{student}/report-card', \App\Http\Controllers\Admin\ReportCardController::class)->name('results.report-card');
+
+        // Users — super_admin only (enforced inside the component too)
+        Route::get('/users', \App\Livewire\Admin\UserManager::class)->name('users');
     });
 
 // ── Teacher routes ─────────────────────────────────────────────────────────────
@@ -61,6 +72,15 @@ Route::middleware(['auth', 'role:teacher'])
     ->group(function () {
         Route::get('/dashboard', \App\Livewire\Teacher\Dashboard::class)->name('dashboard');
         Route::get('/results',   \App\Livewire\Teacher\ResultEntry::class)->name('results');
+    });
+
+// ── Accountant routes ──────────────────────────────────────────────────────────
+Route::middleware(['auth', 'role:accountant'])
+    ->prefix('accountant')
+    ->name('accountant.')
+    ->group(function () {
+        Route::get('/dashboard', \App\Livewire\Accountant\Dashboard::class)->name('dashboard');
+        Route::get('/invoices',  \App\Livewire\Accountant\InvoiceList::class)->name('invoices');
     });
 
 // ── Parent routes ─────────────────────────────────────────────────────────────

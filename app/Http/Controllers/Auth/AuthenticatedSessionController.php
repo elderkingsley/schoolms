@@ -11,17 +11,11 @@ use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
 {
-    /**
-     * Display the login view.
-     */
     public function create(): View
     {
         return view('auth.login');
     }
 
-    /**
-     * Handle an incoming authentication request.
-     */
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
@@ -30,17 +24,27 @@ class AuthenticatedSessionController extends Controller
 
         $user = $request->user();
 
-    return redirect()->intended(match($user->user_type) {
-        'super_admin', 'admin' => route('admin.dashboard'),
-        'teacher'              => route('teacher.dashboard'),
-        'parent'               => route('parent.dashboard'),
-        default                => route('dashboard'),
-    });
+        // Block inactive accounts immediately after login attempt
+        if (! $user->is_active) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()->withErrors([
+                'email' => 'Your account has been deactivated. Please contact the school administrator.',
+            ]);
+        }
+
+        // Route each user type to their portal
+        return redirect()->intended(match($user->user_type) {
+            'super_admin', 'admin' => route('admin.dashboard'),
+            'teacher'              => route('teacher.dashboard'),
+            'accountant'           => route('accountant.dashboard'),
+            'parent'               => route('parent.dashboard'),
+            default                => route('login'),
+        });
     }
 
-    /**
-     * Destroy an authenticated session.
-     */
     public function destroy(Request $request): RedirectResponse
     {
         Auth::guard('web')->logout();
