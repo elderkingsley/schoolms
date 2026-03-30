@@ -96,7 +96,7 @@
             <a href="{{ route('parent.fees') }}?child={{ $child->id }}" class="child-card">
                 <div class="child-avatar">{{ strtoupper(substr($child->first_name, 0, 1)) }}</div>
                 <div class="child-name">{{ $child->full_name }}</div>
-                <div class="child-class">{{ $enrolment?->schoolClass?->name ?? 'Class not assigned' }}</div>
+                <div class="child-class">{{ $enrolment?->schoolClass?->display_name ?? 'Class not assigned' }}</div>
                 <div class="child-adm">{{ $child->admission_number }}</div>
 
                 @if($feeStatus)

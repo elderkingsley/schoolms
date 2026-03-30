@@ -142,7 +142,7 @@
                         <tr>
                             <th>Fee Item</th>
                             @foreach($classes as $class)
-                                <th>{{ $class->name }}</th>
+                                <th>{{ $class->display_name }}</th>
                             @endforeach
                         </tr>
                     </thead>
@@ -194,7 +194,7 @@
                         <tr>
                             <th>Fee Item</th>
                             @foreach($classes as $class)
-                                <th>{{ $class->name }}</th>
+                                <th>{{ $class->display_name }}</th>
                             @endforeach
                         </tr>
                     </thead>

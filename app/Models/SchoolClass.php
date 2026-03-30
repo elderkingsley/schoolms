@@ -3,12 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SchoolClass extends Model
 {
-    protected $fillable = ['name', 'level', 'order'];
+    protected $fillable = ['name', 'level', 'arm', 'form_teacher_id', 'order'];
+
+    // ── Relationships ─────────────────────────────────────────────────────────
+
+    public function formTeacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'form_teacher_id');
+    }
 
     public function subjects(): BelongsToMany
     {
@@ -20,5 +28,37 @@ class SchoolClass extends Model
     public function enrolments(): HasMany
     {
         return $this->hasMany(Enrolment::class);
+    }
+
+    // ── Accessors ─────────────────────────────────────────────────────────────
+
+    /**
+     * Human-readable display name.
+     * "Primary 3" when no arm, "Primary 3 — Gold" when arm is set.
+     * Use this everywhere a class name is shown to humans.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->arm
+            ? "{$this->name} — {$this->arm}"
+            : $this->name;
+    }
+
+    /**
+     * Short display for tight spaces (report card headers, etc.)
+     * "Primary 3 (Gold)" or "Primary 3"
+     */
+    public function getShortNameAttribute(): string
+    {
+        return $this->arm
+            ? "{$this->name} ({$this->arm})"
+            : $this->name;
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('order')->orderBy('name')->orderBy('arm');
     }
 }

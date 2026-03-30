@@ -438,7 +438,7 @@
                     @endif
                 </a>
 
-                <a href="#" class="nav-link {{ request()->routeIs('admin.results*') ? 'active' : '' }}">
+                <a href="{{ route('admin.results.entry') }}" class="nav-link {{ request()->routeIs('admin.results*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <path d="M12 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
                         <path d="M5 6h6M5 9h6M5 12h3"/>
@@ -505,7 +505,7 @@
                     </svg>
                     Users
                 </a>
-                <a href="#" class="nav-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}">
+                <a href="{{ route('admin.classes') }}" class="nav-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <rect x="1" y="4" width="14" height="9" rx="1.5"/>
                         <path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/>
@@ -591,7 +591,7 @@
         </svg>
         Students
     </a>
-    <a href="#" class="bottom-nav-item {{ request()->routeIs('admin.results*') ? 'active' : '' }}">
+    <a href="{{ route('admin.results.entry') }}" class="bottom-nav-item {{ request()->routeIs('admin.results*') ? 'active' : '' }}">
         <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
             <path d="M12 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
             <path d="M5 6h6M5 9h6M5 12h3"/>

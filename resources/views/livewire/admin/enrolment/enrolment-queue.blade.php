@@ -284,7 +284,7 @@
                 <select wire:model="assignedClass">
                     <option value="">Select class</option>
                     @foreach($classes as $class)
-                        <option value="{{ $class }}">{{ $class }}</option>
+                        <option value="{{ $class->id }}">{{ $class->display_name }}</option>
                     @endforeach
                 </select>
                 @error('assignedClass') <div class="field-error">{{ $message }}</div> @enderror

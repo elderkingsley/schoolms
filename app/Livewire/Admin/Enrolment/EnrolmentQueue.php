@@ -37,7 +37,7 @@ class EnrolmentQueue extends Component
     public function confirmApproval(): void
     {
         $this->validate([
-            'assignedClass'   => 'required|exists:school_classes,name',
+            'assignedClass'   => 'required|exists:school_classes,id',
             'admissionNumber' => 'required|string|unique:students,admission_number',
         ]);
 
@@ -53,7 +53,7 @@ class EnrolmentQueue extends Component
             ]);
 
             $session = AcademicSession::current();
-            $class   = SchoolClass::where('name', $this->assignedClass)->first();
+            $class   = SchoolClass::findOrFail($this->assignedClass);
 
             if ($session && $class) {
                 Enrolment::firstOrCreate(
@@ -171,7 +171,7 @@ class EnrolmentQueue extends Component
             ->latest()
             ->paginate(15);
 
-        $classes = SchoolClass::orderBy('order')->pluck('name');
+        $classes = SchoolClass::orderBy('order')->orderBy('name')->orderBy('arm')->get();
 
         return view('livewire.admin.enrolment.enrolment-queue', compact('pending', 'classes'))
             ->layout('layouts.admin', ['title' => 'Enrolment Queue']);

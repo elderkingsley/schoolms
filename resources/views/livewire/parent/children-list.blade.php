@@ -72,7 +72,7 @@
                 @php $latestEnrolment = $child->enrolments->sortByDesc('id')->first(); @endphp
                 <div class="detail-item">
                     <div class="detail-label">Current Class</div>
-                    <div class="detail-value">{{ $latestEnrolment?->schoolClass?->name ?? '—' }}</div>
+                    <div class="detail-value">{{ $latestEnrolment?->schoolClass?->display_name ?? '—' }}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Session</div>

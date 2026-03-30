@@ -42,14 +42,25 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         // Messages
         Route::get('/messages',         \App\Livewire\Admin\Messages\MessageInbox::class)->name('messages');
         Route::get('/messages/compose', \App\Livewire\Admin\Messages\MessageCompose::class)->name('messages.compose');
+
+        // Academics
+        Route::get('/classes',          \App\Livewire\Admin\Academics\ClassManager::class)->name('classes');
+        Route::get('/classes/subjects', \App\Livewire\Admin\Academics\ClassSubjectManager::class)->name('classes.subjects');
+        Route::get('/subjects',         \App\Livewire\Admin\Academics\SubjectManager::class)->name('subjects');
+
+        // Results
+        Route::get('/results/entry',                 \App\Livewire\Admin\Results\ResultEntry::class)->name('results.entry');
+        Route::get('/results/overview',              \App\Livewire\Admin\Results\ResultsOverview::class)->name('results.overview');
+        Route::get('/results/{student}/report-card', \App\Http\Controllers\Admin\ReportCardController::class)->name('results.report-card');
     });
 
-// ── Teacher routes ────────────────────────────────────────────────────────────
+// ── Teacher routes ─────────────────────────────────────────────────────────────
 Route::middleware(['auth', 'role:teacher'])
     ->prefix('teacher')
     ->name('teacher.')
     ->group(function () {
         Route::get('/dashboard', \App\Livewire\Teacher\Dashboard::class)->name('dashboard');
+        Route::get('/results',   \App\Livewire\Teacher\ResultEntry::class)->name('results');
     });
 
 // ── Parent routes ─────────────────────────────────────────────────────────────

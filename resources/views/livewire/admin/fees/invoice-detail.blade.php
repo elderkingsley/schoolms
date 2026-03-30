@@ -138,7 +138,7 @@
                     ->first();
             @endphp
             @if($enrolment)
-                · {{ $enrolment->schoolClass->name }}
+                · {{ $enrolment->schoolClass->display_name }}
             @endif
         </div>
         <div class="inv-adm">{{ $invoice->student->admission_number }}</div>
@@ -292,7 +292,7 @@
             @if($enrolment)
             <div class="info-row">
                 <span class="info-label">Class</span>
-                <span class="info-value">{{ $enrolment->schoolClass->name }}</span>
+                <span class="info-value">{{ $enrolment->schoolClass->display_name }}</span>
             </div>
             @endif
             <div class="info-row">
