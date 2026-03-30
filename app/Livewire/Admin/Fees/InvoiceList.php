@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Fees;
 
+use App\Jobs\SendInvoiceJob;
 use App\Models\FeeInvoice;
 use App\Models\Term;
 use App\Services\FeeService;
@@ -12,109 +13,156 @@ class InvoiceList extends Component
 {
     use WithPagination;
 
-    public ?int  $selectedTermId  = null;
-    public string $search         = '';
-    public string $filterStatus   = ''; // '', 'unpaid', 'partial', 'paid'
+    public ?int   $selectedTermId    = null;
+    public string $search            = '';
+    public string $filterStatus      = '';
+    public string $tab               = 'all';
 
-    // Controls the "Are you sure?" confirmation modal before generating
-    public bool $showConfirmModal = false;
+    // Bulk select
+    public array  $selectedIds       = [];
+    public bool   $selectAll         = false;
 
-    // Feedback shown after generation runs
+    // Modals
+    public bool   $showConfirmModal  = false;
+    public bool   $showSendModal     = false;
+    public int    $sendBatchSize     = 10;
+
     public ?string $generationMessage = null;
 
     public function mount(): void
     {
-        $activeTerm = Term::current();
-        $this->selectedTermId = $activeTerm?->id;
+        $this->selectedTermId = Term::current()?->id;
     }
 
-    // ─── Lifecycle ────────────────────────────────────────────────────────────
-
-    // Reset pagination whenever the user changes filters — otherwise page 2
-    // of a previous filter bleeds into the new one
     public function updatedSelectedTermId(): void
     {
-        $this->resetPage();
-        $this->generationMessage = null;
+        $this->resetPage(); $this->generationMessage = null;
+        $this->selectedIds = []; $this->selectAll = false;
     }
-
-    public function updatedSearch(): void
+    public function updatedTab(): void
     {
-        $this->resetPage();
+        $this->resetPage(); $this->selectedIds = []; $this->selectAll = false;
     }
+    public function updatedSearch(): void       { $this->resetPage(); }
+    public function updatedFilterStatus(): void { $this->resetPage(); }
 
-    public function updatedFilterStatus(): void
+    public function updatedSelectAll(bool $value): void
     {
-        $this->resetPage();
+        $this->selectedIds = $value
+            ? $this->buildQuery()->paginate(25)->pluck('id')->map(fn($id) => (string)$id)->toArray()
+            : [];
     }
 
-    // ─── Generate invoices ────────────────────────────────────────────────────
-
-    public function confirmGenerate(): void
+    public function toggleSelect(int $id): void
     {
-        $this->showConfirmModal = true;
+        $sid = (string)$id;
+        if (in_array($sid, $this->selectedIds)) {
+            $this->selectedIds = array_values(array_filter($this->selectedIds, fn($i) => $i !== $sid));
+        } else {
+            $this->selectedIds[] = $sid;
+        }
+        $this->selectAll = false;
     }
 
-    public function cancelGenerate(): void
-    {
-        $this->showConfirmModal = false;
-    }
+    public function confirmGenerate(): void { $this->showConfirmModal = true; }
+    public function cancelGenerate(): void  { $this->showConfirmModal = false; }
 
     public function generateInvoices(FeeService $feeService): void
     {
         $this->showConfirmModal = false;
-
-        if (! $this->selectedTermId) {
-            return;
-        }
+        if (! $this->selectedTermId) return;
 
         $term  = Term::findOrFail($this->selectedTermId);
         $count = $feeService->generateInvoicesForTerm($term);
 
         $this->generationMessage = $count > 0
-            ? "✓ {$count} new invoice(s) generated and parents notified by email."
-            : "All active students already have invoices for this term. No new invoices were created.";
+            ? "✓ {$count} invoice(s) created as drafts. Review in the Drafts tab, then send."
+            : "All active students already have invoices for this term.";
 
+        $this->tab = 'draft';
         $this->resetPage();
     }
 
-    // ─── Render ───────────────────────────────────────────────────────────────
+    public function sendInvoice(int $invoiceId): void
+    {
+        $invoice = FeeInvoice::with('student')->findOrFail($invoiceId);
+        SendInvoiceJob::dispatch($invoice);
+        session()->flash('success', "Invoice for {$invoice->student->full_name} queued for delivery.");
+    }
+
+    public function sendSelected(): void
+    {
+        if (empty($this->selectedIds)) return;
+        $count = 0;
+        foreach ($this->selectedIds as $id) {
+            $invoice = FeeInvoice::find((int)$id);
+            if ($invoice && $invoice->isDraft()) {
+                SendInvoiceJob::dispatch($invoice);
+                $count++;
+            }
+        }
+        $this->selectedIds = []; $this->selectAll = false;
+        session()->flash('success', "{$count} invoice(s) queued for delivery.");
+    }
+
+    public function openSendModal(): void  { $this->showSendModal = true; }
+
+    public function sendBatch(): void
+    {
+        $this->validate(['sendBatchSize' => 'required|integer|min:1|max:500']);
+
+        $drafts = FeeInvoice::draft()
+            ->when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId))
+            ->limit($this->sendBatchSize)->get();
+
+        foreach ($drafts as $invoice) { SendInvoiceJob::dispatch($invoice); }
+
+        $this->showSendModal = false;
+        session()->flash('success', "{$drafts->count()} invoice(s) queued for delivery.");
+    }
+
+    public function sendAllDrafts(): void
+    {
+        $drafts = FeeInvoice::draft()
+            ->when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId))
+            ->get();
+
+        foreach ($drafts as $invoice) { SendInvoiceJob::dispatch($invoice); }
+        session()->flash('success', "{$drafts->count()} invoice(s) queued for delivery to all parents.");
+    }
+
+    protected function buildQuery()
+    {
+        return FeeInvoice::with('student', 'term.session')
+            ->when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId))
+            ->when($this->filterStatus,   fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->tab === 'draft', fn($q) => $q->draft())
+            ->when($this->tab === 'sent',  fn($q) => $q->sent())
+            ->when($this->search, fn($q) =>
+                $q->whereHas('student', fn($sq) =>
+                    $sq->where('first_name', 'like', "%{$this->search}%")
+                       ->orWhere('last_name', 'like', "%{$this->search}%")
+                       ->orWhere('admission_number', 'like', "%{$this->search}%")
+                )
+            )
+            ->orderByDesc('created_at');
+    }
 
     public function render()
     {
-        $terms = Term::with('session')
-            ->orderByDesc('academic_session_id')
-            ->orderBy('id')
-            ->get();
+        $terms    = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
+        $invoices = $this->buildQuery()->paginate(25);
 
-        $invoicesQuery = FeeInvoice::with('student', 'term.session')
-            ->when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId))
-            ->when($this->filterStatus,   fn($q) => $q->where('status', $this->filterStatus))
-            ->when($this->search, function ($q) {
-                $q->whereHas('student', function ($sq) {
-                    $sq->where('first_name', 'like', "%{$this->search}%")
-                       ->orWhere('last_name',  'like', "%{$this->search}%")
-                       ->orWhere('admission_number', 'like', "%{$this->search}%");
-                });
-            })
-            ->orderBy('created_at', 'desc');
-
-        // Summary counts for the stat bar — scoped to selected term only
-        $summaryQuery = FeeInvoice::when(
-            $this->selectedTermId,
-            fn($q) => $q->where('term_id', $this->selectedTermId)
-        );
+        $base = FeeInvoice::when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId));
 
         $stats = [
-            'total'   => (clone $summaryQuery)->count(),
-            'unpaid'  => (clone $summaryQuery)->where('status', 'unpaid')->count(),
-            'partial' => (clone $summaryQuery)->where('status', 'partial')->count(),
-            'paid'    => (clone $summaryQuery)->where('status', 'paid')->count(),
-            'revenue' => (clone $summaryQuery)->sum('amount_paid'),
-            'outstanding' => (clone $summaryQuery)->sum('balance'),
+            'total'       => (clone $base)->count(),
+            'draft'       => (clone $base)->draft()->count(),
+            'sent'        => (clone $base)->sent()->count(),
+            'paid'        => (clone $base)->where('status','paid')->count(),
+            'revenue'     => (clone $base)->sum('amount_paid'),
+            'outstanding' => (clone $base)->sum('balance'),
         ];
-
-        $invoices = $invoicesQuery->paginate(25);
 
         return view('livewire.admin.fees.invoice-list', compact('terms', 'invoices', 'stats'))
             ->layout('layouts.admin', ['title' => 'Fee Invoices']);

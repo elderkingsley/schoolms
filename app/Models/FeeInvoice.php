@@ -10,14 +10,18 @@ class FeeInvoice extends Model
 {
     protected $fillable = [
         'student_id', 'term_id',
-        'total_amount', 'amount_paid', 'balance', 'status',
+        'total_amount', 'amount_paid', 'balance',
+        'status', 'sent_at',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
         'amount_paid'  => 'decimal:2',
         'balance'      => 'decimal:2',
+        'sent_at'      => 'datetime',
     ];
+
+    // ── Relationships ─────────────────────────────────────────────────────────
 
     public function student(): BelongsTo
     {
@@ -37,6 +41,30 @@ class FeeInvoice extends Model
     public function items(): HasMany
     {
         return $this->hasMany(FeeInvoiceItem::class);
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    public function scopeDraft($query)
+    {
+        return $query->whereNull('sent_at');
+    }
+
+    public function scopeSent($query)
+    {
+        return $query->whereNotNull('sent_at');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    public function isDraft(): bool
+    {
+        return $this->sent_at === null;
+    }
+
+    public function isSent(): bool
+    {
+        return $this->sent_at !== null;
     }
 
     public function recalculateTotal(): void

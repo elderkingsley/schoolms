@@ -1,214 +1,245 @@
 <div>
 <style>
-/* ── Page header ─────────────────────────────────────────────────────── */
-.pg-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+.pg-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
 .pg-title  { font-size:20px; font-weight:700; color:var(--c-text-1); letter-spacing:-0.03em; }
 .pg-sub    { font-size:13px; color:var(--c-text-3); margin-top:2px; }
-
-/* ── Flash / feedback ───────────────────────────────────────────────── */
 .flash { padding:12px 16px; border-radius:var(--r-sm); margin-bottom:16px; font-size:13px; font-weight:500; }
 .flash-success { background:rgba(21,128,61,0.08); border:1px solid rgba(21,128,61,0.2); color:#15803D; }
-.flash-info    { background:rgba(26,86,255,0.06);  border:1px solid rgba(26,86,255,0.15); color:var(--c-accent); }
+.flash-info    { background:rgba(26,86,255,0.06); border:1px solid rgba(26,86,255,0.15); color:var(--c-accent); }
 
-/* ── Stat cards ─────────────────────────────────────────────────────── */
-.stats-row { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; }
-@media(min-width:640px){ .stats-row { grid-template-columns:repeat(3,1fr); } }
-@media(min-width:1024px){ .stats-row { grid-template-columns:repeat(6,1fr); } }
-.stat-card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); padding:14px 16px; }
-.stat-label { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.08em; }
-.stat-value { font-size:20px; font-weight:700; color:var(--c-text-1); margin-top:4px; letter-spacing:-0.03em; }
-.stat-value.accent { color:var(--c-accent); }
-.stat-value.success { color:var(--c-success); }
-.stat-value.warning { color:var(--c-warning); }
-.stat-value.danger  { color:var(--c-danger); }
+/* Stats bar */
+.stats-bar { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:18px; }
+@media(min-width:640px) { .stats-bar { grid-template-columns:repeat(4,1fr); } }
+.stat-card { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); padding:12px 14px; cursor:pointer; transition:border-color 150ms; }
+.stat-card.active { border-color:var(--c-accent); background:var(--c-accent-bg); }
+.stat-label { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.06em; }
+.stat-value { font-size:20px; font-weight:700; margin-top:4px; letter-spacing:-0.02em; font-family:var(--f-mono); }
 
-/* ── Toolbar ─────────────────────────────────────────────────────────── */
-.toolbar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
-.toolbar-left { display:flex; gap:10px; flex:1; flex-wrap:wrap; }
+/* Tabs */
+.tabs { display:flex; gap:2px; background:var(--c-bg); border:1px solid var(--c-border); border-radius:9px; padding:3px; margin-bottom:16px; width:fit-content; }
+.tab-btn { padding:7px 16px; border-radius:6px; border:none; background:none; font-size:13px; font-weight:500; color:var(--c-text-3); cursor:pointer; font-family:var(--f-sans); transition:all 150ms; }
+.tab-btn.active { background:var(--c-surface); color:var(--c-text-1); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.tab-count { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:9px; font-size:10px; font-weight:700; margin-left:5px; background:var(--c-border); color:var(--c-text-2); }
+.tab-btn.active .tab-count { background:var(--c-accent); color:#fff; }
 
-.search-wrap { position:relative; flex:1; min-width:180px; max-width:320px; }
+/* Toolbar */
+.toolbar { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+.search-wrap { position:relative; flex:1; min-width:180px; max-width:280px; }
 .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--c-text-3); pointer-events:none; }
-.search-wrap input { width:100%; padding:9px 12px 9px 34px; border:1px solid var(--c-border); border-radius:8px; font-family:var(--f-sans); font-size:13px; color:var(--c-text-1); background:var(--c-surface); outline:none; transition:border-color 150ms; }
-.search-wrap input:focus { border-color:var(--c-accent); box-shadow:0 0 0 3px rgba(26,86,255,0.08); }
+.search-wrap input { width:100%; padding:8px 12px 8px 34px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-family:var(--f-sans); background:var(--c-surface); outline:none; color:var(--c-text-1); }
+.search-wrap input:focus { border-color:var(--c-accent); }
+.sel { padding:8px 10px; border:1px solid var(--c-border); border-radius:8px; font-size:12px; font-family:var(--f-sans); background:var(--c-surface); outline:none; -webkit-appearance:none; color:var(--c-text-1); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; padding-right:24px; }
 
-.filter-select { padding:9px 12px; border:1px solid var(--c-border); border-radius:8px; font-family:var(--f-sans); font-size:13px; color:var(--c-text-1); background:var(--c-surface); outline:none; cursor:pointer; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:30px; }
-.filter-select:focus { border-color:var(--c-accent); }
+/* Bulk action bar */
+.bulk-bar { background:var(--c-accent-bg); border:1px solid rgba(26,86,255,0.2); border-radius:8px; padding:10px 16px; margin-bottom:12px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.bulk-count { font-size:13px; font-weight:600; color:var(--c-accent); }
+.btn-bulk { padding:6px 14px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; font-family:var(--f-sans); border:1px solid rgba(26,86,255,0.25); background:var(--c-surface); color:var(--c-accent); transition:background 150ms; }
+.btn-bulk:hover { background:rgba(26,86,255,0.08); }
+.btn-bulk-green { background:#15803D; color:#fff; border-color:#15803D; }
+.btn-bulk-green:hover { opacity:0.9; }
 
-/* ── Buttons ─────────────────────────────────────────────────────────── */
-.btn-primary { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; white-space:nowrap; }
-.btn-primary:hover { opacity:0.9; }
-.btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
-
-/* ── Table panel ─────────────────────────────────────────────────────── */
+/* Table */
 .panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); overflow:hidden; }
-.panel-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--c-border); }
+.panel-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--c-border); flex-wrap:wrap; gap:8px; }
 .panel-title { font-size:13px; font-weight:600; color:var(--c-text-1); }
-.panel-count { font-size:12px; color:var(--c-text-3); }
-
 .data-table { width:100%; border-collapse:collapse; }
-.data-table th { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.08em; padding:10px 20px; text-align:left; background:var(--c-bg); border-bottom:1px solid var(--c-border); }
-.data-table td { padding:14px 20px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
+.data-table th { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.07em; padding:9px 16px; text-align:left; background:var(--c-bg); border-bottom:1px solid var(--c-border); white-space:nowrap; }
+.data-table td { padding:12px 16px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
 .data-table tr:last-child td { border-bottom:none; }
 .data-table tr:hover td { background:#fafaf8; }
+.student-name { font-weight:600; }
+.student-adm  { font-family:var(--f-mono); font-size:10px; color:var(--c-text-3); }
+.mono { font-family:var(--f-mono); font-size:12px; }
 
-.student-name { font-weight:600; color:var(--c-text-1); }
-.student-meta { font-size:11px; color:var(--c-text-3); margin-top:2px; }
-.amount-cell  { font-family:var(--f-mono); font-size:12px; }
-
-/* ── Status badges ───────────────────────────────────────────────────── */
-.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:500; }
+/* Badges */
+.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:500; }
 .badge-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
-.badge-unpaid  { background:rgba(190,18,60,0.08);  color:var(--c-danger); }
-.badge-partial { background:rgba(180,83,9,0.08);   color:var(--c-warning); }
-.badge-paid    { background:rgba(21,128,61,0.08);   color:var(--c-success); }
+.badge-unpaid  { background:rgba(190,18,60,0.08); color:var(--c-danger); }
+.badge-partial { background:rgba(180,83,9,0.08);  color:#B45309; }
+.badge-paid    { background:rgba(21,128,61,0.08);  color:#15803D; }
+.badge-draft   { background:rgba(100,100,100,0.08); color:#666; }
+.badge-sent    { background:rgba(26,86,255,0.08); color:var(--c-accent); }
 
-/* ── Action link ─────────────────────────────────────────────────────── */
-.link-view { font-size:12px; font-weight:500; color:var(--c-accent); text-decoration:none; }
-.link-view:hover { text-decoration:underline; }
+/* Row actions */
+.row-actions { display:flex; align-items:center; gap:5px; }
+.btn-sm { padding:4px 9px; border-radius:6px; font-size:11px; font-weight:500; border:1px solid var(--c-border); background:none; cursor:pointer; font-family:var(--f-sans); white-space:nowrap; }
+.btn-sm:hover { background:var(--c-bg); }
+.btn-sm-send { background:#15803D; color:#fff; border-color:#15803D; }
+.btn-sm-send:hover { opacity:0.9; }
+.btn-sm-link { color:var(--c-accent); text-decoration:none; padding:4px 9px; border-radius:6px; font-size:11px; font-weight:500; border:1px solid var(--c-border); }
+.btn-sm-link:hover { background:var(--c-bg); }
 
-/* ── Empty state ─────────────────────────────────────────────────────── */
-.empty-state { text-align:center; padding:60px 20px; }
-.empty-icon  { color:var(--c-border); margin-bottom:12px; }
-.empty-title { font-size:15px; font-weight:600; color:var(--c-text-2); }
-.empty-desc  { font-size:13px; color:var(--c-text-3); margin-top:4px; }
+/* Action buttons top */
+.btn-generate { padding:9px 16px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
+.btn-generate:hover { opacity:0.9; }
+.btn-secondary { padding:9px 16px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); }
+.btn-secondary:hover { background:var(--c-bg); }
+.btn-send-all  { padding:9px 16px; background:#15803D; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
+.btn-send-all:hover { opacity:0.9; }
 
-/* ── Pagination ─────────────────────────────────────────────────────── */
-.pag-wrap { padding:16px 20px; border-top:1px solid var(--c-border); }
+/* Checkbox */
+input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-accent); cursor:pointer; }
 
-/* ── Confirm modal ───────────────────────────────────────────────────── */
+/* Modal */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
 .modal-box { background:var(--c-surface); border-radius:16px; width:100%; max-width:440px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
-.modal-title { font-size:16px; font-weight:700; color:var(--c-text-1); letter-spacing:-0.02em; margin-bottom:8px; }
-.modal-body  { font-size:13px; color:var(--c-text-2); line-height:1.6; margin-bottom:24px; }
-.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
-.btn-cancel { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); color:var(--c-text-2); transition:background 150ms; }
-.btn-cancel:hover { background:var(--c-bg); }
-.btn-confirm { padding:9px 16px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
-.btn-confirm:hover { opacity:0.9; }
+.modal-title { font-size:16px; font-weight:700; color:var(--c-text-1); margin-bottom:8px; }
+.modal-sub   { font-size:13px; color:var(--c-text-2); margin-bottom:20px; line-height:1.5; }
+.form-field { margin-bottom:16px; }
+.form-field label { display:block; font-size:12px; font-weight:500; color:var(--c-text-2); margin-bottom:5px; }
+.form-field input { width:100%; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; font-size:14px; font-family:var(--f-sans); background:var(--c-bg); outline:none; color:var(--c-text-1); }
+.form-field input:focus { border-color:var(--c-accent); background:#fff; }
+.field-hint  { font-size:11px; color:var(--c-text-3); margin-top:4px; }
+.field-error { font-size:11px; color:var(--c-danger); margin-top:4px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+.btn-cancel  { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); }
+.btn-confirm { padding:9px 20px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
+.btn-confirm-green { padding:9px 20px; background:#15803D; color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
 
-/* ── Mobile: hide less important columns ────────────────────────────── */
-@media(max-width:640px) {
-    .col-balance, .col-term { display:none; }
-}
+.empty-state { padding:48px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
+.pag-wrap { padding:14px 20px; border-top:1px solid var(--c-border); }
+@media(max-width:640px) { .hide-sm { display:none; } }
 </style>
 
-{{-- ── Page header ──────────────────────────────────────────────────────── --}}
+@if(session('success'))
+    <div class="flash flash-success">✓ {{ session('success') }}</div>
+@endif
+@if($generationMessage)
+    <div class="flash flash-info">{{ $generationMessage }}</div>
+@endif
+
+{{-- Page header --}}
 <div class="pg-header">
     <div>
         <div class="pg-title">Fee Invoices</div>
-        <div class="pg-sub">Generate and manage student fee invoices by term</div>
+        <div class="pg-sub">Generate drafts, edit items, then send to parents individually or in bulk.</div>
     </div>
-    <button wire:click="confirmGenerate"
-            @if(!$selectedTermId) disabled @endif
-            class="btn-primary">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3v10M3 8h10"/>
-        </svg>
-        Generate Invoices
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        @if($stats['draft'] > 0)
+            <button class="btn-secondary" wire:click="openSendModal">
+                Send {{ $stats['draft'] }} Draft{{ $stats['draft'] > 1 ? 's' : '' }}…
+            </button>
+            <button class="btn-send-all" wire:click="sendAllDrafts"
+                wire:confirm="Send ALL {{ $stats['draft'] }} draft invoices to parents now?">
+                Send All Drafts
+            </button>
+        @endif
+        <button class="btn-generate" wire:click="confirmGenerate">
+            + Generate Invoices
+        </button>
+    </div>
 </div>
 
-{{-- ── Generation feedback ──────────────────────────────────────────────── --}}
-@if($generationMessage)
-    <div class="flash flash-{{ str_starts_with($generationMessage, '✓') ? 'success' : 'info' }}">
-        {{ $generationMessage }}
-    </div>
-@endif
+{{-- Term selector --}}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <label style="font-size:12px;font-weight:500;color:var(--c-text-2);">Term:</label>
+    <select wire:model.live="selectedTermId" class="sel">
+        <option value="">All Terms</option>
+        @foreach($terms as $term)
+            <option value="{{ $term->id }}">{{ $term->name }} — {{ $term->session->name }}</option>
+        @endforeach
+    </select>
+</div>
 
-{{-- ── Stat cards ───────────────────────────────────────────────────────── --}}
-<div class="stats-row">
+{{-- Stats bar --}}
+<div class="stats-bar">
     <div class="stat-card">
         <div class="stat-label">Total Invoices</div>
-        <div class="stat-value">{{ number_format($stats['total']) }}</div>
+        <div class="stat-value">{{ $stats['total'] }}</div>
+    </div>
+    <div class="stat-card" style="{{ $stats['draft'] > 0 ? 'border-color:#B45309' : '' }}">
+        <div class="stat-label">Drafts (unsent)</div>
+        <div class="stat-value" style="{{ $stats['draft'] > 0 ? 'color:#B45309' : '' }}">{{ $stats['draft'] }}</div>
     </div>
     <div class="stat-card">
-        <div class="stat-label">Unpaid</div>
-        <div class="stat-value danger">{{ number_format($stats['unpaid']) }}</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Part-Paid</div>
-        <div class="stat-value warning">{{ number_format($stats['partial']) }}</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Fully Paid</div>
-        <div class="stat-value success">{{ number_format($stats['paid']) }}</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-label">Revenue Collected</div>
-        <div class="stat-value accent" style="font-size:15px;">₦{{ number_format($stats['revenue'], 0) }}</div>
+        <div class="stat-label">Collected</div>
+        <div class="stat-value" style="color:#15803D;font-size:15px;">₦{{ number_format($stats['revenue'], 0) }}</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Outstanding</div>
-        <div class="stat-value danger" style="font-size:15px;">₦{{ number_format($stats['outstanding'], 0) }}</div>
+        <div class="stat-value" style="color:var(--c-danger);font-size:15px;">₦{{ number_format($stats['outstanding'], 0) }}</div>
     </div>
 </div>
 
-{{-- ── Toolbar ──────────────────────────────────────────────────────────── --}}
+{{-- Tabs --}}
+<div class="tabs">
+    <button class="tab-btn {{ $tab === 'all' ? 'active' : '' }}" wire:click="$set('tab','all')">
+        All <span class="tab-count">{{ $stats['total'] }}</span>
+    </button>
+    <button class="tab-btn {{ $tab === 'draft' ? 'active' : '' }}" wire:click="$set('tab','draft')">
+        Drafts <span class="tab-count">{{ $stats['draft'] }}</span>
+    </button>
+    <button class="tab-btn {{ $tab === 'sent' ? 'active' : '' }}" wire:click="$set('tab','sent')">
+        Sent <span class="tab-count">{{ $stats['sent'] }}</span>
+    </button>
+</div>
+
+{{-- Toolbar --}}
 <div class="toolbar">
-    <div class="toolbar-left">
-        {{-- Term selector --}}
-        <select wire:model.live="selectedTermId" class="filter-select">
-            <option value="">All Terms</option>
-            @foreach($terms as $term)
-                <option value="{{ $term->id }}">
-                    {{ $term->name }} — {{ $term->session->name }}
-                    @if($term->is_active) (Current) @endif
-                </option>
-            @endforeach
-        </select>
-
-        {{-- Status filter --}}
-        <select wire:model.live="filterStatus" class="filter-select">
-            <option value="">All Statuses</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="partial">Part-Paid</option>
-            <option value="paid">Paid</option>
-        </select>
-
-        {{-- Search --}}
-        <div class="search-wrap">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3 3"/>
-            </svg>
-            <input type="text"
-                   wire:model.live.debounce.300ms="search"
-                   placeholder="Search student name or number…">
-        </div>
+    <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3 3"/>
+        </svg>
+        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search student…">
     </div>
+    <select wire:model.live="filterStatus" class="sel">
+        <option value="">All payment statuses</option>
+        <option value="unpaid">Unpaid</option>
+        <option value="partial">Part Paid</option>
+        <option value="paid">Paid</option>
+    </select>
 </div>
 
-{{-- ── Invoice table ─────────────────────────────────────────────────────── --}}
+{{-- Bulk action bar --}}
+@if(count($selectedIds) > 0)
+    <div class="bulk-bar">
+        <span class="bulk-count">{{ count($selectedIds) }} selected</span>
+        <button class="btn-bulk btn-bulk-green" wire:click="sendSelected"
+            wire:confirm="Send invoices to {{ count($selectedIds) }} parent(s) now?">
+            ✉ Send Selected
+        </button>
+        <button class="btn-bulk" wire:click="$set('selectedIds', [])">Clear selection</button>
+    </div>
+@endif
+
+{{-- Table --}}
 <div class="panel">
     <div class="panel-head">
-        <span class="panel-title">Invoices</span>
-        <span class="panel-count">{{ $invoices->total() }} {{ Str::plural('record', $invoices->total()) }}</span>
+        <span class="panel-title">{{ $invoices->total() }} invoice(s)</span>
+        <a href="{{ route('admin.fees.items') }}"
+           style="font-size:12px;color:var(--c-text-3);text-decoration:none;">
+            Manage Fee Items →
+        </a>
     </div>
 
     @if($invoices->isEmpty())
         <div class="empty-state">
-            <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-                <rect x="4" y="2" width="16" height="20" rx="2"/>
-                <path d="M8 7h8M8 11h8M8 15h5"/>
-            </svg>
-            <div class="empty-title">No invoices found</div>
-            <div class="empty-desc">
-                @if($selectedTermId)
-                    Click "Generate Invoices" to create invoices for the selected term.
-                @else
-                    Select a term or generate invoices to get started.
-                @endif
-            </div>
+            @if($tab === 'draft')
+                No draft invoices.
+                <a href="#" wire:click="confirmGenerate" style="color:var(--c-accent)">Generate invoices →</a>
+            @elseif($tab === 'sent')
+                No sent invoices yet.
+            @else
+                No invoices found.
+                <a href="#" wire:click="confirmGenerate" style="color:var(--c-accent)">Generate invoices →</a>
+            @endif
         </div>
     @else
         <table class="data-table">
             <thead>
                 <tr>
+                    <th style="width:36px;">
+                        <input type="checkbox" class="row-check"
+                            wire:model.live="selectAll"
+                            title="Select all on this page">
+                    </th>
                     <th>Student</th>
-                    <th class="col-term">Term</th>
+                    <th class="hide-sm">Term</th>
                     <th>Total</th>
                     <th>Paid</th>
-                    <th class="col-balance">Balance</th>
+                    <th>Balance</th>
                     <th>Status</th>
+                    <th>Sent</th>
                     <th></th>
                 </tr>
             </thead>
@@ -216,16 +247,22 @@
                 @foreach($invoices as $invoice)
                     <tr>
                         <td>
+                            <input type="checkbox" class="row-check"
+                                wire:click="toggleSelect({{ $invoice->id }})"
+                                @checked(in_array((string)$invoice->id, $selectedIds))>
+                        </td>
+                        <td>
                             <div class="student-name">{{ $invoice->student->full_name }}</div>
-                            <div class="student-meta">{{ $invoice->student->admission_number }}</div>
+                            <div class="student-adm">{{ $invoice->student->admission_number }}</div>
                         </td>
-                        <td class="col-term">
-                            <div style="font-size:12px; color:var(--c-text-2);">{{ $invoice->term->name }}</div>
-                            <div style="font-size:11px; color:var(--c-text-3);">{{ $invoice->term->session->name }}</div>
+                        <td class="hide-sm" style="font-size:12px;color:var(--c-text-3);">
+                            {{ $invoice->term->name }}
                         </td>
-                        <td class="amount-cell">₦{{ number_format($invoice->total_amount, 0) }}</td>
-                        <td class="amount-cell" style="color:var(--c-success);">₦{{ number_format($invoice->amount_paid, 0) }}</td>
-                        <td class="amount-cell col-balance" style="color:var(--c-danger);">₦{{ number_format($invoice->balance, 0) }}</td>
+                        <td class="mono">₦{{ number_format($invoice->total_amount, 0) }}</td>
+                        <td class="mono" style="color:#15803D;">₦{{ number_format($invoice->amount_paid, 0) }}</td>
+                        <td class="mono" style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : '#15803D' }}">
+                            ₦{{ number_format($invoice->balance, 0) }}
+                        </td>
                         <td>
                             <span class="badge badge-{{ $invoice->status }}">
                                 <span class="badge-dot"></span>
@@ -233,8 +270,30 @@
                             </span>
                         </td>
                         <td>
-                            <a href="{{ route('admin.fees.invoices.show', $invoice) }}"
-                               class="link-view">View →</a>
+                            @if($invoice->isSent())
+                                <span class="badge badge-sent" title="{{ $invoice->sent_at->format('d M Y, g:ia') }}">
+                                    <span class="badge-dot"></span>
+                                    Sent
+                                </span>
+                            @else
+                                <span class="badge badge-draft">
+                                    <span class="badge-dot"></span>
+                                    Draft
+                                </span>
+                            @endif
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                @if($invoice->isDraft())
+                                    <button class="btn-sm btn-sm-send"
+                                        wire:click="sendInvoice({{ $invoice->id }})"
+                                        wire:confirm="Send this invoice to {{ $invoice->student->full_name }}'s parents?">
+                                        ✉ Send
+                                    </button>
+                                @endif
+                                <a href="{{ route('admin.fees.invoices.show', $invoice) }}"
+                                   class="btn-sm-link">View</a>
+                            </div>
                         </td>
                     </tr>
                 @endforeach
@@ -242,32 +301,60 @@
         </table>
 
         @if($invoices->hasPages())
-            <div class="pag-wrap">
-                {{ $invoices->links() }}
-            </div>
+            <div class="pag-wrap">{{ $invoices->links() }}</div>
         @endif
     @endif
 </div>
 
-{{-- ── Confirm generation modal ─────────────────────────────────────────── --}}
+{{-- Generate confirm modal --}}
 @if($showConfirmModal)
-    <div class="modal-overlay">
-        <div class="modal-box">
-            <div class="modal-title">Generate Invoices for This Term?</div>
-            <div class="modal-body">
-                This will create fee invoices for all <strong>active students</strong> enrolled in the selected term,
-                based on the configured fee structure. An email will be sent to each parent with a portal account.<br><br>
-                Students who already have an invoice for this term will <strong>not</strong> be affected.
-            </div>
-            <div class="modal-actions">
-                <button wire:click="cancelGenerate" class="btn-cancel">Cancel</button>
-                <button wire:click="generateInvoices" class="btn-confirm">
-                    <span wire:loading.remove wire:target="generateInvoices">Yes, Generate</span>
-                    <span wire:loading wire:target="generateInvoices">Generating…</span>
-                </button>
-            </div>
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Generate Fee Invoices</div>
+        <div class="modal-sub">
+            This creates draft invoices for all active students in the selected term based on the current fee structure.
+            No emails will be sent — you review the drafts first, edit if needed, then send.
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="cancelGenerate">Cancel</button>
+            <button class="btn-confirm" wire:click="generateInvoices"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>Generate Drafts</span>
+                <span wire:loading>Generating…</span>
+            </button>
         </div>
     </div>
+</div>
+@endif
+
+{{-- Send batch modal --}}
+@if($showSendModal)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Send Draft Invoices</div>
+        <div class="modal-sub">
+            There are <strong>{{ $stats['draft'] }}</strong> unsent draft invoices for this term.
+            Choose how many to send now — they'll be queued and delivered by email.
+        </div>
+        <div class="form-field">
+            <label>Number of invoices to send</label>
+            <input type="number" wire:model="sendBatchSize" min="1" max="{{ $stats['draft'] }}">
+            <div class="field-hint">
+                Max {{ $stats['draft'] }} (all drafts for this term).
+                Send in batches if you want to stagger delivery.
+            </div>
+            @error('sendBatchSize') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showSendModal', false)">Cancel</button>
+            <button class="btn-confirm-green" wire:click="sendBatch"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>Send {{ $sendBatchSize }} Invoice(s)</span>
+                <span wire:loading>Queuing…</span>
+            </button>
+        </div>
+    </div>
+</div>
 @endif
 
 </div>
