@@ -80,7 +80,15 @@
 .btn-pdf { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:13px; font-weight:500; text-decoration:none; transition:background 150ms; }
 .btn-pdf:hover { background:var(--c-bg); }
 
-/* Tabs within add modal */
+/* Payment link panel */
+.pay-link-box { padding:16px 20px; }
+.pay-link-url { display:flex; align-items:center; gap:8px; background:var(--c-bg); border:1px solid var(--c-border); border-radius:8px; padding:10px 12px; margin-top:10px; }
+.pay-link-url a { font-size:12px; color:var(--c-accent); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; font-family:var(--f-mono); }
+.pay-link-url a:hover { text-decoration:underline; }
+.copy-btn { flex-shrink:0; padding:4px 8px; border:1px solid var(--c-border); border-radius:5px; background:var(--c-surface); font-size:11px; font-weight:500; cursor:pointer; font-family:var(--f-sans); color:var(--c-text-2); transition:background 150ms; }
+.copy-btn:hover { background:var(--c-bg); }
+.pay-link-error { background:rgba(190,18,60,0.05); border:1px solid rgba(190,18,60,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:12px; color:var(--c-danger); line-height:1.5; }
+.pay-link-pending { background:rgba(180,83,9,0.05); border:1px solid rgba(180,83,9,0.2); border-radius:8px; padding:12px; margin-top:10px; font-size:12px; color:#B45309; }
 .mode-tabs { display:flex; gap:2px; background:var(--c-bg); border:1px solid var(--c-border); border-radius:7px; padding:3px; margin-bottom:16px; }
 .mode-tab { flex:1; padding:7px; border-radius:5px; border:none; background:none; font-size:12px; font-weight:500; color:var(--c-text-3); cursor:pointer; font-family:var(--f-sans); transition:all 150ms; }
 .mode-tab.active { background:var(--c-surface); color:var(--c-text-1); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
@@ -375,6 +383,94 @@
                         <span class="badge-dot"></span>{{ ucfirst($invoice->status) }}
                     </span>
                 </span>
+            </div>
+        </div>
+
+        {{-- ── Payment Link Status ── --}}
+        <div class="panel">
+            <div class="panel-head">
+                <span class="panel-title">Payment Link</span>
+                @if($invoice->hasPaymentLink())
+                    <span class="badge badge-sent" style="font-size:10px;">
+                        <span class="badge-dot"></span>Active
+                    </span>
+                @elseif($invoice->hasPaymentLinkError())
+                    <span class="badge badge-unpaid" style="font-size:10px;">
+                        <span class="badge-dot"></span>Failed
+                    </span>
+                @elseif($invoice->isSent())
+                    <span style="font-size:11px;color:#B45309;">Generating…</span>
+                @else
+                    <span style="font-size:11px;color:var(--c-text-3);">Not sent yet</span>
+                @endif
+            </div>
+
+            <div class="pay-link-box">
+                @if($invoice->hasPaymentLink())
+                    {{-- Link is live --}}
+                    <p style="font-size:12px;color:var(--c-text-2);line-height:1.5;">
+                        Parents can pay online by card or bank transfer.
+                        Generated {{ $invoice->payment_link_generated_at?->format('d M Y, g:ia') }}.
+                    </p>
+                    <div class="pay-link-url" x-data>
+                        <a href="{{ $invoice->payment_link_url }}" target="_blank"
+                           title="{{ $invoice->payment_link_url }}">
+                            {{ $invoice->payment_link_url }}
+                        </a>
+                        <button class="copy-btn"
+                            x-on:click="navigator.clipboard.writeText('{{ $invoice->payment_link_url }}'); $el.textContent = 'Copied!'; setTimeout(() => $el.textContent = 'Copy', 2000)">
+                            Copy
+                        </button>
+                    </div>
+                    <div style="margin-top:10px;display:flex;gap:8px;">
+                        <a href="{{ $invoice->payment_link_url }}" target="_blank" class="btn-ghost"
+                           style="font-size:11px;padding:5px 10px;">
+                            Test Link →
+                        </a>
+                        @if($invoice->status !== 'paid')
+                            <p style="font-size:11px;color:var(--c-text-3);align-self:center;">
+                                Link deactivates automatically when fully paid.
+                            </p>
+                        @endif
+                    </div>
+
+                @elseif($invoice->hasPaymentLinkError())
+                    {{-- Creation failed — show error and retry --}}
+                    <div class="pay-link-error">
+                        <strong>Payment link creation failed:</strong><br>
+                        {{ $invoice->payment_link_error }}
+                    </div>
+                    <button class="btn-ghost" style="margin-top:10px;width:100%;justify-content:center;"
+                        wire:click="retryPaymentLink"
+                        wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                        <span wire:loading.remove wire:target="retryPaymentLink">↺ Retry</span>
+                        <span wire:loading wire:target="retryPaymentLink">Retrying…</span>
+                    </button>
+                    <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">
+                        Common causes: JuicyWay API credentials not configured, or JuicyWay
+                        service temporarily unavailable. Check your
+                        <code style="background:var(--c-bg);padding:1px 4px;border-radius:3px;">.env</code>
+                        for <code style="background:var(--c-bg);padding:1px 4px;border-radius:3px;">JUICYWAY_API_KEY</code>.
+                    </p>
+
+                @elseif($invoice->isSent())
+                    {{-- Sent but link not yet generated (job still queued) --}}
+                    <div class="pay-link-pending">
+                        Payment link is being generated in the background.
+                        This usually takes a few seconds. Refresh the page to check.
+                    </div>
+                    <button class="btn-ghost" style="margin-top:10px;width:100%;justify-content:center;"
+                        wire:click="retryPaymentLink">
+                        Generate Now
+                    </button>
+
+                @else
+                    {{-- Invoice not yet sent --}}
+                    <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
+                        A payment link will be created automatically when this invoice is sent to the parent.
+                        The link allows parents to pay by card or bank transfer without visiting the school.
+                    </p>
+                @endif
             </div>
         </div>
 

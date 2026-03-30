@@ -4,25 +4,35 @@ namespace App\Livewire\Admin\Students;
 
 use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\Term;
+use App\Services\FeeService;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class StudentProfile extends Component
 {
-    public Student $student;
+    use WithFileUploads;
 
-    // Edit mode toggle
+    public Student $student;
     public bool $editing = false;
 
-    // Editable fields — mirrors all Student $fillable fields
-    public string $firstName    = '';
-    public string $lastName     = '';
-    public string $otherName    = '';
-    public string $gender       = '';
-    public string $dateOfBirth  = '';
-    public string $status       = '';
-    public string $notes        = '';
-    public string $medicalNotes = '';
+    // Editable fields
+    public string $firstName       = '';
+    public string $lastName        = '';
+    public string $otherName       = '';
+    public string $gender          = '';
+    public string $dateOfBirth     = '';
+    public string $status          = '';
+    public string $notes           = '';
+    public string $medicalNotes    = '';
     public string $classAppliedFor = '';
+    public $newPhoto               = null; // uploaded file (Livewire temp)
+
+    // ── Invoice creation modal ────────────────────────────────────────────────
+    public bool    $showInvoiceModal = false;
+    public ?int    $invoiceTermId    = null;
+    public mixed   $invoicePreview   = null;  // null | 'already_exists' | 'no_fee_structure' | array
 
     public function mount(Student $student): void
     {
@@ -61,6 +71,55 @@ class StudentProfile extends Component
         $this->resetValidation();
     }
 
+    // ── Invoice creation ──────────────────────────────────────────────────────
+
+    public function openInvoiceModal(): void
+    {
+        $this->invoiceTermId  = Term::current()?->id;
+        $this->invoicePreview = null;
+        $this->showInvoiceModal = true;
+        $this->previewInvoice();
+    }
+
+    public function updatedInvoiceTermId(): void
+    {
+        $this->previewInvoice();
+    }
+
+    protected function previewInvoice(): void
+    {
+        if (! $this->invoiceTermId) {
+            $this->invoicePreview = null;
+            return;
+        }
+
+        $term = Term::find($this->invoiceTermId);
+        if (! $term) { $this->invoicePreview = null; return; }
+
+        $this->invoicePreview = app(FeeService::class)
+            ->previewInvoice($this->student, $term);
+    }
+
+    public function createInvoice(): void
+    {
+        $this->validate(['invoiceTermId' => 'required|exists:terms,id']);
+
+        $term    = Term::findOrFail($this->invoiceTermId);
+        $invoice = app(FeeService::class)
+            ->generateInvoiceForStudent($this->student, $term);
+
+        $this->showInvoiceModal = false;
+        $this->invoicePreview   = null;
+
+        if ($invoice) {
+            // Reload fee invoices so the profile page reflects the new invoice
+            $this->student->load('feeInvoices.term.session', 'feeInvoices.items', 'feeInvoices.payments');
+            session()->flash('success', "Invoice created for {$this->student->full_name} — {$term->name} Term. Review it in the Fees section below.");
+        } else {
+            session()->flash('error', 'An invoice already exists for this student and term.');
+        }
+    }
+
     public function saveEdit(): void
     {
         $data = $this->validate([
@@ -95,24 +154,26 @@ class StudentProfile extends Component
 
     public function render()
     {
-        // Build fee summary across all terms for this student
         $invoices = $this->student->feeInvoices->sortByDesc(fn($i) => $i->term_id);
-
-        // Current term invoice (most recent)
-        $activeTerm    = \App\Models\Term::current();
+        $activeTerm     = \App\Models\Term::current();
         $currentInvoice = $activeTerm
             ? $invoices->firstWhere('term_id', $activeTerm->id)
             : $invoices->first();
 
-        // Lifetime totals
         $feeSummary = [
             'total_billed'      => $invoices->sum('total_amount'),
             'total_paid'        => $invoices->sum('amount_paid'),
             'total_outstanding' => $invoices->sum('balance'),
         ];
 
+        // All terms for the invoice creation modal
+        $terms = \App\Models\Term::with('session')
+            ->orderByDesc('academic_session_id')
+            ->orderBy('id')
+            ->get();
+
         return view('livewire.admin.students.student-profile',
-            compact('invoices', 'currentInvoice', 'feeSummary', 'activeTerm'))
+            compact('invoices', 'currentInvoice', 'feeSummary', 'activeTerm', 'terms'))
             ->layout('layouts.admin', [
                 'title' => $this->student->first_name . ' ' . $this->student->last_name,
             ]);

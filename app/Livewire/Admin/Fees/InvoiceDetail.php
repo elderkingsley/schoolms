@@ -75,6 +75,25 @@ class InvoiceDetail extends Component
             && $this->invoice->payments->isEmpty();
     }
 
+    // ── Payment link ──────────────────────────────────────────────────────────
+
+    /**
+     * Manually retry payment link creation — shown when the automatic job failed.
+     * Clears the error, re-dispatches CreatePaymentLinkJob.
+     */
+    public function retryPaymentLink(): void
+    {
+        $this->invoice->update([
+            'payment_link_error' => null,
+            'payment_link_url'   => null,
+            'payment_link_id'    => null,
+        ]);
+
+        \App\Jobs\CreatePaymentLinkJob::dispatch($this->invoice);
+
+        session()->flash('success', 'Payment link creation queued. Refresh in a few seconds.');
+    }
+
     // ── Send invoice ──────────────────────────────────────────────────────────
 
     public function sendInvoice(): void

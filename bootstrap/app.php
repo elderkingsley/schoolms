@@ -12,9 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
 
-        // CSRF exempt routes
+        // CSRF exempt routes — webhooks must never require CSRF tokens
         $middleware->validateCsrfTokens(except: [
             'webhooks/*',
+            'api/juicyway/webhook',
         ]);
 
         // Route middleware aliases
@@ -25,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'force.password'     => \App\Http\Middleware\ForcePasswordChange::class,
         ]);
 
-        // Apply ForcePasswordChange to all authenticated web routes
+        // Apply ForcePasswordChange globally to authenticated web routes
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\ForcePasswordChange::class,
         ]);

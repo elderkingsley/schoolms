@@ -8,6 +8,11 @@ Route::post('/webhooks/paystack', [\App\Http\Controllers\WebhookController::clas
 Route::post('/webhooks/monnify', [\App\Http\Controllers\WebhookController::class, 'monnify'])
     ->name('webhooks.monnify');
 
+// JuicyWay payment webhook — CSRF exempt (configured in bootstrap/app.php)
+// JuicyWay fires this when a parent completes payment on a payment link
+Route::post('/api/juicyway/webhook', [\App\Http\Controllers\JuicyWayWebhookController::class, 'handle'])
+    ->name('webhooks.juicyway');
+
 // ── Public routes ─────────────────────────────────────────────────────────────
 Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
 

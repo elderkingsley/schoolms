@@ -7,7 +7,14 @@
 
 /* Profile header */
 .profile-header { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); padding:24px; display:flex; align-items:flex-start; gap:20px; margin-bottom:20px; flex-wrap:wrap; }
-.profile-avatar { width:64px; height:64px; border-radius:50%; background:var(--c-accent-bg); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; color:var(--c-accent); flex-shrink:0; }
+.profile-avatar {
+    width:72px; height:72px; border-radius:50%;
+    background:var(--c-accent-bg);
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:700; color:var(--c-accent);
+    flex-shrink:0; overflow:hidden; border:2px solid var(--c-border);
+}
+.profile-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
 .profile-info { flex:1; min-width:0; }
 .profile-name { font-size:20px; font-weight:700; color:var(--c-text-1); letter-spacing:-0.03em; line-height:1.2; }
 .profile-meta { font-size:13px; color:var(--c-text-3); margin-top:4px; }
@@ -66,7 +73,13 @@
 .hist-table tr:last-child td { border-bottom:none; }
 .empty-note { padding:20px 18px; font-size:12px; color:var(--c-text-3); text-align:center; }
 
-/* ── Fee snapshot ── */
+/* Invoice creation modal */
+.inv-preview-items { margin:12px 0; border:1px solid var(--c-border); border-radius:8px; overflow:hidden; }
+.inv-preview-row { display:flex; justify-content:space-between; padding:9px 14px; border-bottom:1px solid var(--c-border); font-size:13px; }
+.inv-preview-row:last-child { border-bottom:none; }
+.inv-preview-total { display:flex; justify-content:space-between; padding:10px 14px; background:var(--c-bg); font-size:13px; font-weight:700; border-top:2px solid var(--c-border); }
+.inv-warning { background:rgba(180,83,9,0.06); border:1px solid rgba(180,83,9,0.2); border-radius:8px; padding:12px 14px; font-size:13px; color:#B45309; margin-top:10px; line-height:1.5; }
+.inv-info    { background:rgba(26,86,255,0.04); border:1px solid rgba(26,86,255,0.15); border-radius:8px; padding:12px 14px; font-size:13px; color:var(--c-accent); margin-top:10px; line-height:1.5; }
 .fee-snapshot { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--c-border); }
 .fee-snap-item { padding:14px 18px; border-right:1px solid var(--c-border); }
 .fee-snap-item:last-child { border-right:none; }
@@ -104,7 +117,18 @@
 
 {{-- ── Profile header ── --}}
 <div class="profile-header">
-    <div class="profile-avatar">{{ strtoupper(substr($student->first_name, 0, 1)) }}</div>
+    <div class="profile-avatar">
+        @if($student->photo)
+            <img src="{{ Storage::url($student->photo) }}"
+                 alt="{{ $student->full_name }}"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:var(--c-accent);">
+                {{ strtoupper(substr($student->first_name, 0, 1)) }}
+            </span>
+        @else
+            {{ strtoupper(substr($student->first_name, 0, 1)) }}
+        @endif
+    </div>
     <div class="profile-info">
         <div class="profile-name">
             {{ $student->first_name }}
@@ -131,7 +155,17 @@
             <div class="adm-no">Admission No: {{ $student->admission_number }}</div>
         @endif
     </div>
-    <div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        @if($student->status === 'active')
+            <button class="btn-edit" wire:click="openInvoiceModal"
+                style="background:var(--c-accent);color:#fff;border-color:var(--c-accent);">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+                    <path d="M1 6h14M5 10h2"/>
+                </svg>
+                Generate Invoice
+            </button>
+        @endif
         @if(! $editing)
             <button class="btn-edit" wire:click="startEdit">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -534,4 +568,74 @@
     @endif
 
 </div>
+
+{{-- Invoice creation modal --}}
+@if($showInvoiceModal)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Generate Invoice</div>
+        <div style="font-size:13px;color:var(--c-text-2);margin-bottom:16px;">
+            Creating a draft invoice for <strong>{{ $student->full_name }}</strong>.
+            No email is sent until you choose to send it from the invoices page.
+        </div>
+
+        <div class="form-field">
+            <label>Term <span style="color:var(--c-danger)">*</span></label>
+            <select wire:model.live="invoiceTermId" style="width:100%;padding:10px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;color:var(--c-text-1);background:var(--c-bg);outline:none;-webkit-appearance:none;">
+                <option value="">Select a term…</option>
+                @foreach($terms as $term)
+                    <option value="{{ $term->id }}">{{ $term->name }} — {{ $term->session->name }}</option>
+                @endforeach
+            </select>
+            @error('invoiceTermId') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        @if($invoiceTermId)
+            @if($invoicePreview === 'already_exists')
+                <div class="inv-info">
+                    ✓ An invoice already exists for this student for the selected term.
+                    You can view and edit it from the invoices page.
+                </div>
+            @elseif($invoicePreview === 'no_fee_structure')
+                <div class="inv-warning">
+                    ⚠ No fee structure is configured for this student's class in the selected term.
+                    Set up the fee structure first under <strong>Finance → Fee Structure</strong>.
+                </div>
+            @elseif(is_array($invoicePreview))
+                <div style="font-size:12px;font-weight:600;color:var(--c-text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">
+                    Fee Breakdown Preview
+                </div>
+                <div class="inv-preview-items">
+                    @foreach($invoicePreview['items'] as $item)
+                        <div class="inv-preview-row">
+                            <span>{{ $item['name'] }}</span>
+                            <span style="font-family:var(--f-mono);font-size:12px;">
+                                ₦{{ number_format($item['amount'], 0) }}
+                            </span>
+                        </div>
+                    @endforeach
+                    <div class="inv-preview-total">
+                        <span>Total</span>
+                        <span style="font-family:var(--f-mono);">
+                            ₦{{ number_format($invoicePreview['total'], 0) }}
+                        </span>
+                    </div>
+                </div>
+            @endif
+        @endif
+
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showInvoiceModal', false)">Cancel</button>
+            @if(is_array($invoicePreview))
+                <button class="btn-confirm" wire:click="createInvoice"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove>Create Draft Invoice</span>
+                    <span wire:loading>Creating…</span>
+                </button>
+            @endif
+        </div>
+    </div>
+</div>
+@endif
+
 </div>

@@ -15,8 +15,8 @@ class SendInvoiceJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries   = 3;
-    public int $backoff = 30;
+    public int   $tries   = 3;
+    public array $backoff = [30, 60, 120];
 
     public function __construct(public FeeInvoice $invoice) {}
 
@@ -50,5 +50,12 @@ class SendInvoiceJob implements ShouldQueue
 
         // Mark as sent
         $invoice->update(['sent_at' => now()]);
+
+        // Queue payment link creation with a short delay.
+        // This ensures the email is confirmed sent before we attach a URL to the invoice.
+        // Subsequent reminder emails will automatically include the payment link.
+        CreatePaymentLinkJob::dispatch($invoice)->delay(now()->addSeconds(5));
+
+        Log::info("SendInvoiceJob: invoice {$invoice->id} sent, payment link creation queued.");
     }
 }

@@ -135,8 +135,11 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
         <button class="btn-delete-all" wire:click="confirmDeleteAll">
             🗑 Delete All Deletable
         </button>
+        <button class="btn-generate" wire:click="openCreateModal">
+            ✎ Create Invoice
+        </button>
         <button class="btn-generate" wire:click="confirmGenerate">
-            + Generate Invoices
+            + Generate All
         </button>
     </div>
 </div>
@@ -330,10 +333,11 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
 @if($showConfirmModal)
 <div class="modal-overlay">
     <div class="modal-box">
-        <div class="modal-title">Generate Fee Invoices</div>
+        <div class="modal-title">Generate Invoices for All Students</div>
         <div class="modal-sub">
-            This creates draft invoices for all active students in the selected term based on the current fee structure.
-            No emails will be sent — you review the drafts first, edit if needed, then send.
+            This creates draft invoices for <strong>all active students</strong> in the selected term
+            based on the current fee structure. Students who already have an invoice for this term are skipped.
+            No emails will be sent — you review the drafts first, then send.
         </div>
         <div class="modal-actions">
             <button class="btn-cancel" wire:click="cancelGenerate">Cancel</button>
@@ -427,6 +431,164 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                     wire:loading.attr="disabled" wire:loading.class="opacity-50">
                     <span wire:loading.remove>Delete {{ $deletableCount }} Invoice(s)</span>
                     <span wire:loading>Deleting…</span>
+                </button>
+            @endif
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ── Create Invoice Modal ── --}}
+@if($showCreateModal)
+<div class="modal-overlay">
+    <div class="modal-box" style="max-width:520px;">
+        <div class="modal-title">Create Invoice</div>
+
+        {{-- Mode tabs --}}
+        <div style="display:flex;gap:2px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;padding:3px;margin-bottom:20px;">
+            <button style="flex:1;padding:8px;border-radius:6px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--f-sans);transition:all 150ms;background:{{ $createMode === 'single' ? 'var(--c-surface)' : 'none' }};color:{{ $createMode === 'single' ? 'var(--c-text-1)' : 'var(--c-text-3)' }};box-shadow:{{ $createMode === 'single' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }};"
+                wire:click="$set('createMode','single')">
+                Single Student
+            </button>
+            <button style="flex:1;padding:8px;border-radius:6px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--f-sans);transition:all 150ms;background:{{ $createMode === 'class' ? 'var(--c-surface)' : 'none' }};color:{{ $createMode === 'class' ? 'var(--c-text-1)' : 'var(--c-text-3)' }};box-shadow:{{ $createMode === 'class' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }};"
+                wire:click="$set('createMode','class')">
+                Entire Class
+            </button>
+        </div>
+
+        {{-- Term selector (shared) --}}
+        <div class="form-field">
+            <label>Term <span style="color:var(--c-danger)">*</span></label>
+            <select wire:model.live="createTermId" class="filter-sel" style="width:100%;padding:10px 12px;">
+                <option value="">Select a term…</option>
+                @foreach($terms as $term)
+                    <option value="{{ $term->id }}">{{ $term->name }} — {{ $term->session->name }}</option>
+                @endforeach
+            </select>
+            @error('createTermId') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        @if($createMode === 'single')
+            {{-- Student search --}}
+            @if(! $createStudentId)
+                <div class="form-field" style="position:relative;">
+                    <label>Student <span style="color:var(--c-danger)">*</span></label>
+                    <div style="position:relative;">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--c-text-3);pointer-events:none;">
+                            <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3 3"/>
+                        </svg>
+                        <input type="text" wire:model.live="studentSearch"
+                            placeholder="Search by name or admission number…"
+                            style="width:100%;padding:10px 12px 10px 34px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;background:var(--c-bg);outline:none;color:var(--c-text-1);"
+                            autocomplete="off">
+                    </div>
+                    @if(count($studentResults) > 0)
+                        <div style="position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);overflow:hidden;margin-top:4px;">
+                            @foreach($studentResults as $r)
+                                <div wire:click="selectStudent({{ $r['id'] }}, '{{ addslashes($r['name']) }}')"
+                                     style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--c-border);transition:background 100ms;"
+                                     onmouseover="this.style.background='var(--c-bg)'"
+                                     onmouseout="this.style.background=''">
+                                    <div style="font-size:13px;font-weight:600;color:var(--c-text-1);">{{ $r['name'] }}</div>
+                                    <div style="font-size:11px;color:var(--c-text-3);">{{ $r['adm'] }} · {{ $r['class'] }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @elseif(strlen(trim($studentSearch)) > 0)
+                        <div style="position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--c-text-3);margin-top:4px;">
+                            No active students found for "{{ $studentSearch }}"
+                        </div>
+                    @endif
+                    @error('createStudentId') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+            @else
+                {{-- Selected student chip --}}
+                <div class="form-field">
+                    <label>Student</label>
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--c-accent-bg);border:1px solid rgba(26,86,255,0.2);border-radius:8px;">
+                        <span style="font-size:13px;font-weight:600;color:var(--c-text-1);flex:1;">{{ $createStudentName }}</span>
+                        <button wire:click="clearStudent"
+                            style="background:none;border:none;cursor:pointer;color:var(--c-text-3);font-size:18px;line-height:1;padding:0;"
+                            title="Change student">×</button>
+                    </div>
+                </div>
+
+                {{-- Preview for this student --}}
+                @if($createTermId)
+                    @if($createPreview === 'already_exists')
+                        <div style="background:rgba(26,86,255,0.04);border:1px solid rgba(26,86,255,0.15);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--c-accent);margin-bottom:4px;">
+                            ✓ An invoice already exists for this student for the selected term.
+                        </div>
+                    @elseif($createPreview === 'no_fee_structure')
+                        <div style="background:rgba(180,83,9,0.06);border:1px solid rgba(180,83,9,0.2);border-radius:8px;padding:12px 14px;font-size:13px;color:#B45309;margin-bottom:4px;">
+                            ⚠ No fee structure configured for this student's class in the selected term.
+                            Set it up under <strong>Finance → Fee Structure</strong> first.
+                        </div>
+                    @elseif(is_array($createPreview))
+                        <div style="font-size:11px;font-weight:600;color:var(--c-text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">
+                            Fee Breakdown
+                        </div>
+                        <div style="border:1px solid var(--c-border);border-radius:8px;overflow:hidden;margin-bottom:4px;">
+                            @foreach($createPreview['items'] as $item)
+                                <div style="display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
+                                    <span>{{ $item['name'] }}</span>
+                                    <span style="font-family:var(--f-mono);font-size:12px;">₦{{ number_format($item['amount'], 0) }}</span>
+                                </div>
+                            @endforeach
+                            <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--c-bg);font-size:13px;font-weight:700;border-top:2px solid var(--c-border);">
+                                <span>Total</span>
+                                <span style="font-family:var(--f-mono);">₦{{ number_format($createPreview['total'], 0) }}</span>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+            @endif
+
+        @else
+            {{-- Class mode --}}
+            <div class="form-field">
+                <label>Class <span style="color:var(--c-danger)">*</span></label>
+                <select wire:model.live="createClassId" class="filter-sel" style="width:100%;padding:10px 12px;">
+                    <option value="">Select a class…</option>
+                    @foreach($classes as $class)
+                        <option value="{{ $class->id }}">{{ $class->display_name }}</option>
+                    @endforeach
+                </select>
+                @error('createClassId') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+
+            @if($createClassId && $createTermId)
+                @if($createClassEligible === 0)
+                    <div style="background:rgba(26,86,255,0.04);border:1px solid rgba(26,86,255,0.15);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--c-accent);">
+                        ✓ All active students in this class already have invoices for the selected term.
+                    </div>
+                @else
+                    <div style="background:rgba(21,128,61,0.06);border:1px solid rgba(21,128,61,0.2);border-radius:8px;padding:12px 14px;font-size:13px;color:#15803D;">
+                        <strong>{{ $createClassEligible }}</strong> {{ Str::plural('student', $createClassEligible) }}
+                        will receive a new draft invoice. Students who already have an invoice for
+                        this term will be skipped.
+                    </div>
+                @endif
+            @endif
+        @endif
+
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showCreateModal', false)">Cancel</button>
+            @php
+                $canCreate = ($createMode === 'single' && is_array($createPreview))
+                    || ($createMode === 'class' && $createClassEligible > 0);
+            @endphp
+            @if($canCreate)
+                <button class="btn-confirm" wire:click="createInvoices"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove>
+                        @if($createMode === 'single')
+                            Create Draft Invoice
+                        @else
+                            Create {{ $createClassEligible }} {{ Str::plural('Invoice', $createClassEligible) }}
+                        @endif
+                    </span>
+                    <span wire:loading>Creating…</span>
                 </button>
             @endif
         </div>
