@@ -181,8 +181,7 @@ class JuicyWayService
         $response = Http::withToken($this->apiKey)
             ->withHeaders(['Accept' => 'application/json'])
             ->timeout(30)
-            // CHANGE \Exception to \Throwable HERE:
-            ->retry(2, 2000, fn(\Throwable $e, Response $r) => $r->status() === 429)
+            ->retry(2, 2000, fn(\Exception $e, Response $r) => $r->status() === 429)
             ->{strtolower($method)}($url, $data);
 
         if ($response->failed()) {
