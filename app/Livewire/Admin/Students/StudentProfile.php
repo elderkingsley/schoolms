@@ -31,7 +31,10 @@ class StudentProfile extends Component
             'enrolments.schoolClass',
             'enrolments.session',
             'results.subject',
-            'results.term',
+            'results.term.session',
+            'feeInvoices.term.session',
+            'feeInvoices.items',
+            'feeInvoices.payments',
         ]);
     }
 
@@ -92,7 +95,24 @@ class StudentProfile extends Component
 
     public function render()
     {
-        return view('livewire.admin.students.student-profile')
+        // Build fee summary across all terms for this student
+        $invoices = $this->student->feeInvoices->sortByDesc(fn($i) => $i->term_id);
+
+        // Current term invoice (most recent)
+        $activeTerm    = \App\Models\Term::current();
+        $currentInvoice = $activeTerm
+            ? $invoices->firstWhere('term_id', $activeTerm->id)
+            : $invoices->first();
+
+        // Lifetime totals
+        $feeSummary = [
+            'total_billed'      => $invoices->sum('total_amount'),
+            'total_paid'        => $invoices->sum('amount_paid'),
+            'total_outstanding' => $invoices->sum('balance'),
+        ];
+
+        return view('livewire.admin.students.student-profile',
+            compact('invoices', 'currentInvoice', 'feeSummary', 'activeTerm'))
             ->layout('layouts.admin', [
                 'title' => $this->student->first_name . ' ' . $this->student->last_name,
             ]);

@@ -65,6 +65,32 @@
 .hist-table td { padding:12px 18px; font-size:13px; border-bottom:1px solid var(--c-border); }
 .hist-table tr:last-child td { border-bottom:none; }
 .empty-note { padding:20px 18px; font-size:12px; color:var(--c-text-3); text-align:center; }
+
+/* ── Fee snapshot ── */
+.fee-snapshot { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--c-border); }
+.fee-snap-item { padding:14px 18px; border-right:1px solid var(--c-border); }
+.fee-snap-item:last-child { border-right:none; }
+.fee-snap-label { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+.fee-snap-value { font-size:18px; font-weight:700; font-family:var(--f-mono); letter-spacing:-0.02em; }
+.fee-snap-value.danger  { color:var(--c-danger); }
+.fee-snap-value.success { color:#15803D; }
+.fee-snap-value.neutral { color:var(--c-text-1); }
+
+/* ── Invoice history rows ── */
+.inv-row { display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--c-border); padding:11px 18px; font-size:13px; text-decoration:none; color:inherit; transition:background 150ms; }
+.inv-row:last-child { border-bottom:none; }
+.inv-row:hover { background:#fafaf8; }
+.inv-row-term   { flex:1; }
+.inv-row-name   { font-weight:500; color:var(--c-text-1); }
+.inv-row-meta   { font-size:11px; color:var(--c-text-3); margin-top:1px; }
+.inv-row-amount { font-family:var(--f-mono); font-size:12px; text-align:right; min-width:90px; }
+
+/* ── Results snapshot ── */
+.grade { display:inline-block; padding:2px 7px; border-radius:5px; font-size:11px; font-weight:700; }
+.grade-A { background:rgba(21,128,61,0.1);  color:#15803D; }
+.grade-B { background:rgba(26,86,255,0.08); color:var(--c-accent); }
+.grade-C { background:rgba(180,83,9,0.08);  color:#B45309; }
+.grade-D,.grade-E,.grade-F { background:rgba(190,18,60,0.08); color:var(--c-danger); }
 </style>
 
 @if(session('success'))
@@ -356,6 +382,156 @@
             </div>
         @endif
     </div>
+
+    {{-- ── Fee Summary ── --}}
+    <div class="info-card full-width">
+        <div class="info-card-head">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14M5 10h2"/>
+            </svg>
+            Fee Summary
+            @if($invoices->isNotEmpty())
+                <a href="{{ route('admin.fees.invoices') }}?search={{ $student->admission_number }}"
+                   style="margin-left:auto;font-size:11px;color:var(--c-accent);text-decoration:none;font-weight:400;">
+                    All Invoices →
+                </a>
+            @endif
+        </div>
+
+        @if($invoices->isEmpty())
+            <div class="empty-note">No fee invoices generated for this student yet.</div>
+        @else
+            {{-- Lifetime totals strip --}}
+            <div class="fee-snapshot">
+                <div class="fee-snap-item">
+                    <div class="fee-snap-label">Total Billed</div>
+                    <div class="fee-snap-value neutral">₦{{ number_format($feeSummary['total_billed'], 0) }}</div>
+                </div>
+                <div class="fee-snap-item">
+                    <div class="fee-snap-label">Total Paid</div>
+                    <div class="fee-snap-value success">₦{{ number_format($feeSummary['total_paid'], 0) }}</div>
+                </div>
+                <div class="fee-snap-item">
+                    <div class="fee-snap-label">Outstanding</div>
+                    <div class="fee-snap-value {{ $feeSummary['total_outstanding'] > 0 ? 'danger' : 'success' }}">
+                        ₦{{ number_format($feeSummary['total_outstanding'], 0) }}
+                    </div>
+                </div>
+            </div>
+
+            {{-- Current term callout --}}
+            @if($currentInvoice)
+                @php $ci = $currentInvoice; @endphp
+                <div style="padding:12px 18px;border-top:1px solid var(--c-border);border-bottom:1px solid var(--c-border);background:{{ $ci->balance > 0 ? 'rgba(190,18,60,0.03)' : 'rgba(21,128,61,0.03)' }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--c-text-2);">
+                                Current Term: {{ $ci->term->name }} — {{ $ci->term->session->name }}
+                            </div>
+                            <div style="font-size:11px;color:var(--c-text-3);margin-top:2px;">
+                                {{ $ci->items->count() }} {{ Str::plural('item', $ci->items->count()) }}
+                                @if($ci->isSent()) · Sent {{ $ci->sent_at->format('d M Y') }}
+                                @else · <span style="color:#B45309">Draft — not sent yet</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:16px;">
+                            <div style="text-align:right;">
+                                <div style="font-size:10px;font-weight:600;color:var(--c-text-3);text-transform:uppercase;letter-spacing:0.06em;">Balance</div>
+                                <div style="font-size:18px;font-weight:700;font-family:var(--f-mono);color:{{ $ci->balance > 0 ? 'var(--c-danger)' : '#15803D' }}">
+                                    ₦{{ number_format($ci->balance, 0) }}
+                                </div>
+                            </div>
+                            <span class="badge badge-{{ $ci->status }}">
+                                <span class="badge-dot"></span>{{ ucfirst($ci->status) }}
+                            </span>
+                            <a href="{{ route('admin.fees.invoices.show', $ci) }}"
+                               style="padding:6px 12px;border:1px solid var(--c-border);border-radius:7px;font-size:11px;font-weight:500;color:var(--c-accent);text-decoration:none;background:var(--c-surface);">
+                                View Invoice →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Invoice history by term --}}
+            @foreach($invoices as $invoice)
+                @if($currentInvoice && $invoice->id === $currentInvoice->id) @continue @endif
+                <a href="{{ route('admin.fees.invoices.show', $invoice) }}" class="inv-row">
+                    <div class="inv-row-term">
+                        <div class="inv-row-name">{{ $invoice->term->name }} — {{ $invoice->term->session->name }}</div>
+                        <div class="inv-row-meta">
+                            {{ $invoice->items->count() }} items
+                            @if($invoice->isSent()) · Sent @else · Draft @endif
+                        </div>
+                    </div>
+                    <div class="inv-row-amount">
+                        <div style="color:var(--c-text-3);font-size:10px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Total</div>
+                        ₦{{ number_format($invoice->total_amount, 0) }}
+                    </div>
+                    <div class="inv-row-amount">
+                        <div style="color:var(--c-text-3);font-size:10px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Balance</div>
+                        <span style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : '#15803D' }}">
+                            ₦{{ number_format($invoice->balance, 0) }}
+                        </span>
+                    </div>
+                    <span class="badge badge-{{ $invoice->status }}" style="flex-shrink:0;">
+                        <span class="badge-dot"></span>{{ ucfirst($invoice->status) }}
+                    </span>
+                </a>
+            @endforeach
+        @endif
+    </div>
+
+    {{-- ── Published Results Snapshot ── --}}
+    @php
+        $publishedResults = $student->results
+            ->where('is_published', true)
+            ->sortByDesc('term_id')
+            ->groupBy('term_id');
+    @endphp
+
+    @if($publishedResults->isNotEmpty())
+    <div class="info-card full-width">
+        <div class="info-card-head">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M12 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                <path d="M5 6h6M5 9h6M5 12h3"/>
+            </svg>
+            Published Results
+        </div>
+        @foreach($publishedResults as $termId => $termResults)
+            @php
+                $term    = $termResults->first()->term;
+                $average = $termResults->count() > 0
+                    ? round($termResults->sum('total') / $termResults->count(), 1)
+                    : 0;
+            @endphp
+            <div style="padding:10px 18px;border-bottom:1px solid var(--c-border);background:var(--c-bg);">
+                <span style="font-size:11px;font-weight:600;color:var(--c-text-2);">
+                    {{ $term->name }} Term — {{ $term->session->name }}
+                </span>
+                <span style="font-size:11px;color:var(--c-text-3);margin-left:10px;">
+                    Average: <strong style="color:var(--c-text-1)">{{ $average }}%</strong>
+                    · {{ $termResults->count() }} subjects
+                </span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0;border-bottom:1px solid var(--c-border);">
+                @foreach($termResults->sortBy('subject.name') as $result)
+                    <div style="padding:10px 18px;border-right:1px solid var(--c-border);border-bottom:1px solid var(--c-border);">
+                        <div style="font-size:11px;color:var(--c-text-3);">{{ $result->subject->name }}</div>
+                        <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                            <span style="font-size:14px;font-weight:700;font-family:var(--f-mono);">{{ $result->total }}</span>
+                            @if($result->grade)
+                                <span class="grade grade-{{ $result->grade[0] }}">{{ $result->grade }}</span>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endforeach
+    </div>
+    @endif
 
 </div>
 </div>

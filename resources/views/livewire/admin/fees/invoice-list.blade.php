@@ -45,8 +45,9 @@
 .data-table { width:100%; border-collapse:collapse; }
 .data-table th { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.07em; padding:9px 16px; text-align:left; background:var(--c-bg); border-bottom:1px solid var(--c-border); white-space:nowrap; }
 .data-table td { padding:12px 16px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
-.data-table tr:last-child td { border-bottom:none; }
-.data-table tr:hover td { background:#fafaf8; }
+/* Clickable rows */
+.data-table tbody tr { cursor:pointer; }
+.data-table tbody tr td.no-click { cursor:default; }
 .student-name { font-weight:600; }
 .student-adm  { font-family:var(--f-mono); font-size:10px; color:var(--c-text-3); }
 .mono { font-family:var(--f-mono); font-size:12px; }
@@ -247,8 +248,9 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
             </thead>
             <tbody>
                 @foreach($invoices as $invoice)
-                    <tr>
-                        <td>
+                    <tr onclick="window.location='{{ route('admin.fees.invoices.show', $invoice) }}'"
+                        style="cursor:pointer;">
+                        <td class="no-click" onclick="event.stopPropagation()">
                             <input type="checkbox" class="row-check"
                                 wire:click="toggleSelect({{ $invoice->id }})"
                                 @checked(in_array((string)$invoice->id, $selectedIds))>
@@ -284,7 +286,7 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                                 </span>
                             @endif
                         </td>
-                        <td>
+                        <td class="no-click" onclick="event.stopPropagation()">
                             <div class="row-actions">
                                 @if($invoice->isDraft())
                                     <button class="btn-sm btn-sm-send"
@@ -293,8 +295,6 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                                         ✉ Send
                                     </button>
                                 @endif
-                                <a href="{{ route('admin.fees.invoices.show', $invoice) }}"
-                                   class="btn-sm-link">View</a>
                                 @if($invoice->status === 'unpaid' && $invoice->payments()->count() === 0)
                                     <button class="btn-sm btn-sm-danger"
                                         wire:click="deleteInvoice({{ $invoice->id }})"
