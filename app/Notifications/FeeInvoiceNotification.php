@@ -42,8 +42,9 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
             ->line('**Invoice Breakdown:**');
 
         foreach ($this->feeItems as $item) {
-            $amount = '₦' . number_format($item->amount, 2);
-            $mail->line("- {$item->feeItem?->name ?? $item->name}: {$amount}");
+            $amount   = '₦' . number_format($item->amount, 2);
+            $itemName = $item->feeItem?->name ?? $item->name ?? 'Fee Item';
+            $mail->line("- {$itemName}: {$amount}");
         }
 
         $mail->line('---')
