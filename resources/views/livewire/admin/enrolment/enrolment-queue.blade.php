@@ -293,15 +293,15 @@
             </div>
 
             <div class="form-field">
-                <label>Assign Class <span style="color:var(--c-danger)">*</span></label>
-                <select wire:model="assignedClass">
-                    <option value="">Select class</option>
-                    @foreach($classes as $class)
-                        <option value="{{ $class }}">{{ $class }}</option>
-                    @endforeach
-                </select>
-                @error('assignedClass') <div class="field-error">{{ $message }}</div> @enderror
-            </div>
+    <label>Assign Class <span style="color:var(--c-danger)">*</span></label>
+    <select wire:model="assignedClass">
+        <option value="">Select class</option>
+        @foreach($classes as $class)
+            <option value="{{ $class->id }}">{{ $class->name }}</option>
+        @endforeach
+    </select>
+    @error('assignedClass') <div class="field-error">{{ $message }}</div> @enderror
+</div>
 
             <div class="form-field">
                 <label>Admission Number <span style="color:var(--c-danger)">*</span></label>
