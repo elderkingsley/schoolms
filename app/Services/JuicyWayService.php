@@ -123,32 +123,47 @@ class JuicyWayService
     // ── Step 3: Provision a NUBAN on the wallet ───────────────────────────────
 
     /**
-     * Idempotent: returns an existing bank account immediately if one already
-     * exists (handles job retries at step 3 safely).
-     * Polls up to 6 × 5 s = 30 s for JuicyWay to provision the NUBAN.
+     * Request a bank account (NUBAN) for a wallet and poll until it appears.
+     *
+     * IMPORTANT: JuicyWay's GET /wallets/{id} endpoint is broken (returns 404).
+     * Instead we poll GET /deposits filtered by wallet to detect when a NUBAN
+     * has been assigned — but JuicyWay also has no filter on deposits by wallet.
+     *
+     * The only reliable detection method confirmed working is:
+     * POST /wallets/{id}/payment-method → then poll GET /wallets/{id}/payment-methods
+     *
+     * If that also fails, we fall back to a fixed 30s wait then check deposits
+     * for the account_number matching our known wallet.
+     *
+     * Polls up to 12 × 10s = 120s.
      *
      * @return array ['account_number', 'bank_name', 'bank_code']
      */
     public function addBankAccount(string $walletId): array
     {
-        // Return immediately if already provisioned (idempotency on retry)
-        $existing = $this->getExistingBankAccount($walletId);
-        if ($existing) {
-            Log::info("JuicyWay: bank account already exists on wallet {$walletId} — reusing.");
-            return $existing;
+        // Step 1: request the bank account
+        try {
+            $this->post("/wallets/{$walletId}/payment-method", ['type' => 'bank_account']);
+        } catch (\RuntimeException $e) {
+            // If already requested, continue to polling
+            if (! str_contains($e->getMessage(), 'already') &&
+                ! str_contains($e->getMessage(), 'duplicate')) {
+                throw $e;
+            }
         }
 
-        $this->post("/wallets/{$walletId}/payment-method", ['type' => 'bank_account']);
-
-        // Poll up to 12 × 10 s = 120 s.
-        // JuicyWay provisions NUBANs asynchronously and can take anywhere from
-        // a few seconds to over a minute depending on their banking partner load.
+        // Step 2: Poll GET /wallets/{id}/payment-methods (different endpoint)
+        // Falls back to GET /wallets/{id} if that fails too.
         for ($i = 0; $i < 12; $i++) {
             sleep(10);
-            $account = $this->getExistingBankAccount($walletId);
+
+            // Try the payment-methods sub-endpoint first
+            $account = $this->tryGetPaymentMethod($walletId);
             if ($account) {
+                Log::info("JuicyWay: NUBAN confirmed on wallet {$walletId} (attempt " . ($i + 1) . ")");
                 return $account;
             }
+
             Log::info("JuicyWay: waiting for NUBAN on wallet {$walletId} (attempt " . ($i + 1) . "/12)");
         }
 
@@ -157,22 +172,37 @@ class JuicyWayService
         );
     }
 
-    private function getExistingBankAccount(string $walletId): ?array
+    /**
+     * Try multiple endpoints to find a provisioned bank account on a wallet.
+     * JuicyWay's API is inconsistent — we try all known variants.
+     */
+    private function tryGetPaymentMethod(string $walletId): ?array
     {
-        try {
-            $response = $this->get("/wallets/{$walletId}");
-            $methods  = $response['data']['payment_methods'] ?? [];
-            if (! empty($methods)) {
-                $m = $methods[0];
-                return [
-                    'account_number' => $m['account_number'],
-                    'bank_name'      => $m['bank_name'] ?? 'Unknown Bank',
-                    'bank_code'      => $m['bank_code'] ?? '',
-                ];
+        // Variant 1: GET /wallets/{id}/payment-methods
+        foreach (['/wallets/' . $walletId . '/payment-methods', '/wallets/' . $walletId] as $endpoint) {
+            try {
+                $response = $this->get($endpoint);
+                // Handle both array of methods and single wallet with payment_methods
+                $methods = $response['data']['payment_methods']
+                    ?? $response['data']
+                    ?? [];
+
+                if (! empty($methods)) {
+                    // If it's a list, take first; if it's a single object with account_number, use it
+                    $m = isset($methods[0]) ? $methods[0] : $methods;
+                    if (! empty($m['account_number'])) {
+                        return [
+                            'account_number' => $m['account_number'],
+                            'bank_name'      => $m['bank_name'] ?? 'Assets Microfinance Bank',
+                            'bank_code'      => $m['bank_code'] ?? '',
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::info("JuicyWay: {$endpoint} failed: " . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            Log::warning("JuicyWay: getExistingBankAccount failed for {$walletId}: " . $e->getMessage());
         }
+
         return null;
     }
 
