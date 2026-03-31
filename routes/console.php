@@ -22,3 +22,20 @@ Artisan::command('inspire', function () {
 Schedule::job(new \App\Jobs\PollJuicyWayDepositsJob, 'payments')
     ->everyMinute()
     ->withoutOverlapping(2);
+
+    // Daily sweep — re-dispatch provisioning for any parent without a NUBAN.
+// Catches edge cases where ProvisionParentWalletJob was missed on approval.
+Schedule::call(function () {
+    App\Models\ParentGuardian::whereNotNull('user_id')
+        ->whereNull('juicyway_account_number')
+        ->whereNotIn('juicyway_wallet_status', ['pending'])
+        ->with(['user', 'students'])
+        ->get()
+        ->each(function ($parent) {
+            if ($parent->user && $parent->students->isNotEmpty()) {
+                $parent->update(['juicyway_wallet_status' => null]);
+                App\Jobs\ProvisionParentWalletJob::dispatch($parent)
+                    ->onQueue('provisioning');
+            }
+        });
+})->dailyAt('02:00')->name('provision-missing-wallets')->withoutOverlapping();
