@@ -17,6 +17,7 @@ class EnrolmentRejectedNotification extends Notification implements ShouldQueue
         public string $studentFirstName,
         public string $studentLastName,
         public string $classAppliedFor,
+        public string $rejectionReason = '',
     ) {}
 
     public function via($notifiable): array
@@ -33,7 +34,7 @@ class EnrolmentRejectedNotification extends Notification implements ShouldQueue
             ->greeting("Dear {$this->parentName},")
             ->line("Thank you for your interest in Nurtureville School.")
             ->line("We regret to inform you that the enrolment application for **{$studentName}** for **{$this->classAppliedFor}** has not been successful at this time.")
-            ->line("This may be due to limited availability in the requested class or other administrative reasons.")
+            ->when($this->rejectionReason, fn($mail) => $mail->line("**Reason:** {$this->rejectionReason}"))
             ->line("If you would like more information or wish to be considered for a future intake, please contact the school directly.")
             ->action('Contact School', url('/'))
             ->salutation("Yours sincerely,\nThe Nurtureville School Administration");

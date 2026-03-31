@@ -160,6 +160,19 @@
         @endif
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        @if($student->status === 'pending')
+            {{-- Approve and reject buttons shown only for pending enrolments --}}
+            <button style="padding:8px 18px;background:var(--c-accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f-sans);display:inline-flex;align-items:center;gap:6px;"
+                wire:click="openApproveModal">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8l4 4 8-8"/></svg>
+                Approve
+            </button>
+            <button style="padding:8px 18px;background:none;border:1px solid var(--c-danger);color:var(--c-danger);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f-sans);display:inline-flex;align-items:center;gap:6px;"
+                wire:click="openRejectModal">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                Reject
+            </button>
+        @endif
         @if($student->status === 'active')
             <button class="btn-edit" wire:click="openInvoiceModal"
                 style="background:var(--c-accent);color:#fff;border-color:var(--c-accent);">
@@ -721,6 +734,78 @@
     @endif
 
 </div>
+
+{{-- Approve enrolment modal --}}
+@if($showApproveModal)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Approve Enrolment</div>
+        <div style="font-size:13px;color:var(--c-text-2);margin-bottom:16px;">
+            Approving <strong>{{ $student->full_name }}</strong>.
+            Assign a class and confirm the admission number.
+        </div>
+
+        <div class="form-field">
+            <label>Assign Class <span style="color:var(--c-danger)">*</span></label>
+            <select wire:model="assignedClass" style="width:100%;padding:10px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;color:var(--c-text-1);background:var(--c-bg);outline:none;-webkit-appearance:none;">
+                <option value="">Select class...</option>
+                @foreach($classes as $class)
+                    <option value="{{ $class->id }}">{{ $class->display_name }}</option>
+                @endforeach
+            </select>
+            @error('assignedClass') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="form-field">
+            <label>Admission Number <span style="color:var(--c-danger)">*</span></label>
+            <input type="text" wire:model="admissionNumber"
+                style="width:100%;padding:10px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-mono);font-size:14px;color:var(--c-text-1);background:var(--c-bg);outline:none;box-sizing:border-box;"
+                placeholder="e.g. NV/2026/0080">
+            @error('admissionNumber') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showApproveModal', false)">Cancel</button>
+            <button class="btn-confirm" wire:click="confirmApproval"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove wire:target="confirmApproval">Confirm & Approve</span>
+                <span wire:loading wire:target="confirmApproval">Approving...</span>
+            </button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Reject enrolment modal --}}
+@if($showRejectModal)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Reject Enrolment</div>
+        <div style="font-size:13px;color:var(--c-text-2);margin-bottom:16px;">
+            Rejecting <strong>{{ $student->full_name }}</strong>.
+            Please provide a reason — it will be included in the email sent to the parent.
+        </div>
+
+        <div class="form-field">
+            <label>Reason for Rejection <span style="color:var(--c-danger)">*</span></label>
+            <textarea wire:model="rejectionReason" rows="4"
+                style="width:100%;padding:10px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;color:var(--c-text-1);background:var(--c-bg);outline:none;box-sizing:border-box;resize:vertical;"
+                placeholder="e.g. No available space in the requested class for this term..."></textarea>
+            @error('rejectionReason') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showRejectModal', false)">Cancel</button>
+            <button style="padding:10px 20px;background:var(--c-danger);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f-sans);transition:opacity 150ms;"
+                wire:click="confirmRejection"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove wire:target="confirmRejection">Confirm Rejection</span>
+                <span wire:loading wire:target="confirmRejection">Sending...</span>
+            </button>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- Class change modal --}}
 @if($showClassModal)

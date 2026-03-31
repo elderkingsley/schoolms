@@ -198,7 +198,7 @@ class EnrolmentForm extends Component
     public function render()
     {
         return view('livewire.public.enrolment-form', [
-            'classes' => SchoolClass::orderBy('order')->pluck('name'),
+            'classes' => SchoolClass::orderBy('order')->orderBy('name')->get()->unique('name')->pluck('name')->values(),
         ])->layout('layouts.public', ['title' => 'Student Enrolment']);
     }
 }

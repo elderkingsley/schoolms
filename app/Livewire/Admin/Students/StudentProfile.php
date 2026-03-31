@@ -2,13 +2,21 @@
 
 namespace App\Livewire\Admin\Students;
 
+use App\Models\AcademicSession;
 use App\Models\Enrolment;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\Term;
+use App\Models\User;
+use App\Notifications\EnrolmentRejectedNotification;
+use App\Notifications\ParentWelcomeNotification;
 use App\Services\FeeService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Jobs\ProvisionParentWalletJob;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -30,6 +38,15 @@ class StudentProfile extends Component
     public string $medicalNotes    = '';
     public string $classAppliedFor = '';
     public $newPhoto               = null; // uploaded file (Livewire temp)
+
+    // ── Approve modal ─────────────────────────────────────────────────────────
+    public bool    $showApproveModal  = false;
+    public string  $assignedClass     = '';
+    public string  $admissionNumber   = '';
+
+    // ── Reject modal ──────────────────────────────────────────────────────────
+    public bool    $showRejectModal   = false;
+    public string  $rejectionReason   = '';
 
     // ── Invoice creation modal ────────────────────────────────────────────────
     public bool    $showInvoiceModal = false;
@@ -266,6 +283,141 @@ class StudentProfile extends Component
         $this->student->load('parents.user');
 
         session()->flash('success', 'Provisioning queued for ' . $this->student->full_name . '. Refresh in about a minute to see the account details.');
+    }
+
+
+    // ── Approve enrolment from student profile page ───────────────────────────
+
+    public function openApproveModal(): void
+    {
+        $this->assignedClass    = '';
+        $this->admissionNumber  = $this->generateAdmissionNumber();
+        $this->showApproveModal = true;
+        $this->resetValidation();
+    }
+
+    public function confirmApproval(): void
+    {
+        $this->validate([
+            'assignedClass'   => 'required|exists:school_classes,id',
+            'admissionNumber' => 'required|string|unique:students,admission_number',
+        ]);
+
+        $student = $this->student;
+
+        DB::transaction(function () use ($student) {
+            $student->update([
+                'status'           => 'active',
+                'admission_number' => $this->admissionNumber,
+                'approved_at'      => now(),
+                'approved_by'      => auth()->id(),
+            ]);
+
+            $session = AcademicSession::current();
+            $class   = SchoolClass::findOrFail($this->assignedClass);
+
+            if ($session && $class) {
+                Enrolment::firstOrCreate(
+                    ['student_id' => $student->id, 'academic_session_id' => $session->id],
+                    ['school_class_id' => $class->id, 'enrolled_at' => now(), 'status' => 'active']
+                );
+            }
+
+            foreach ($student->parents as $parent) {
+                if ($parent->user_id) continue;
+                $tempEmail = $parent->_temp_email;
+                if (! $tempEmail) continue;
+
+                $existingUser = User::where('email', $tempEmail)->first();
+                if ($existingUser) {
+                    $parent->update(['user_id' => $existingUser->id]);
+                    $existingUser->notify(new ParentWelcomeNotification($existingUser, $student, null, $parent));
+                } else {
+                    $tempPassword = Str::random(10);
+                    $user = User::create([
+                        'name'      => $parent->_temp_name,
+                        'email'     => $tempEmail,
+                        'password'  => Hash::make($tempPassword),
+                        'user_type' => 'parent',
+                        'is_active' => true,
+                    ]);
+                    $user->assignRole('parent');
+                    $parent->update(['user_id' => $user->id]);
+                    $user->notify(new ParentWelcomeNotification($user, $student, $tempPassword, $parent));
+                }
+            }
+        });
+
+        $student->refresh();
+        $student->load('parents.user', 'enrolments.schoolClass', 'enrolments.session');
+
+        foreach ($student->parents as $parent) {
+            if ($parent->user && ! $parent->hasVirtualAccount()) {
+                ProvisionParentWalletJob::dispatch($parent)->onQueue('provisioning');
+            }
+        }
+
+        $this->showApproveModal = false;
+        session()->flash('success', 'Student approved, parents notified, and bank account provisioning queued.');
+    }
+
+    protected function generateAdmissionNumber(): string
+    {
+        $year   = now()->format('Y');
+        $prefix = "NV/{$year}/";
+        $last   = Student::where('admission_number', 'like', $prefix . '%')
+            ->where('status', 'active')
+            ->orderByRaw('CAST(SUBSTRING_INDEX(admission_number, "/", -1) AS UNSIGNED) DESC')
+            ->value('admission_number');
+        $next = $last ? ((int) last(explode('/', $last))) + 1 : 1;
+        return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
+    }
+
+    // ── Reject enrolment from student profile page ────────────────────────────
+
+    public function openRejectModal(): void
+    {
+        $this->rejectionReason = '';
+        $this->showRejectModal = true;
+        $this->resetValidation();
+    }
+
+    public function confirmRejection(): void
+    {
+        $this->validate([
+            'rejectionReason' => 'required|string|min:5|max:500',
+        ]);
+
+        $student = $this->student;
+        $student->update(['status' => 'withdrawn']);
+
+        foreach ($student->parents as $parent) {
+            $email      = $parent->_temp_email ?? $parent->user?->email;
+            $parentName = $parent->_temp_name  ?? $parent->user?->name ?? 'Parent';
+            if (! $email) continue;
+
+            try {
+                \Illuminate\Support\Facades\Notification::route('mail', $email)
+                    ->notify(new EnrolmentRejectedNotification(
+                        parentName:       $parentName,
+                        studentFirstName: $student->first_name,
+                        studentLastName:  $student->last_name,
+                        classAppliedFor:  $student->class_applied_for ?? 'the applied class',
+                        rejectionReason:  $this->rejectionReason,
+                    ));
+            } catch (\Exception $e) {
+                Log::error('Rejection email failed from student profile', [
+                    'email'   => $email,
+                    'student' => $student->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $this->showRejectModal = false;
+        $this->rejectionReason = '';
+        $this->student->refresh();
+        session()->flash('success', 'Enrolment rejected and parent(s) notified by email.');
     }
 
     public function render()
