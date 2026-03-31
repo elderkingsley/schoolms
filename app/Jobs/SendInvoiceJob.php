@@ -18,7 +18,7 @@ class SendInvoiceJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int   $tries   = 3;
-    public int   $timeout = 180;  // 3 min: NUBAN polling is up to 30 s per parent
+    public int   $timeout = 180; // 3 min: NUBAN polling up to 30s per parent
 
     public array $backoff = [30, 60, 120];
 
@@ -40,22 +40,20 @@ class SendInvoiceJob implements ShouldQueue
 
         foreach ($parents as $parent) {
             // ── 1. Provision virtual account BEFORE sending email ─────────
-            // Runs synchronously so the NUBAN is ready in the inbox.
-            // If provisioning fails, we still send the email with bursary fallback.
             try {
                 $this->ensureVirtualAccount($parent, $juicyWay);
-                $parent->refresh(); // pick up fresh account details
+                $parent->refresh();
             } catch (\Throwable $e) {
                 Log::error('SendInvoiceJob: provisioning failed for parent', [
                     'invoice_id' => $invoice->id,
                     'parent_id'  => $parent->id,
                     'error'      => $e->getMessage(),
                 ]);
-                // Mark failed so admin can see it and retry
                 $parent->update(['juicyway_wallet_status' => 'failed']);
+                // Fall through — still send the email with bursary fallback
             }
 
-            // ── 2. Send the email (always, even if provisioning failed) ───
+            // ── 2. Send email (always, even if provisioning failed) ───────
             try {
                 $parent->user->notify(
                     new FeeInvoiceNotification($invoice, $invoice->items)
@@ -74,56 +72,80 @@ class SendInvoiceJob implements ShouldQueue
     }
 
     /**
-     * Provision a JuicyWay virtual bank account for this parent row.
+     * Provision a JuicyWay virtual account for this parent row.
      *
-     * IMPORTANT: The JuicyWay CUSTOMER is created in the CHILD's name
-     * (student first_name + last_name), not the parent's name. This means
-     * the NUBAN is issued as e.g. "Adaeze Okonkwo — Access Bank — 0812345678",
-     * making reconciliation unambiguous when multiple children share a parent.
+     * The JuicyWay customer is created in the CHILD's name so each NUBAN
+     * shows e.g. "Jaanai Kingsley — Access Bank — 0812345678", making
+     * reconciliation unambiguous when a parent has multiple children.
      *
-     * The email and phone remain the parent's — JuicyWay requires a real
-     * person's contact details for identity purposes.
-     *
-     * Each parent row is linked to exactly one child via parent_student pivot,
-     * so $parent->students()->first() reliably returns the right student.
+     * Handles the duplicate_currency_wallet failure case:
+     * If a previous run created the customer but crashed before saving the
+     * wallet_id, JuicyWay returns 400 duplicate_currency_wallet on the next
+     * wallet creation attempt. Since JuicyWay has no list-wallets endpoint,
+     * the only recovery is to DELETE the orphaned customer and recreate it.
+     * This is safe — the orphaned customer has no wallet and no transactions.
      */
     private function ensureVirtualAccount(ParentGuardian $parent, JuicyWayService $juicyWay): void
     {
-        // Already fully provisioned — nothing to do
         if ($parent->hasVirtualAccount()) {
-            return;
+            return; // Already fully provisioned
         }
 
         $parent->update(['juicyway_wallet_status' => 'pending']);
 
-        // Get the child this parent row is linked to
         $student = $parent->students()->first();
-
         if (! $student) {
-            throw new \RuntimeException(
-                "ProvisionWallet: parent {$parent->id} has no linked student."
-            );
+            throw new \RuntimeException("Parent {$parent->id} has no linked student.");
         }
 
-        // ── Step 1: Customer — in the CHILD's name ───────────────────────
+        // ── Step 1: Customer in CHILD's name ─────────────────────────────
         if (empty($parent->juicyway_customer_id)) {
             $customerId = $juicyWay->createCustomer(
-                firstName: $student->first_name,         // child's first name
-                lastName:  $student->last_name,          // child's last name
-                email:     $parent->user->email,         // parent's email
-                phone:     $parent->phone ?? '08000000000', // parent's phone
+                firstName: $student->first_name,
+                lastName:  $student->last_name,
+                email:     $parent->user->email,
+                phone:     $parent->phone ?? '08000000000',
             );
             $parent->update(['juicyway_customer_id' => $customerId]);
             $parent->refresh();
             Log::info("SendInvoiceJob: customer created for parent {$parent->id}", [
-                'customer_name' => "{$student->first_name} {$student->last_name}",
-                'customer_id'   => $customerId,
+                'name' => "{$student->first_name} {$student->last_name}",
             ]);
         }
 
-        // ── Step 2: Wallet (duplicate handled inside createWallet) ────────
+        // ── Step 2: Wallet — with duplicate recovery ──────────────────────
         if (empty($parent->juicyway_wallet_id)) {
-            $wallet = $juicyWay->createWallet($parent->juicyway_customer_id);
+            try {
+                $wallet = $juicyWay->createWallet($parent->juicyway_customer_id);
+
+            } catch (\RuntimeException $e) {
+                if (! str_contains($e->getMessage(), 'duplicate_currency_wallet')) {
+                    throw $e;
+                }
+
+                // Orphaned customer — delete it, recreate it, try wallet again
+                Log::warning("SendInvoiceJob: duplicate_currency_wallet for parent {$parent->id} — deleting orphaned customer and recreating.", [
+                    'old_customer_id' => $parent->juicyway_customer_id,
+                ]);
+
+                $juicyWay->deleteCustomer($parent->juicyway_customer_id);
+
+                $newCustomerId = $juicyWay->createCustomer(
+                    firstName: $student->first_name,
+                    lastName:  $student->last_name,
+                    email:     $parent->user->email,
+                    phone:     $parent->phone ?? '08000000000',
+                );
+                $parent->update(['juicyway_customer_id' => $newCustomerId]);
+                $parent->refresh();
+
+                Log::info("SendInvoiceJob: recreated customer for parent {$parent->id}", [
+                    'new_customer_id' => $newCustomerId,
+                ]);
+
+                $wallet = $juicyWay->createWallet($newCustomerId);
+            }
+
             $parent->update([
                 'juicyway_wallet_id'  => $wallet['wallet_id'],
                 'juicyway_account_id' => $wallet['account_id'],
@@ -142,9 +164,9 @@ class SendInvoiceJob implements ShouldQueue
                 'juicyway_wallet_status'  => 'active',
             ]);
             Log::info("SendInvoiceJob: NUBAN provisioned for parent {$parent->id}", [
-                'account_number'  => $bank['account_number'],
-                'bank_name'       => $bank['bank_name'],
-                'student_name'    => "{$student->first_name} {$student->last_name}",
+                'account_number' => $bank['account_number'],
+                'bank_name'      => $bank['bank_name'],
+                'student'        => "{$student->first_name} {$student->last_name}",
             ]);
         } else {
             $parent->update(['juicyway_wallet_status' => 'active']);

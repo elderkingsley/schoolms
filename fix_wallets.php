@@ -1,22 +1,13 @@
 <?php
 /**
- * One-time recovery script for stuck/failed parent wallet provisioning.
+ * One-time recovery script.
+ * Fixes every parent stuck in failed/half-provisioned state.
  *
- * Fixes every parent who:
- *  - has juicyway_wallet_status = 'failed', OR
- *  - has a customer_id but no wallet_id (crashed between steps 1 and 2), OR
- *  - has a wallet_id but no account_number (crashed between steps 2 and 3)
+ * The duplicate_currency_wallet case is handled by deleting the orphaned
+ * customer and recreating it fresh — same logic as SendInvoiceJob.
  *
- * Uses the child's name for the JuicyWay customer (same as new code).
- * For parents already provisioned in the parent's name, their existing
- * accounts are left untouched — only new/recovery provisioning uses child names.
- *
- * RUN:
- *   cd /var/www/schoolms
- *   php fix_wallets.php
- *
- * DELETE after running:
- *   rm fix_wallets.php
+ * RUN:  cd /var/www/schoolms && php fix_wallets.php
+ * DELETE after: rm fix_wallets.php
  */
 
 require __DIR__ . '/vendor/autoload.php';
@@ -45,47 +36,68 @@ $parents = ParentGuardian::whereNotNull('user_id')
 echo "Found {$parents->count()} parent(s) to fix.\n\n";
 
 foreach ($parents as $parent) {
-    $student = $parent->students()->first();
-    $childName = $student ? "{$student->first_name} {$student->last_name}" : '(no student linked)';
+    $student   = $parent->students()->first();
+    $childName = $student ? "{$student->first_name} {$student->last_name}" : '(no student)';
 
-    echo "--- Parent ID: {$parent->id} | User: {$parent->user->name} | Child: {$childName}\n";
+    echo "--- Parent ID: {$parent->id} | {$parent->user->name} | Child: {$childName}\n";
+
+    if (! $student) {
+        echo "  SKIP: no student linked.\n\n";
+        continue;
+    }
 
     try {
-        // Step 1
+        // ── Step 1 ───────────────────────────────────────────────────────
         if (empty($parent->juicyway_customer_id)) {
-            if (! $student) {
-                echo "  ✗ SKIP: no student linked to this parent row.\n\n";
-                continue;
-            }
-            $customerId = $svc->createCustomer(
-                $student->first_name,
-                $student->last_name,
-                $parent->user->email,
-                $parent->phone ?? '08000000000'
+            $cid = $svc->createCustomer(
+                $student->first_name, $student->last_name,
+                $parent->user->email, $parent->phone ?? '08000000000'
             );
-            $parent->update(['juicyway_customer_id' => $customerId]);
+            $parent->update(['juicyway_customer_id' => $cid]);
             $parent->refresh();
-            echo "  Step 1 OK: customer created as '{$childName}' → {$customerId}\n";
+            echo "  Step 1 OK: created customer as '{$childName}' → {$cid}\n";
         } else {
-            echo "  Step 1 SKIP: customer_id already exists ({$parent->juicyway_customer_id})\n";
+            echo "  Step 1 SKIP: customer_id={$parent->juicyway_customer_id}\n";
         }
 
-        // Step 2 (createWallet handles duplicate internally)
+        // ── Step 2 ───────────────────────────────────────────────────────
         if (empty($parent->juicyway_wallet_id)) {
-            $wallet = $svc->createWallet($parent->juicyway_customer_id);
+            try {
+                $wallet = $svc->createWallet($parent->juicyway_customer_id);
+                echo "  Step 2 OK: wallet_id={$wallet['wallet_id']}\n";
+
+            } catch (\RuntimeException $e) {
+                if (! str_contains($e->getMessage(), 'duplicate_currency_wallet')) {
+                    throw $e;
+                }
+
+                echo "  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...\n";
+                $svc->deleteCustomer($parent->juicyway_customer_id);
+
+                $newCid = $svc->createCustomer(
+                    $student->first_name, $student->last_name,
+                    $parent->user->email, $parent->phone ?? '08000000000'
+                );
+                $parent->update(['juicyway_customer_id' => $newCid]);
+                $parent->refresh();
+                echo "  Step 2: new customer_id={$newCid}\n";
+
+                $wallet = $svc->createWallet($newCid);
+                echo "  Step 2 OK: wallet_id={$wallet['wallet_id']}\n";
+            }
+
             $parent->update([
                 'juicyway_wallet_id'  => $wallet['wallet_id'],
                 'juicyway_account_id' => $wallet['account_id'],
             ]);
             $parent->refresh();
-            echo "  Step 2 OK: wallet_id={$wallet['wallet_id']}\n";
         } else {
-            echo "  Step 2 SKIP: wallet_id already exists ({$parent->juicyway_wallet_id})\n";
+            echo "  Step 2 SKIP: wallet_id={$parent->juicyway_wallet_id}\n";
         }
 
-        // Step 3
+        // ── Step 3 ───────────────────────────────────────────────────────
         if (empty($parent->juicyway_account_number)) {
-            echo "  Step 3: requesting NUBAN (polling up to 30 s)...\n";
+            echo "  Step 3: requesting NUBAN (polling up to 30s)...\n";
             $bank = $svc->addBankAccount($parent->juicyway_wallet_id);
             $parent->update([
                 'juicyway_account_number' => $bank['account_number'],
@@ -96,10 +108,10 @@ foreach ($parents as $parent) {
             echo "  Step 3 OK: {$bank['bank_name']} — {$bank['account_number']}\n";
         } else {
             $parent->update(['juicyway_wallet_status' => 'active']);
-            echo "  Step 3 SKIP: account_number already exists ({$parent->juicyway_account_number})\n";
+            echo "  Step 3 SKIP: account_number={$parent->juicyway_account_number}\n";
         }
 
-        echo "  ✓ Parent {$parent->id} fully provisioned.\n\n";
+        echo "  ✓ Done.\n\n";
 
     } catch (\Throwable $e) {
         $parent->update(['juicyway_wallet_status' => 'failed']);
@@ -107,4 +119,4 @@ foreach ($parents as $parent) {
     }
 }
 
-echo "Done. Delete this file: rm fix_wallets.php\n";
+echo "Complete. Run: rm fix_wallets.php\n";

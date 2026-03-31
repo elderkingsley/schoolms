@@ -8,14 +8,22 @@ use Illuminate\Support\Facades\Log;
 /**
  * JuicyWayService for SchoolMS
  *
- * Mirrors PayGrid's proven JuicyWayService exactly.
  * Auth: Authorization: API_KEY (no Bearer prefix).
  *
  * Virtual account provisioning per parent row (one per child):
- *   1. createCustomer()  → uses the CHILD'S name (for reconciliation clarity)
- *                          email/phone stay the parent's (JuicyWay identity requirement)
- *   2. createWallet()    → handles duplicate_currency_wallet gracefully
+ *   1. createCustomer()  → uses the CHILD's name for reconciliation clarity
+ *   2. createWallet()    → handles duplicate_currency_wallet by deleting the
+ *                          orphaned customer and recreating fresh
  *   3. addBankAccount()  → polls until NUBAN appears; idempotent on retry
+ *
+ * The duplicate_currency_wallet situation arises when:
+ *   - A customer was created in a previous job run
+ *   - The job crashed before saving the wallet_id
+ *   - JuicyWay has no list-wallets endpoint to retrieve the existing wallet
+ *   - JuicyWay DOES support DELETE /customers/{id}
+ * Solution: delete the orphaned customer, recreate it, then create the wallet.
+ * This is safe because the customer has no wallet attached (that's the whole
+ * problem) and no transaction history.
  */
 class JuicyWayService
 {
@@ -59,69 +67,45 @@ class JuicyWayService
         return $response['data']['id'];
     }
 
-    // ── Step 2: Create an NGN wallet — handles duplicate gracefully ───────────
+    /**
+     * Delete a JuicyWay customer. Used when recovering from
+     * duplicate_currency_wallet — the orphaned customer has no wallet
+     * and no transactions, so it is safe to delete and recreate.
+     */
+    public function deleteCustomer(string $customerId): void
+    {
+        $this->delete("/customers/{$customerId}");
+        Log::info("JuicyWay: deleted orphaned customer {$customerId}");
+    }
+
+    // ── Step 2: Create an NGN wallet ─────────────────────────────────────────
 
     /**
      * Creates an NGN wallet for the given JuicyWay customer.
      *
-     * JuicyWay only allows one NGN wallet per customer. If a previous job
-     * created the customer but crashed before saving the wallet_id, the next
-     * attempt gets HTTP 400 "duplicate_currency_wallet". We recover by
-     * fetching the existing wallet instead of failing.
+     * If duplicate_currency_wallet is returned it means a previous job run
+     * created this customer but crashed before saving the wallet_id. Since
+     * JuicyWay has no endpoint to retrieve an existing wallet by customer,
+     * the caller must delete the customer (deleteCustomer()), create a new
+     * one (createCustomer()), then call createWallet() again.
+     *
+     * This is handled automatically inside ensureVirtualAccount() in
+     * SendInvoiceJob — this method deliberately does NOT swallow the error
+     * so the caller controls the retry logic.
      *
      * @return array ['wallet_id' => string, 'account_id' => string]
      */
     public function createWallet(string $customerId): array
     {
-        try {
-            $response = $this->post('/wallets', [
-                'currency'    => 'NGN',
-                'customer_id' => $customerId,
-            ]);
+        $response = $this->post('/wallets', [
+            'currency'    => 'NGN',
+            'customer_id' => $customerId,
+        ]);
 
-            return [
-                'wallet_id'  => $response['data']['id'],
-                'account_id' => $response['data']['account_id'],
-            ];
-
-        } catch (\RuntimeException $e) {
-            if (str_contains($e->getMessage(), 'duplicate_currency_wallet')) {
-                Log::info("JuicyWay: wallet already exists for customer {$customerId} — fetching existing.");
-                return $this->findWalletByCustomer($customerId);
-            }
-            throw $e;
-        }
-    }
-
-    /**
-     * Fetch the existing NGN wallet for a customer from GET /wallets.
-     * Called when createWallet() hits the duplicate error.
-     */
-    private function findWalletByCustomer(string $customerId): array
-    {
-        $page = null;
-
-        do {
-            $url      = $page ? "/wallets?page={$page}" : '/wallets';
-            $response = $this->get($url);
-
-            foreach (($response['data'] ?? []) as $wallet) {
-                if (($wallet['customer_id'] ?? '') === $customerId
-                    && ($wallet['currency']    ?? '') === 'NGN') {
-                    return [
-                        'wallet_id'  => $wallet['id'],
-                        'account_id' => $wallet['account_id'] ?? $wallet['id'],
-                    ];
-                }
-            }
-
-            $page = $response['meta']['next_page'] ?? null;
-
-        } while ($page);
-
-        throw new \RuntimeException(
-            "JuicyWay: duplicate_currency_wallet for customer {$customerId} — could not retrieve existing wallet."
-        );
+        return [
+            'wallet_id'  => $response['data']['id'],
+            'account_id' => $response['data']['account_id'],
+        ];
     }
 
     // ── Step 3: Attach a bank account (NUBAN) to the wallet ──────────────────
@@ -145,7 +129,7 @@ class JuicyWayService
             'type' => 'bank_account',
         ]);
 
-        // Poll up to 6 × 5 s = 30 s for the NUBAN to appear
+        // Poll up to 6 × 5 s = 30 s
         for ($i = 0; $i < 6; $i++) {
             sleep(5);
             $account = $this->getExistingBankAccount($walletId);
@@ -156,13 +140,10 @@ class JuicyWayService
         }
 
         throw new \RuntimeException(
-            "JuicyWay: no payment method appeared after 30 s for wallet {$walletId}."
+            "JuicyWay: no payment method appeared after 30s for wallet {$walletId}."
         );
     }
 
-    /**
-     * Returns the first bank account on a wallet, or null if none exists yet.
-     */
     private function getExistingBankAccount(string $walletId): ?array
     {
         try {
@@ -218,6 +199,25 @@ class JuicyWayService
         return $this->request('GET', $path);
     }
 
+    private function delete(string $path): void
+    {
+        if (empty($this->apiKey)) {
+            throw new \RuntimeException('JUICYWAY_API_KEY is not set in .env');
+        }
+
+        $response = Http::timeout(30)->withHeaders([
+            'Authorization' => $this->apiKey,
+            'Accept'        => 'application/json',
+        ])->delete($this->baseUrl . $path);
+
+        // 204 No Content = success; anything else is an error
+        if (! $response->successful() && $response->status() !== 204) {
+            $errorBody = $response->json() ?? [];
+            $message   = $errorBody['message'] ?? "HTTP {$response->status()}";
+            throw new \RuntimeException("JuicyWay DELETE {$path}: {$message}");
+        }
+    }
+
     private function request(string $method, string $path, array $data = []): array
     {
         if (empty($this->apiKey)) {
@@ -225,7 +225,7 @@ class JuicyWayService
         }
 
         $client = Http::timeout(60)->withHeaders([
-            'Authorization' => $this->apiKey,  // No "Bearer" — PayGrid confirmed
+            'Authorization' => $this->apiKey,
             'Content-Type'  => 'application/json',
             'Accept'        => 'application/json',
         ]);
