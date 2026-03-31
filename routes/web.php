@@ -13,6 +13,12 @@ Route::post('/webhooks/monnify', [\App\Http\Controllers\WebhookController::class
 Route::post('/api/juicyway/webhook', [\App\Http\Controllers\JuicyWayWebhookController::class, 'handle'])
     ->name('webhooks.juicyway');
 
+// PayGrid inflow webhook — CSRF exempt (configured in bootstrap/app.php)
+// PayGrid fires this when a parent's bank transfer is detected and posted
+// to Nurtureville's ledger in PayGrid.
+Route::post('/api/paygrid/inflow', [\App\Http\Controllers\PayGridInflowController::class, 'handle'])
+    ->name('webhooks.paygrid.inflow');
+
 // ── Public routes ─────────────────────────────────────────────────────────────
 Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
 
