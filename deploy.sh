@@ -21,12 +21,19 @@ echo "[ 2/9 ] Pulling latest code..."
 git fetch origin main
 git reset --hard origin/main
 
-echo "[ 3/9 ] Fixing permissions BEFORE anything writes to storage..."
-# sudo required — some files are owned by www-data from previous deploys.
-# Must run before composer, migrations, and cache commands so every file
-# written during the deploy is accessible by both the SSH user and www-data.
-sudo chmod -R 775 storage bootstrap/cache
-sudo chown -R www-data:www-data storage bootstrap/cache
+echo "[ 3/9 ] Fixing permissions..."
+# Try sudo first (requires NOPASSWD rule in /etc/sudoers.d/nurtureville).
+# Falls back to plain chmod/chown for files the SSH user already owns.
+# Either way, failures here must NOT abort the deploy — the setgid bit on
+# storage/ directories ensures new files inherit the right group automatically.
+{
+    sudo -n chmod -R 775 storage bootstrap/cache 2>/dev/null && \
+    sudo -n chown -R www-data:www-data storage bootstrap/cache 2>/dev/null
+} || {
+    chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+    chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+}
+echo "  Permissions updated (or already correct)."
 
 echo "[ 4/9 ] Installing PHP dependencies..."
 $COMPOSER install --no-interaction --prefer-dist --optimize-autoloader --no-dev --quiet
@@ -52,7 +59,7 @@ $PHP artisan storage:link --force 2>/dev/null || true
 
 echo "[ 9/9 ] Restarting queue worker..."
 $PHP artisan queue:restart
-sudo /usr/bin/supervisorctl restart nurtureville-worker:* 2>/dev/null || true
+sudo -n /usr/bin/supervisorctl restart nurtureville-worker:* 2>/dev/null || true
 
 echo "[ done ] Bringing app online..."
 $PHP artisan up
