@@ -16,7 +16,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Student;
 
 /**
  * PollJuicyWayDepositsJob — SchoolMS edition
@@ -44,8 +43,9 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries   = 1;
-    public int $timeout = 55; // must finish within 1-minute window
+    public string $queue   = 'payments'; // never blocked by slow provisioning jobs
+    public int    $tries   = 1;
+    public int    $timeout = 55; // must finish within 1-minute window
 
     public function handle(FeeService $feeService): void
     {
@@ -184,7 +184,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices,
-            $reference, $feeService, $student
+            $reference, $feeService
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
