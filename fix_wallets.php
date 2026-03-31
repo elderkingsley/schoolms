@@ -61,10 +61,7 @@ echo "\n=== Provisioning all unprovisioned / stuck parents ===\n";
 
 // Find all parents who need provisioning
 $parents = ParentGuardian::whereNotNull('user_id')
-    ->where(function ($q) {
-        $q->whereNull('juicyway_account_number')     // never provisioned OR stuck
-          ->orWhere('juicyway_wallet_status', 'failed'); // previously failed
-    })
+    ->whereNull('juicyway_account_number')  // everyone without a NUBAN
     ->get();
 
 echo "Found {$parents->count()} parent(s) to provision.\n\n";
@@ -128,7 +125,7 @@ foreach ($parents as $parent) {
 
         // Step 3
         if (empty($parent->juicyway_account_number)) {
-            echo "  Step 3: requesting NUBAN (polling up to 30s)...\n";
+            echo "  Step 3: requesting NUBAN (polling up to 120s)...\n";
             $bank = $svc->addBankAccount($parent->juicyway_wallet_id);
             $parent->update([
                 'juicyway_account_number' => $bank['account_number'],

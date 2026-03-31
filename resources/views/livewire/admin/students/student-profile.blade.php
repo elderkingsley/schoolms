@@ -430,21 +430,27 @@
                 <rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14M5 10h2"/>
             </svg>
             School Fees Payment Account
+            @php
+                $paymentParent = $student->parents->filter(fn($p) => $p->user !== null)->first();
+            @endphp
+            @if($paymentParent && $paymentParent->hasVirtualAccount())
+                <span style="margin-left:auto;background:rgba(21,128,61,0.08);color:#15803D;font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;">Active</span>
+            @elseif($paymentParent && $paymentParent->isWalletProvisioning())
+                <span style="margin-left:auto;background:rgba(180,83,9,0.08);color:#B45309;font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;">Provisioning…</span>
+            @elseif($paymentParent && $paymentParent->isWalletFailed())
+                <span style="margin-left:auto;background:rgba(190,18,60,0.08);color:var(--c-danger);font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;">Failed</span>
+            @elseif($paymentParent && ! $paymentParent->hasVirtualAccount())
+                <button wire:click="provisionWallet"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50"
+                    style="margin-left:auto;padding:5px 12px;border:1px solid var(--c-accent);border-radius:6px;background:none;font-family:var(--f-sans);font-size:11px;font-weight:600;cursor:pointer;color:var(--c-accent);">
+                    <span wire:loading.remove wire:target="provisionWallet">⚡ Provision Account</span>
+                    <span wire:loading wire:target="provisionWallet">Queuing…</span>
+                </button>
+            @endif
         </div>
-        @php
-            // Each parent row is linked to this specific student.
-            // The virtual account (NUBAN) is stored on that parent row and
-            // provisioned in the child's name for reconciliation clarity.
-            $paymentParent = $student->parents
-                ->filter(fn($p) => $p->user !== null)
-                ->first();
-        @endphp
+
         @if($paymentParent && $paymentParent->hasVirtualAccount())
             <div style="padding:16px 18px;">
-                <p style="font-size:13px;color:var(--c-text-2);margin-bottom:12px;line-height:1.5;">
-                    Dedicated virtual bank account provisioned in this student's name.
-                    Transfers to this account are automatically matched to their invoices.
-                </p>
                 <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;overflow:hidden;" x-data>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
                         <span style="color:var(--c-text-3);font-size:12px;">Bank</span>
@@ -467,40 +473,46 @@
                         <span style="font-weight:600;">{{ $student->full_name }}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:13px;">
-                        <span style="color:var(--c-text-3);font-size:12px;">Status</span>
-                        <span style="background:rgba(21,128,61,0.08);color:#15803D;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;">Active</span>
+                        <span style="color:var(--c-text-3);font-size:12px;">Parent</span>
+                        <span style="color:var(--c-text-2);">{{ $paymentParent->user?->name }}</span>
                     </div>
                 </div>
                 <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">
-                    This is a permanent account. The parent can reuse it for all future payments without needing a new account each term.
+                    Permanent account — reusable for all future fee payments every term.
                 </p>
             </div>
+
         @elseif($paymentParent && $paymentParent->isWalletProvisioning())
             <div style="padding:16px 18px;">
                 <div style="background:rgba(180,83,9,0.05);border:1px solid rgba(180,83,9,0.2);border-radius:8px;padding:12px 14px;font-size:13px;color:#B45309;line-height:1.5;">
-                    ⏳ Virtual account is being provisioned. This typically takes under a minute.
-                    Refresh this page to check the latest status.
+                    ⏳ Provisioning in progress — usually takes under 2 minutes. Refresh to check.
                 </div>
             </div>
+
         @elseif($paymentParent && $paymentParent->isWalletFailed())
             <div style="padding:16px 18px;">
                 <div style="background:rgba(190,18,60,0.05);border:1px solid rgba(190,18,60,0.2);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--c-danger);line-height:1.5;margin-bottom:10px;">
-                    Virtual account provisioning failed. The parent has been notified with bursary payment instructions as a fallback.
+                    Provisioning failed. Check the queue logs, then retry below.
                 </div>
-                <button wire:click="retryProvisionWallet"
+                <button wire:click="provisionWallet"
                     wire:loading.attr="disabled" wire:loading.class="opacity-50"
                     style="padding:8px 16px;border:1px solid var(--c-border);border-radius:7px;background:none;font-family:var(--f-sans);font-size:12px;font-weight:500;cursor:pointer;color:var(--c-text-1);">
-                    <span wire:loading.remove>↺ Retry Provisioning</span>
-                    <span wire:loading>Queuing…</span>
+                    <span wire:loading.remove wire:target="provisionWallet">↺ Retry Provisioning</span>
+                    <span wire:loading wire:target="provisionWallet">Queuing…</span>
                 </button>
             </div>
+
         @elseif(! $paymentParent)
             <div style="padding:16px 18px;">
-                <div class="empty-note">No parent portal account found. Approve the enrolment so the parent receives their portal login and a virtual account is provisioned.</div>
+                <div class="empty-note">No parent portal account. Approve the enrolment first — provisioning runs automatically on approval.</div>
             </div>
+
         @else
+            {{-- Has parent account but no NUBAN yet — show provision button in body too --}}
             <div style="padding:16px 18px;">
-                <div class="empty-note">Virtual account not yet provisioned. It will be set up automatically when the enrolment is approved.</div>
+                <p style="font-size:13px;color:var(--c-text-2);margin-bottom:12px;line-height:1.5;">
+                    No virtual account yet. Click the button above to provision one now, or it will be created automatically the next time an invoice is sent.
+                </p>
             </div>
         @endif
     </div>

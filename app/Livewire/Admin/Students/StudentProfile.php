@@ -239,23 +239,33 @@ class StudentProfile extends Component
     }
 
     /**
-     * Retry virtual account provisioning from the student profile page.
-     * Finds the primary parent for this student and re-dispatches the job.
+     * Provision (or re-provision) a virtual bank account for this student.
+     * Works for first-time provisioning and retry after failure.
+     * Finds the parent row linked to this student and dispatches the job.
      */
-    public function retryProvisionWallet(): void
+    public function provisionWallet(): void
     {
         $parent = $this->student->parents
             ->filter(fn($p) => $p->user !== null)
             ->first();
 
         if (! $parent) {
-            session()->flash('error', 'No parent portal account found for this student.');
+            session()->flash('error', 'No parent portal account found. Approve the enrolment first.');
+            return;
+        }
+
+        if ($parent->hasVirtualAccount()) {
+            session()->flash('info', 'This student already has an active virtual account.');
             return;
         }
 
         $parent->update(['juicyway_wallet_status' => 'pending']);
         ProvisionParentWalletJob::dispatch($parent);
-        session()->flash('success', 'Virtual account provisioning re-queued. Refresh in about a minute.');
+
+        // Reload so the blade shows "Provisioning…" immediately
+        $this->student->load('parents.user');
+
+        session()->flash('success', 'Provisioning queued for ' . $this->student->full_name . '. Refresh in about a minute to see the account details.');
     }
 
     public function render()
