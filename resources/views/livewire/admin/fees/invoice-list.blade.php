@@ -209,13 +209,18 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
     <div class="bulk-bar">
         <span class="bulk-count">{{ count($selectedIds) }} selected</span>
         <button class="btn-bulk btn-bulk-green" wire:click="sendSelected"
-            wire:confirm="Send invoices to {{ count($selectedIds) }} parent(s) now?">
+            wire:confirm="Send {{ count($selectedIds) }} draft invoice(s) to parents now?">
             ✉ Send Selected
+        </button>
+        <button class="btn-bulk" wire:click="resendSelected"
+            wire:confirm="Resend {{ count($selectedIds) }} invoice(s) to parents? Each parent will receive a fresh copy by email."
+            style="border-color:var(--c-accent);color:var(--c-accent);">
+            ↺ Resend Selected
         </button>
         <button class="btn-bulk btn-bulk-red" wire:click="confirmDeleteSelected">
             🗑 Delete Selected
         </button>
-        <button class="btn-bulk" wire:click="$set('selectedIds', [])">Clear selection</button>
+        <button class="btn-bulk" wire:click="$set('selectedIds', [])">Clear</button>
     </div>
 @endif
 
@@ -307,6 +312,13 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                                         wire:click="sendInvoice({{ $invoice->id }})"
                                         wire:confirm="Send this invoice to {{ $invoice->student->full_name }}'s parents?">
                                         ✉ Send
+                                    </button>
+                                @else
+                                    <button class="btn-sm"
+                                        wire:click="resendInvoice({{ $invoice->id }})"
+                                        wire:confirm="Resend this invoice to {{ $invoice->student->full_name }}'s parents?"
+                                        title="Send a fresh copy by email">
+                                        ↺ Resend
                                     </button>
                                 @endif
                                 @if($invoice->status === 'unpaid' && $invoice->payments()->count() === 0)

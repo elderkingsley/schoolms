@@ -132,6 +132,17 @@ class InvoiceList extends Component
         session()->flash('success', "Invoice for {$invoice->student->full_name} queued for delivery.");
     }
 
+    /**
+     * Resend an already-sent invoice — fires the email again without changing sent_at.
+     * Useful when a parent reports not receiving the original email.
+     */
+    public function resendInvoice(int $invoiceId): void
+    {
+        $invoice = FeeInvoice::with('student')->findOrFail($invoiceId);
+        SendInvoiceJob::dispatch($invoice);
+        session()->flash('success', "Invoice for {$invoice->student->full_name} re-queued for delivery.");
+    }
+
     public function sendSelected(): void
     {
         if (empty($this->selectedIds)) return;
@@ -146,6 +157,25 @@ class InvoiceList extends Component
         $this->selectedIds = [];
         $this->selectAll   = false;
         session()->flash('success', "{$count} invoice(s) queued for delivery.");
+    }
+
+    /**
+     * Resend ALL selected invoices regardless of draft/sent status.
+     */
+    public function resendSelected(): void
+    {
+        if (empty($this->selectedIds)) return;
+        $count = 0;
+        foreach ($this->selectedIds as $id) {
+            $invoice = FeeInvoice::find((int)$id);
+            if ($invoice) {
+                SendInvoiceJob::dispatch($invoice);
+                $count++;
+            }
+        }
+        $this->selectedIds = [];
+        $this->selectAll   = false;
+        session()->flash('success', "{$count} invoice(s) re-queued for delivery.");
     }
 
     public function openSendModal(): void { $this->showSendModal = true; }

@@ -102,13 +102,27 @@ class InvoiceDetail extends Component
         session()->flash('success', 'Virtual account provisioning re-queued. Refresh in about a minute.');
     }
 
-    // ── Send invoice ──────────────────────────────────────────────────────────
+    // ── Send / Resend invoice ─────────────────────────────────────────────────
 
     public function sendInvoice(): void
     {
         SendInvoiceJob::dispatch($this->invoice);
+        // Mark as sent now — job will also stamp it, but this gives instant UI feedback
+        $this->invoice->update(['sent_at' => now()]);
         $this->reload();
         session()->flash('success', 'Invoice queued for delivery. Parents will receive it by email shortly.');
+    }
+
+    /**
+     * Resend an already-sent invoice — useful when a parent claims they never
+     * received the email, or after updating the fee items.
+     * Does NOT reset sent_at — the invoice remains "sent", we just fire the email again.
+     */
+    public function resendInvoice(): void
+    {
+        SendInvoiceJob::dispatch($this->invoice);
+        $this->reload();
+        session()->flash('success', 'Invoice re-queued for delivery. Parents will receive a fresh copy shortly.');
     }
 
     // ── Record payment ────────────────────────────────────────────────────────

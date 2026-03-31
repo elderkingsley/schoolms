@@ -176,6 +176,16 @@
                     wire:loading.attr="disabled">
                     ✉ Send to Parent
                 </button>
+            @else
+                <button class="btn-ghost" wire:click="resendInvoice"
+                    wire:confirm="Resend this invoice to {{ $invoice->student->full_name }}'s parents? They will receive a fresh copy by email."
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50"
+                    style="font-size:12px;">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 4l7-3 7 3-7 3-7-3z"/><path d="M1 4v8l7 3 7-3V4"/><path d="M8 7v8"/>
+                    </svg>
+                    Resend
+                </button>
             @endif
 
             @if($invoice->status !== 'paid')
