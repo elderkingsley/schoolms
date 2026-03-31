@@ -113,6 +113,10 @@
 .btn-primary:hover { opacity:0.9; }
 .btn-ghost { padding:11px 20px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:8px; font-size:14px; cursor:pointer; font-family:var(--f-sans); }
 .btn-ghost:hover { background:var(--c-bg); }
+.btn-cancel { padding:10px 20px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; color:var(--c-text-2); cursor:pointer; font-family:var(--f-sans); transition:background 150ms; }
+.btn-cancel:hover { background:var(--c-bg); color:var(--c-text-1); }
+.btn-confirm { padding:10px 20px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
+.btn-confirm:hover { opacity:0.88; }
 
 .empty-state { padding:48px 20px; text-align:center; }
 .empty-title { font-size:14px; font-weight:600; color:var(--c-text-1); margin-bottom:4px; }
@@ -297,7 +301,7 @@
     <select wire:model="assignedClass">
         <option value="">Select class</option>
         @foreach($classes as $class)
-            <option value="{{ $class->id }}">{{ $class->name }}</option>
+            <option value="{{ $class->id }}">{{ $class->display_name }}</option>
         @endforeach
     </select>
     @error('assignedClass') <div class="field-error">{{ $message }}</div> @enderror

@@ -33,6 +33,10 @@
 .btn-save { padding:9px 20px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
 .btn-save:hover { opacity:0.9; }
 .btn-cancel-edit { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); }
+.btn-cancel { padding:10px 20px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; color:var(--c-text-2); cursor:pointer; font-family:var(--f-sans); transition:background 150ms; }
+.btn-cancel:hover { background:var(--c-bg); color:var(--c-text-1); }
+.btn-confirm { padding:10px 20px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
+.btn-confirm:hover { opacity:0.88; }
 
 /* Edit form */
 .edit-card { background:var(--c-surface); border:2px solid var(--c-accent); border-radius:var(--r-md); padding:24px; margin-bottom:20px; }
