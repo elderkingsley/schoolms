@@ -240,7 +240,7 @@
 @endif
 
 {{-- Download PDF --}}
-<a href="{{ route('admin.fees.invoices.pdf', $invoice) }}" target="_blank" class="btn-pdf">
+<a href="{{ route('parent.fees.pdf', $invoice) }}" target="_blank" class="btn-pdf">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
         <path d="M4 1h6l4 4v10H2V1z"/><path d="M10 1v4h4"/>
     </svg>

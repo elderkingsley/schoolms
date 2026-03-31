@@ -103,6 +103,7 @@ Route::middleware(['auth', 'role:parent'])
         Route::get('/children',       \App\Livewire\Parent\ChildrenList::class)->name('children');
         Route::get('/fees',           \App\Livewire\Parent\FeeInvoices::class)->name('fees');
         Route::get('/fees/{invoice}', \App\Livewire\Parent\InvoiceView::class)->name('fees.show');
+        Route::get('/fees/{invoice}/pdf', \App\Http\Controllers\Parent\InvoicePdfController::class)->name('fees.pdf');
         Route::get('/results',        \App\Livewire\Parent\Results::class)->name('results');
         Route::get('/messages',       \App\Livewire\Parent\Messages::class)->name('messages');
     });
