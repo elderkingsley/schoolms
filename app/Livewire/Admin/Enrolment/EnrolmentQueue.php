@@ -12,6 +12,7 @@ use App\Notifications\ParentWelcomeNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\ProvisionParentWalletJob;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -82,7 +83,7 @@ class EnrolmentQueue extends Component
                     // they already know their credentials)
                     $parent->update(['user_id' => $existingUser->id]);
                     // Notify about the new student being linked to their account
-                    $existingUser->notify(new ParentWelcomeNotification($existingUser, $student, null));
+                    $existingUser->notify(new ParentWelcomeNotification($existingUser, $student, null, $parent));
                 } else {
                     // Brand new parent — create the User account as before
                     $tempPassword = Str::random(10);
@@ -97,13 +98,30 @@ class EnrolmentQueue extends Component
 
                     $user->assignRole('parent');
                     $parent->update(['user_id' => $user->id]);
-                    $user->notify(new ParentWelcomeNotification($user, $student, $tempPassword));
+                    $user->notify(new ParentWelcomeNotification($user, $student, $tempPassword, $parent));
                 }
             }
         });
 
+        // ── Dispatch wallet provisioning for each parent AFTER the transaction ──
+        // We reload the student with fresh parents (user_id is now set after
+        // the transaction) and dispatch ProvisionParentWalletJob for any parent
+        // who does not yet have a virtual account.
+        // Dispatching after the transaction ensures user_id is committed to the
+        // DB before the queue worker reads it.
+        $student->refresh();
+        $student->load('parents.user');
+        foreach ($student->parents as $parent) {
+            if ($parent->user && ! $parent->hasVirtualAccount()) {
+                ProvisionParentWalletJob::dispatch($parent);
+                Log::info("EnrolmentQueue: dispatched ProvisionParentWalletJob for parent {$parent->id}", [
+                    'student' => $student->first_name . ' ' . $student->last_name,
+                ]);
+            }
+        }
+
         $this->reviewingId = null;
-        session()->flash('success', 'Student approved and parents notified.');
+        session()->flash('success', 'Student approved, parents notified, and bank accounts being provisioned.');
     }
 
     public function reject(int $studentId): void

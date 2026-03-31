@@ -11,8 +11,7 @@ class InvoicePdfController extends Controller
 {
     public function __invoke(FeeInvoice $invoice)
     {
-        // Authorise: invoice must belong to one of this parent's children.
-        // We load ALL parent rows for this user (one per child enrolled).
+        // Authorise: confirm this invoice belongs to one of this parent's children.
         $user = auth()->user();
 
         $studentIds = ParentGuardian::where('user_id', $user->id)
