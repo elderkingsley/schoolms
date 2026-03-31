@@ -386,89 +386,97 @@
             </div>
         </div>
 
-        {{-- ── Payment Link Status ── --}}
+        {{-- ── Virtual Account Status ── --}}
+        @php
+            // Find the primary parent with a portal account for this student
+            $primaryParent = $invoice->student->parents
+                ->filter(fn($p) => $p->user !== null)
+                ->first();
+        @endphp
         <div class="panel">
             <div class="panel-head">
-                <span class="panel-title">Payment Link</span>
-                @if($invoice->hasPaymentLink())
+                <span class="panel-title">Virtual Account</span>
+                @if($primaryParent?->hasVirtualAccount())
                     <span class="badge badge-sent" style="font-size:10px;">
                         <span class="badge-dot"></span>Active
                     </span>
-                @elseif($invoice->hasPaymentLinkError())
+                @elseif($primaryParent?->isWalletProvisioning())
+                    <span style="font-size:11px;color:#B45309;">Provisioning…</span>
+                @elseif($primaryParent?->isWalletFailed())
                     <span class="badge badge-unpaid" style="font-size:10px;">
                         <span class="badge-dot"></span>Failed
                     </span>
                 @elseif($invoice->isSent())
-                    <span style="font-size:11px;color:#B45309;">Generating…</span>
+                    <span style="font-size:11px;color:#B45309;">Pending…</span>
                 @else
                     <span style="font-size:11px;color:var(--c-text-3);">Not sent yet</span>
                 @endif
             </div>
 
             <div class="pay-link-box">
-                @if($invoice->hasPaymentLink())
-                    {{-- Link is live --}}
+                @if($primaryParent?->hasVirtualAccount())
                     <p style="font-size:12px;color:var(--c-text-2);line-height:1.5;">
-                        Parents can pay online by card or bank transfer.
-                        Generated {{ $invoice->payment_link_generated_at?->format('d M Y, g:ia') }}.
+                        Parent has a dedicated virtual bank account. Payments sent to
+                        this account are automatically matched to their invoices.
                     </p>
-                    <div class="pay-link-url" x-data>
-                        <a href="{{ $invoice->payment_link_url }}" target="_blank"
-                           title="{{ $invoice->payment_link_url }}">
-                            {{ $invoice->payment_link_url }}
-                        </a>
-                        <button class="copy-btn"
-                            x-on:click="navigator.clipboard.writeText('{{ $invoice->payment_link_url }}'); $el.textContent = 'Copied!'; setTimeout(() => $el.textContent = 'Copy', 2000)">
-                            Copy
-                        </button>
+                    <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;padding:12px 14px;margin-top:10px;" x-data>
+                        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--c-border);font-size:13px;">
+                            <span style="color:var(--c-text-3);font-size:12px;">Bank</span>
+                            <span style="font-weight:600;">{{ $primaryParent->juicyway_bank_name }}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--c-border);font-size:13px;">
+                            <span style="color:var(--c-text-3);font-size:12px;">Account Number</span>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-weight:700;font-family:var(--f-mono);">{{ $primaryParent->juicyway_account_number }}</span>
+                                <button class="copy-btn"
+                                    x-on:click="navigator.clipboard.writeText('{{ $primaryParent->juicyway_account_number }}');
+                                                $el.textContent='Copied!';
+                                                setTimeout(()=>$el.textContent='Copy',2000)">Copy</button>
+                            </div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;">
+                            <span style="color:var(--c-text-3);font-size:12px;">Account Name</span>
+                            <span style="font-weight:600;">{{ $primaryParent->user?->name }}</span>
+                        </div>
                     </div>
-                    <div style="margin-top:10px;display:flex;gap:8px;">
-                        <a href="{{ $invoice->payment_link_url }}" target="_blank" class="btn-ghost"
-                           style="font-size:11px;padding:5px 10px;">
-                            Test Link →
-                        </a>
-                        @if($invoice->status !== 'paid')
-                            <p style="font-size:11px;color:var(--c-text-3);align-self:center;">
-                                Link deactivates automatically when fully paid.
-                            </p>
-                        @endif
-                    </div>
+                    <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">
+                        This is a permanent account — the parent can reuse it for all future payments.
+                    </p>
 
-                @elseif($invoice->hasPaymentLinkError())
-                    {{-- Creation failed — show error and retry --}}
+                @elseif($primaryParent?->isWalletFailed())
                     <div class="pay-link-error">
-                        <strong>Payment link creation failed:</strong><br>
-                        {{ $invoice->payment_link_error }}
+                        <strong>Virtual account provisioning failed.</strong><br>
+                        Check the queue logs for ProvisionParentWalletJob errors.
                     </div>
                     <button class="btn-ghost" style="margin-top:10px;width:100%;justify-content:center;"
-                        wire:click="retryPaymentLink"
+                        wire:click="retryProvisionWallet"
                         wire:loading.attr="disabled" wire:loading.class="opacity-50">
-                        <span wire:loading.remove wire:target="retryPaymentLink">↺ Retry</span>
-                        <span wire:loading wire:target="retryPaymentLink">Retrying…</span>
+                        <span wire:loading.remove>↺ Retry Provisioning</span>
+                        <span wire:loading>Queuing…</span>
                     </button>
-                    <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">
-                        Common causes: JuicyWay API credentials not configured, or JuicyWay
-                        service temporarily unavailable. Check your
-                        <code style="background:var(--c-bg);padding:1px 4px;border-radius:3px;">.env</code>
-                        for <code style="background:var(--c-bg);padding:1px 4px;border-radius:3px;">JUICYWAY_API_KEY</code>.
-                    </p>
+
+                @elseif($primaryParent?->isWalletProvisioning())
+                    <div class="pay-link-pending">
+                        Virtual account is being provisioned in the background.
+                        This typically takes 30–60 seconds. Refresh to check.
+                    </div>
 
                 @elseif($invoice->isSent())
-                    {{-- Sent but link not yet generated (job still queued) --}}
                     <div class="pay-link-pending">
-                        Payment link is being generated in the background.
-                        This usually takes a few seconds. Refresh the page to check.
+                        Invoice sent. Virtual account provisioning has been queued
+                        and will complete shortly.
                     </div>
-                    <button class="btn-ghost" style="margin-top:10px;width:100%;justify-content:center;"
-                        wire:click="retryPaymentLink">
-                        Generate Now
-                    </button>
+
+                @elseif(! $primaryParent)
+                    <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
+                        No parent portal account found for this student. Approve the
+                        enrolment first so the parent receives their portal login.
+                    </p>
 
                 @else
-                    {{-- Invoice not yet sent --}}
                     <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
-                        A payment link will be created automatically when this invoice is sent to the parent.
-                        The link allows parents to pay by card or bank transfer without visiting the school.
+                        A virtual bank account will be provisioned automatically when this
+                        invoice is sent to the parent.
                     </p>
                 @endif
             </div>

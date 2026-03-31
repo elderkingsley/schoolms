@@ -36,11 +36,18 @@ class SendInvoiceJob implements ShouldQueue
 
         foreach ($parents as $parent) {
             try {
+                // Provision a virtual account for this parent if they don't have one yet.
+                // ProvisionParentWalletJob is idempotent — safe to dispatch even if
+                // provisioning is already in progress or complete.
+                if (empty($parent->juicyway_account_number)) {
+                    ProvisionParentWalletJob::dispatch($parent);
+                }
+
                 $parent->user->notify(
                     new FeeInvoiceNotification($invoice, $invoice->items)
                 );
             } catch (\Throwable $e) {
-                Log::error('SendInvoiceJob: email failed', [
+                Log::error('SendInvoiceJob: failed for parent', [
                     'invoice_id' => $invoice->id,
                     'parent_id'  => $parent->id,
                     'error'      => $e->getMessage(),
@@ -48,14 +55,9 @@ class SendInvoiceJob implements ShouldQueue
             }
         }
 
-        // Mark as sent
+        // Mark invoice as sent
         $invoice->update(['sent_at' => now()]);
 
-        // Queue payment link creation with a short delay.
-        // This ensures the email is confirmed sent before we attach a URL to the invoice.
-        // Subsequent reminder emails will automatically include the payment link.
-        CreatePaymentLinkJob::dispatch($invoice)->delay(now()->addSeconds(5));
-
-        Log::info("SendInvoiceJob: invoice {$invoice->id} sent, payment link creation queued.");
+        Log::info("SendInvoiceJob: invoice {$invoice->id} sent to parents.");
     }
 }

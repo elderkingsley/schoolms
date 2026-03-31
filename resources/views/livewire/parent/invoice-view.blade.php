@@ -15,8 +15,8 @@
 .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:500; margin-top:8px; }
 .badge-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 .badge-unpaid  { background:rgba(190,18,60,0.08);  color:var(--c-danger); }
-.badge-partial { background:rgba(180,83,9,0.08);   color:var(--c-warning); }
-.badge-paid    { background:rgba(21,128,61,0.08);   color:var(--c-success); }
+.badge-partial { background:rgba(180,83,9,0.08);   color:#B45309; }
+.badge-paid    { background:rgba(21,128,61,0.08);  color:#15803D; }
 
 .panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); overflow:hidden; margin-bottom:12px; }
 .panel-head { padding:12px 16px; border-bottom:1px solid var(--c-border); font-size:12px; font-weight:600; color:var(--c-text-1); display:flex; justify-content:space-between; align-items:center; }
@@ -29,6 +29,18 @@
 .total-row td { font-weight:700; background:var(--c-bg) !important; }
 .mono { font-family:var(--f-mono); font-size:12px; }
 
+/* Virtual account payment panel */
+.nuban-box { padding:16px; }
+.nuban-card { background:var(--c-bg); border:1px solid var(--c-border); border-radius:10px; padding:16px; margin:10px 0; }
+.nuban-row  { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--c-border); font-size:13px; }
+.nuban-row:last-child { border-bottom:none; padding-bottom:0; }
+.nuban-label { color:var(--c-text-3); font-size:12px; }
+.nuban-value { font-weight:600; color:var(--c-text-1); font-family:var(--f-mono); }
+.copy-wrap   { display:flex; align-items:center; gap:6px; }
+.copy-btn    { padding:3px 8px; border:1px solid var(--c-border); border-radius:5px; background:var(--c-surface); font-size:11px; font-weight:500; cursor:pointer; font-family:var(--f-sans); color:var(--c-text-2); }
+.nuban-note  { font-size:11px; color:var(--c-text-3); line-height:1.5; margin-top:10px; }
+.nuban-pending { background:rgba(180,83,9,0.05); border:1px solid rgba(180,83,9,0.2); border-radius:8px; padding:12px; font-size:12px; color:#B45309; line-height:1.5; margin-top:8px; }
+
 .btn-pdf {
     display:inline-flex; align-items:center; gap:6px;
     padding:10px 18px; background:var(--c-accent); color:#fff;
@@ -36,7 +48,6 @@
     transition:opacity 150ms; width:100%; justify-content:center; margin-top:4px;
 }
 .btn-pdf:hover { opacity:0.9; }
-
 .empty-cell { padding:20px 16px; text-align:center; font-size:13px; color:var(--c-text-3); }
 </style>
 
@@ -51,12 +62,9 @@
 <div class="inv-header">
     <div class="inv-student">{{ $invoice->student->full_name }}</div>
     <div class="inv-meta">{{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}</div>
-    <div>
-        <span class="badge badge-{{ $invoice->status }}">
-            <span class="badge-dot"></span>
-            {{ ucfirst($invoice->status) }}
-        </span>
-    </div>
+    <span class="badge badge-{{ $invoice->status }}">
+        <span class="badge-dot"></span>{{ ucfirst($invoice->status) }}
+    </span>
 </div>
 
 {{-- Amounts --}}
@@ -67,15 +75,113 @@
     </div>
     <div class="amount-card">
         <div class="amount-label">Paid</div>
-        <div class="amount-value" style="color:var(--c-success)">₦{{ number_format($invoice->amount_paid, 0) }}</div>
+        <div class="amount-value" style="color:#15803D">₦{{ number_format($invoice->amount_paid, 0) }}</div>
     </div>
     <div class="amount-card">
         <div class="amount-label">Balance</div>
-        <div class="amount-value" style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : 'var(--c-success)' }}">
+        <div class="amount-value" style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : '#15803D' }}">
             ₦{{ number_format($invoice->balance, 0) }}
         </div>
     </div>
 </div>
+
+{{-- Payment instructions — shown when there is an outstanding balance --}}
+@if($invoice->balance > 0 && $invoice->status !== 'paid')
+<div class="panel">
+    <div class="panel-head">
+        How to Pay
+        @if($parentProfile?->juicyway_wallet_status === 'active')
+            <span style="font-size:10px;background:rgba(21,128,61,0.08);color:#15803D;padding:2px 8px;border-radius:10px;font-weight:600;">
+                Bank Transfer Ready
+            </span>
+        @endif
+    </div>
+    <div class="nuban-box">
+
+        @if($parentProfile && $parentProfile->hasVirtualAccount())
+            {{-- Virtual account is provisioned — show full payment details --}}
+            <p style="font-size:13px;color:var(--c-text-2);margin-bottom:2px;line-height:1.5;">
+                Transfer <strong>₦{{ number_format($invoice->balance, 0) }}</strong>
+                to your dedicated school fees account. Your payment will be confirmed
+                automatically — no need to send a receipt.
+            </p>
+
+            <div class="nuban-card" x-data>
+                <div class="nuban-row">
+                    <span class="nuban-label">Bank</span>
+                    <span class="nuban-value" style="font-family:var(--f-sans);">
+                        {{ $parentProfile->juicyway_bank_name }}
+                    </span>
+                </div>
+                <div class="nuban-row">
+                    <span class="nuban-label">Account Number</span>
+                    <div class="copy-wrap">
+                        <span class="nuban-value">{{ $parentProfile->juicyway_account_number }}</span>
+                        <button class="copy-btn"
+                            x-on:click="navigator.clipboard.writeText('{{ $parentProfile->juicyway_account_number }}');
+                                        $el.textContent='Copied!';
+                                        setTimeout(()=>$el.textContent='Copy',2000)">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+                <div class="nuban-row">
+                    <span class="nuban-label">Account Name</span>
+                    <span class="nuban-value" style="font-family:var(--f-sans);">
+                        {{ $parentProfile->user?->name ?? auth()->user()->name }}
+                    </span>
+                </div>
+            </div>
+
+            <p class="nuban-note">
+                This is your permanent school fees account. You can reuse it for all future
+                payments — no new account number each term.
+            </p>
+
+        @elseif($parentProfile && $parentProfile->isWalletProvisioning())
+            {{-- Wallet job is still running --}}
+            <div class="nuban-pending">
+                ⏳ Your dedicated payment account is being set up. This usually takes under
+                a minute. Please refresh this page shortly or contact the bursary if this
+                message persists.
+            </div>
+            <p style="font-size:12px;color:var(--c-text-3);margin-top:10px;line-height:1.5;">
+                In the meantime, you can pay at the school bursary and quote reference:
+                <strong style="font-family:var(--f-mono);">
+                    {{ $invoice->payment_link_reference ?? 'INV-'.$invoice->id.'-T'.$invoice->term_id }}
+                </strong>
+            </p>
+
+        @elseif($parentProfile && $parentProfile->isWalletFailed())
+            {{-- Provisioning failed — fallback to bursary --}}
+            <p style="font-size:13px;color:var(--c-text-2);line-height:1.5;">
+                Please pay at the school bursary or by bank transfer and quote:
+            </p>
+            <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;padding:12px 14px;margin:10px 0;">
+                <div style="font-size:11px;color:var(--c-text-3);">Payment Reference</div>
+                <div style="font-size:16px;font-weight:700;font-family:var(--f-mono);margin-top:3px;">
+                    {{ $invoice->payment_link_reference ?? 'INV-'.$invoice->id.'-T'.$invoice->term_id }}
+                </div>
+            </div>
+            <p style="font-size:11px;color:var(--c-text-3);">
+                Contact the bursary to confirm your account details.
+            </p>
+
+        @else
+            {{-- No parent profile or account not yet started --}}
+            <p style="font-size:13px;color:var(--c-text-2);line-height:1.5;">
+                Please pay at the school bursary and quote your payment reference:
+            </p>
+            <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;padding:12px 14px;margin:10px 0;">
+                <div style="font-size:11px;color:var(--c-text-3);">Payment Reference</div>
+                <div style="font-size:16px;font-weight:700;font-family:var(--f-mono);margin-top:3px;">
+                    {{ $invoice->payment_link_reference ?? 'INV-'.$invoice->id.'-T'.$invoice->term_id }}
+                </div>
+            </div>
+        @endif
+    </div>
+</div>
+@endif
 
 {{-- Fee breakdown --}}
 <div class="panel">
@@ -123,7 +229,9 @@
                 <tr>
                     <td>{{ $payment->paid_at->format('d M Y') }}</td>
                     <td>{{ $payment->method }}</td>
-                    <td class="right mono" style="color:var(--c-success)">₦{{ number_format($payment->amount, 0) }}</td>
+                    <td class="right mono" style="color:#15803D">
+                        ₦{{ number_format($payment->amount, 0) }}
+                    </td>
                 </tr>
             @endforeach
         </tbody>

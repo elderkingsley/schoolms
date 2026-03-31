@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class ParentGuardian extends Model
 {
-    protected $table = 'parents';   // 'parents' is the actual DB table name
+    protected $table = 'parents';
 
     protected $fillable = [
         'user_id',
@@ -21,6 +21,14 @@ class ParentGuardian extends Model
         'emergency_contact_relationship',
         '_temp_name',
         '_temp_email',
+        // JuicyWay virtual account
+        'juicyway_customer_id',
+        'juicyway_wallet_id',
+        'juicyway_account_id',
+        'juicyway_account_number',
+        'juicyway_bank_name',
+        'juicyway_bank_code',
+        'juicyway_wallet_status',
     ];
 
     public function user(): BelongsTo
@@ -33,5 +41,20 @@ class ParentGuardian extends Model
         return $this->belongsToMany(Student::class, 'parent_student', 'parent_id', 'student_id')
                     ->withPivot(['relationship', 'is_primary_contact'])
                     ->withTimestamps();
+    }
+
+    public function hasVirtualAccount(): bool
+    {
+        return ! empty($this->juicyway_account_number);
+    }
+
+    public function isWalletProvisioning(): bool
+    {
+        return $this->juicyway_wallet_status === 'pending';
+    }
+
+    public function isWalletFailed(): bool
+    {
+        return $this->juicyway_wallet_status === 'failed';
     }
 }

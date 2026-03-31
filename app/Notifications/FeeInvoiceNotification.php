@@ -35,54 +35,68 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
         $reference   = $this->invoice->payment_link_reference
             ?? "INV-{$this->invoice->id}-T{$this->invoice->term_id}";
 
+        // The parent this email is going to — load their virtual account details
+        $parentGuardian = $student->parents
+            ->filter(fn($p) => $p->user !== null && $p->user->email === $notifiable->email)
+            ->first()
+            ?? $student->parents->filter(fn($p) => $p->user !== null)->first();
+
+        $hasVirtualAccount = $parentGuardian
+            && ! empty($parentGuardian->juicyway_account_number);
+
         $mail = (new MailMessage)
             ->subject("Fee Invoice — {$studentName} ({$termLabel})")
             ->greeting("Dear {$notifiable->name},")
             ->line("A fee invoice has been issued for **{$studentName}** for **{$termLabel}**.")
-            ->line("**Total Amount Due: {$total}**");
-
-        // ── Fee breakdown ─────────────────────────────────────────────────
-        $mail->line('---')->line('**Fee Breakdown:**');
+            ->line("**Total Amount Due: {$total}**")
+            ->line('---')
+            ->line('**Fee Breakdown:**');
 
         foreach ($this->feeItems as $item) {
             $amount   = '₦' . number_format($item->amount, 0);
-            $itemName = $item->feeItem?->name ?? $item->item_name ?? $item->name ?? 'Fee Item';
+            $itemName = $item->feeItem?->name ?? $item->item_name ?? 'Fee Item';
             $mail->line("- {$itemName}: {$amount}");
         }
 
-        $mail->line('---');
+        $mail->line('---')
+             ->line("**Balance Outstanding: {$balance}**")
+             ->line('');
 
-        // ── Payment options ───────────────────────────────────────────────
-        if ($this->invoice->payment_link_url) {
-            // Payment link is available — primary CTA
+        if ($hasVirtualAccount) {
+            // Parent has a dedicated virtual bank account — primary payment method
             $mail
-                ->line("**Balance Outstanding: {$balance}**")
-                ->line('')
-                ->line('## Pay Online')
+                ->line('## Pay by Bank Transfer')
                 ->line(
-                    'Click the button below to pay securely online by card or bank transfer. ' .
-                    'Your payment will be automatically confirmed — no need to send a receipt.'
+                    'Transfer directly into your dedicated school fees account. ' .
+                    'Your payment will be confirmed automatically — no need to send a receipt.'
                 )
-                ->action('Pay Now — ' . $balance, $this->invoice->payment_link_url)
+                ->line('')
+                ->line('**Bank:** ' . $parentGuardian->juicyway_bank_name)
+                ->line('**Account Number:** ' . $parentGuardian->juicyway_account_number)
+                ->line('**Account Name:** ' . $notifiable->name)
+                ->line('')
+                ->line(
+                    'This is your personal school fees account. You can use it for ' .
+                    'all future fee payments — no new account number needed each term.'
+                )
                 ->line('')
                 ->line('## Or Pay at the School Bursary')
+                ->line("Quote reference **{$reference}** when paying in person.")
+                ->action('View Invoice in Parent Portal', url('/parent/fees'));
+        } else {
+            // Virtual account not yet provisioned — fall back to bursary instructions
+            // (ProvisionParentWalletJob is running in the background)
+            $mail
+                ->line('## How to Pay')
                 ->line(
-                    'If you prefer to pay in person or by bank transfer, quote the following ' .
-                    'reference so the bursary team can match your payment:'
+                    'Please make payment at the school bursary or by bank transfer. ' .
+                    'Quote the reference below so the bursary can match your payment.'
                 )
                 ->line("**Payment Reference: {$reference}**")
+                ->line('')
                 ->line(
-                    'Once your payment is recorded by the bursary, this invoice will be ' .
-                    'updated automatically in your parent portal.'
-                );
-        } else {
-            // Payment link not yet generated — fall back to manual instructions
-            $mail
-                ->line("**Balance Outstanding: {$balance}**")
-                ->line('Please make payment at the school bursary or by bank transfer.')
-                ->line("**Payment Reference: {$reference}**")
-                ->line(
-                    'Quote this reference when paying so the bursary team can match your payment.'
+                    '_A dedicated bank account for online payment is being set up for you. ' .
+                    'You will receive an updated email with bank transfer details shortly._'
                 )
                 ->action('View Invoice in Parent Portal', url('/parent/fees'));
         }

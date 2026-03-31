@@ -78,20 +78,28 @@ class InvoiceDetail extends Component
     // ── Payment link ──────────────────────────────────────────────────────────
 
     /**
-     * Manually retry payment link creation — shown when the automatic job failed.
-     * Clears the error, re-dispatches CreatePaymentLinkJob.
+     * Retry virtual account provisioning for the primary parent of this invoice's student.
+     * Shown in the admin panel when wallet status is 'failed'.
      */
-    public function retryPaymentLink(): void
+    public function retryProvisionWallet(): void
     {
-        $this->invoice->update([
-            'payment_link_error' => null,
-            'payment_link_url'   => null,
-            'payment_link_id'    => null,
+        $parent = $this->invoice->student->parents
+            ->filter(fn($p) => $p->user !== null)
+            ->first();
+
+        if (! $parent) {
+            session()->flash('error', 'No parent account found for this student.');
+            return;
+        }
+
+        // Clear failed status so the provisioning panel shows "Provisioning…"
+        $parent->update([
+            'juicyway_wallet_status' => 'pending',
         ]);
 
-        \App\Jobs\CreatePaymentLinkJob::dispatch($this->invoice);
+        \App\Jobs\ProvisionParentWalletJob::dispatch($parent);
 
-        session()->flash('success', 'Payment link creation queued. Refresh in a few seconds.');
+        session()->flash('success', 'Virtual account provisioning re-queued. Refresh in about a minute.');
     }
 
     // ── Send invoice ──────────────────────────────────────────────────────────

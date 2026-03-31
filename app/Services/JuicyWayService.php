@@ -3,133 +3,137 @@
 namespace App\Services;
 
 use App\Models\FeeInvoice;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Http\Client\Response;
+use App\Models\ParentGuardian;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * JuicyWayService for SchoolMS
+ *
+ * Mirrors PayGrid's proven JuicyWayService exactly — same auth header format
+ * (Authorization: API_KEY, no Bearer), same endpoint paths, same response
+ * parsing. The school payment flow adds one method on top: createPaymentSession()
+ * which creates a payment session for a specific invoice amount.
+ *
+ * Virtual account provisioning per student (called from ProvisionStudentWalletJob):
+ *   1. createCustomer()          → juicyway_customer_id   stored on parents record
+ *   2. createWallet()            → juicyway_wallet_id     stored on parents record
+ *   3. addBankAccount()          → NUBAN, bank name       stored on parents record
+ *
+ * The NUBAN is then included in every invoice email so parents can pay by
+ * bank transfer directly into the student's dedicated virtual account.
+ * JuicyWay fires a webhook when a deposit arrives — SchoolMS matches it to
+ * the invoice by account_number and records the payment automatically.
+ */
 class JuicyWayService
 {
-    protected string $baseUrl;
-    protected string $apiKey;
-    protected string $businessId;
+    private string $apiKey;
+    private string $baseUrl;
+    private string $businessId;
 
     public function __construct()
     {
-        $this->baseUrl    = rtrim(config('services.juicyway.base_url'), '/');
         $this->apiKey     = config('services.juicyway.api_key', '');
+        $this->baseUrl    = rtrim(config('services.juicyway.base_url', 'https://api.spendjuice.com'), '/');
         $this->businessId = config('services.juicyway.business_id', '');
     }
 
-    // ── Payment Links ─────────────────────────────────────────────────────────
+    // ── Step 1: Create a JuicyWay customer ───────────────────────────────────
 
     /**
-     * Create a JuicyWay payment link for a fee invoice.
-     *
-     * Returns an array with keys: id, url, reference
-     * Throws \RuntimeException on API failure.
+     * @return string  The JuicyWay customer UUID
+     * @throws \RuntimeException
      */
-    public function createPaymentLink(FeeInvoice $invoice): array
-    {
-        $invoice->loadMissing(['student.parents.user', 'term.session', 'items.feeItem']);
-
-        // Build reference — must be unique, max 50 chars, alphanumeric + hyphens
-        $reference = "INV-{$invoice->id}-T{$invoice->term_id}";
-
-        // Find the primary parent with a portal account for customer details
-        $primaryParent = $invoice->student->parents
-            ->filter(fn($p) => $p->user !== null)
-            ->first();
-
-        $parentUser = $primaryParent?->user;
-
-        // Amount must be in kobo (JuicyWay minor unit)
-        $amountKobo = (int) round($invoice->balance * 100);
-
-        $studentName   = $invoice->student->full_name;
-        $termLabel     = "{$invoice->term->name} Term {$invoice->term->session->name}";
-        $description   = "School Fees — {$termLabel} — {$studentName}";
-
-        // Split parent name into first/last for JuicyWay customer object
-        $nameParts = $parentUser
-            ? explode(' ', $parentUser->name, 2)
-            : ['Parent', 'Guardian'];
-
-        $payload = [
-            'amount'      => $amountKobo,
-            'currency'    => 'NGN',
-            'reference'   => $reference,
-            'description' => $description,
-            'customer'    => [
-                'first_name'   => $nameParts[0],
-                'last_name'    => $nameParts[1] ?? $nameParts[0],
-                'email'        => $parentUser?->email ?? '',
-                'phone_number' => $primaryParent?->phone
-                    ? '+234' . ltrim($primaryParent->phone, '0')
-                    : null,
+    public function createCustomer(
+        string $firstName,
+        string $lastName,
+        string $email,
+        string $phone,
+        string $street  = '1 School Road',
+        string $city    = 'Lagos',
+        string $state   = 'Lagos'
+    ): string {
+        $response = $this->post('/customers', [
+            'first_name'      => $firstName,
+            'last_name'       => $lastName,
+            'email'           => $email,
+            'phone_number'    => $this->normalisePhone($phone),
+            'type'            => 'individual',
+            'billing_address' => [
+                'line1'    => $street,
+                'city'     => $city,
+                'state'    => $state,
+                'zip_code' => '100001',
+                'country'  => 'NG',
             ],
-        ];
-
-        // Remove null values from customer object
-        $payload['customer'] = array_filter($payload['customer'], fn($v) => $v !== null);
-
-        Log::info('JuicyWay: creating payment link', [
-            'reference' => $reference,
-            'amount'    => $amountKobo,
-            'invoice'   => $invoice->id,
         ]);
 
-        $response = $this->post('/payment-links', $payload);
+        return $response['data']['id'];
+    }
 
-        // Flexible response parsing — handle both data.url and data.link
-        $data = $response['data'] ?? $response;
+    // ── Step 2: Create an NGN wallet for the customer ─────────────────────────
 
-        $url = $data['url']          // most likely
-            ?? $data['link']         // alternative key name
-            ?? $data['checkout_url'] // another alternative
-            ?? null;
-
-        if (! $url) {
-            throw new \RuntimeException(
-                'JuicyWay payment link created but no URL in response: ' . json_encode($response)
-            );
-        }
+    /**
+     * @return array  ['wallet_id' => string, 'account_id' => string]
+     * @throws \RuntimeException
+     */
+    public function createWallet(string $juicywayCustomerId): array
+    {
+        $response = $this->post('/wallets', [
+            'currency'    => 'NGN',
+            'customer_id' => $juicywayCustomerId,
+        ]);
 
         return [
-            'id'        => $data['id']        ?? null,
-            'url'       => $url,
-            'reference' => $data['reference'] ?? $reference,
+            'wallet_id'  => $response['data']['id'],
+            'account_id' => $response['data']['account_id'],
         ];
     }
 
-    /**
-     * Deactivate a payment link once an invoice is fully paid.
-     * Prevents overpayment. Fire-and-forget — failure is logged but not fatal.
-     */
-    public function deactivatePaymentLink(string $linkId): void
-    {
-        if (! $linkId) return;
+    // ── Step 3: Attach a bank account (NUBAN) to the wallet ──────────────────
 
-        try {
-            $this->patch("/payment-links/{$linkId}", ['status' => 'inactive']);
-            Log::info("JuicyWay: deactivated payment link {$linkId}");
-        } catch (\Throwable $e) {
-            Log::warning("JuicyWay: failed to deactivate link {$linkId}: " . $e->getMessage());
+    /**
+     * Triggers NUBAN provisioning and polls until the account number appears.
+     * JuicyWay provisions asynchronously — we poll up to 6 times × 5 seconds.
+     *
+     * @return array  ['account_number', 'bank_name', 'bank_code']
+     * @throws \RuntimeException
+     */
+    public function addBankAccount(string $walletId): array
+    {
+        $this->post("/wallets/{$walletId}/payment-method", [
+            'type' => 'bank_account',
+        ]);
+
+        // Poll until NUBAN appears — mirrors PayGrid exactly
+        for ($i = 0; $i < 6; $i++) {
+            sleep(5);
+
+            $response = $this->get("/wallets/{$walletId}");
+            $methods  = $response['data']['payment_methods'] ?? [];
+
+            if (! empty($methods)) {
+                $method = $methods[0];
+                return [
+                    'account_number' => $method['account_number'],
+                    'bank_name'      => $method['bank_name'] ?? 'Unknown Bank',
+                    'bank_code'      => $method['bank_code'] ?? '',
+                ];
+            }
+
+            Log::info("JuicyWay: waiting for NUBAN on wallet {$walletId} (attempt " . ($i + 1) . "/6)");
         }
+
+        throw new \RuntimeException(
+            "JuicyWay returned no payment methods after addBankAccount for wallet {$walletId}."
+        );
     }
 
-    // ── Checksum Verification ─────────────────────────────────────────────────
+    // ── Checksum verification ────────────────────────────────────────────────
 
     /**
      * Verify the checksum on an inbound JuicyWay webhook event.
-     *
-     * Algorithm (from JuicyWay docs):
-     *   1. Sort data keys alphabetically
-     *   2. JSON-encode the sorted data (no extra whitespace)
-     *   3. Concatenate: "{event}|{encoded_data}"
-     *   4. HMAC-SHA256 of that string using JUICYWAY_BUSINESS_ID as key
-     *   5. Hex-encode and UPPERCASE
-     *   6. Compare with received checksum using hash_equals()
+     * Algorithm: HMAC-SHA256(event|sorted_json(data), business_id) → UPPERCASE hex
      */
     public function verifyChecksum(array $payload): bool
     {
@@ -142,67 +146,85 @@ class JuicyWayService
         $event    = $payload['event']    ?? '';
         $data     = $payload['data']     ?? [];
 
-        if (empty($checksum)) {
-            return false;
-        }
+        if (empty($checksum)) return false;
 
-        // Keys MUST be sorted alphabetically — JuicyWay is strict about this
         ksort($data);
-
         $encodedData = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $message     = "{$event}|{$encodedData}";
-        $expected    = strtoupper(hash_hmac('sha256', $message, $this->businessId));
+        $expected    = strtoupper(hash_hmac('sha256', "{$event}|{$encodedData}", $this->businessId));
 
         return hash_equals($expected, strtoupper($checksum));
     }
 
-    // ── HTTP helpers ──────────────────────────────────────────────────────────
+    // ── Private HTTP helpers ─────────────────────────────────────────────────
 
-    protected function post(string $path, array $data): array
+    private function post(string $path, array $body): array
     {
-        return $this->request('POST', $path, $data);
+        return $this->request('POST', $path, $body);
     }
 
-    protected function patch(string $path, array $data): array
+    private function get(string $path): array
     {
-        return $this->request('PATCH', $path, $data);
+        return $this->request('GET', $path);
+    }
+
+    private function request(string $method, string $path, array $data = []): array
+    {
+        if (empty($this->apiKey)) {
+            throw new \RuntimeException('JUICYWAY_API_KEY is not set in .env');
+        }
+
+        $client = Http::timeout(60)
+            ->withHeaders([
+                'Authorization' => $this->apiKey,  // No "Bearer" — PayGrid confirmed this
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
+            ]);
+
+        $url      = $this->baseUrl . $path;
+        $response = $method === 'GET'
+            ? $client->get($url)
+            : $client->post($url, $data);
+
+        if ($response->successful()) {
+            return $response->json() ?? [];
+        }
+
+        $status    = $response->status();
+        $errorBody = $response->json() ?? [];
+
+        // Extract the most useful error message
+        $message = $errorBody['error']['message']
+            ?? $errorBody['message']
+            ?? "HTTP {$status}";
+
+        $fieldErrors = $errorBody['error']['errors'] ?? $errorBody['errors'] ?? null;
+        if ($fieldErrors) {
+            $details = [];
+            foreach ((array) $fieldErrors as $field => $msgs) {
+                $details[] = $field . ': ' . (is_array($msgs) ? implode(', ', $msgs) : $msgs);
+            }
+            $message .= ' — ' . implode('; ', $details);
+        }
+
+        Log::error("JuicyWay [{$status}] {$method} {$path}", [
+            'response' => $errorBody,
+        ]);
+
+        throw new \RuntimeException("JuicyWay: {$message} (HTTP {$status})");
     }
 
     /**
-     * Make an authenticated request to the JuicyWay API.
-     *
-     * Retries once on 429 (rate limit) with a 2-second delay.
-     * Throws \RuntimeException on non-2xx responses.
+     * Normalise Nigerian phone numbers to E.164 (+234...).
+     * Mirrors PayGrid's normalisePhone exactly.
      */
-    protected function request(string $method, string $path, array $data = []): array
-{
-    $url = $this->baseUrl . $path;
+    private function normalisePhone(string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', $phone);
 
-    $response = Http::withHeaders([
-        'Authorization' => $this->apiKey, // Send the raw key without 'Bearer'
-        'Accept' => 'application/json',
-    ])
-        ->timeout(30)
-        // REMOVE "Response" type hint from $r
-        ->retry(2, 2000, function (\Throwable $e, $r) {
-            // Check if $r is actually a Response object before checking status
-            return $r instanceof \Illuminate\Http\Client\Response && $r->status() === 429;
-        })
-        ->{strtolower($method)}($url, $data);
-
-        if ($response->failed()) {
-            $body   = $response->body();
-            $status = $response->status();
-
-            Log::error("JuicyWay API error [{$status}] {$method} {$path}", [
-                'response' => $body,
-            ]);
-
-            throw new \RuntimeException(
-                "JuicyWay API returned {$status}: {$body}"
-            );
+        if (str_starts_with($digits, '0')) {
+            $digits = '234' . substr($digits, 1);
         }
 
-        return $response->json() ?? [];
+        return '+' . ltrim($digits, '+');
     }
 }
