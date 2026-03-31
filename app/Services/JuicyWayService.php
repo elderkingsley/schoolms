@@ -66,6 +66,15 @@ class JuicyWayService
     }
 
     /**
+     * Fetch a JuicyWay customer by ID to verify it still exists.
+     * Throws RuntimeException if not found or API error.
+     */
+    public function getCustomer(string $customerId): array
+    {
+        return $this->get("/customers/{$customerId}");
+    }
+
+    /**
      * Delete an orphaned JuicyWay customer.
      * Only safe when the customer has no wallet and no transactions.
      * Used by ProvisionParentWalletJob to recover from duplicate_currency_wallet.

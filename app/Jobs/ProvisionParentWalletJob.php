@@ -87,6 +87,43 @@ class ProvisionParentWalletJob implements ShouldQueue
                     'customer_id'   => $customerId,
                     'student_name'  => "{$student->first_name} {$student->last_name}",
                 ]);
+            } else {
+                // Validate the stored customer_id is still known to JuicyWay.
+                // If JuicyWay returns customer_kyx_not_found (stale ID from a
+                // previous deleted customer), clear all IDs and start fresh.
+                try {
+                    $juicyWay->getCustomer($parent->juicyway_customer_id);
+                } catch (\RuntimeException $e) {
+                    if (str_contains($e->getMessage(), 'customer_kyx_not_found')
+                        || str_contains($e->getMessage(), 'not_found')
+                        || str_contains($e->getMessage(), '404')
+                    ) {
+                        Log::warning("ProvisionParentWalletJob: stale customer_id for parent {$parent->id} — clearing and restarting.", [
+                            'old_customer_id' => $parent->juicyway_customer_id,
+                        ]);
+                        $parent->update([
+                            'juicyway_customer_id'  => null,
+                            'juicyway_wallet_id'    => null,
+                            'juicyway_account_id'   => null,
+                        ]);
+                        $parent->refresh();
+
+                        // Re-create customer fresh
+                        $customerId = $juicyWay->createCustomer(
+                            firstName: $student->first_name,
+                            lastName:  $student->last_name,
+                            email:     $parent->user->email,
+                            phone:     $parent->phone ?? '08000000000',
+                        );
+                        $parent->update(['juicyway_customer_id' => $customerId]);
+                        $parent->refresh();
+                        Log::info("ProvisionParentWalletJob: fresh customer created for parent {$parent->id}", [
+                            'customer_id' => $customerId,
+                        ]);
+                    } else {
+                        throw $e; // Unknown error — let the job retry normally
+                    }
+                }
             }
 
             // ── Step 2: Wallet — with duplicate_currency_wallet recovery ──
