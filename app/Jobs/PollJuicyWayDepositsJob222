@@ -16,7 +16,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Student;
 
 /**
  * PollJuicyWayDepositsJob — SchoolMS edition
@@ -184,7 +183,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices,
-            $reference, $feeService, $student
+            $reference, $feeService
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
