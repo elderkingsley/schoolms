@@ -441,7 +441,7 @@
                 <table class="hist-table">
                     <thead>
                         <tr>
-                            <th>Session</th><th>Class</th><th>Enrolled On</th><th>Status</th>
+                            <th>Session</th><th>Class</th><th>Enrolled On</th><th>Status</th><th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -454,6 +454,15 @@
                                     <span class="badge badge-{{ $enrolment->status }}">
                                         <span class="badge-dot"></span>{{ ucfirst($enrolment->status) }}
                                     </span>
+                                </td>
+                                <td>
+                                    @if($enrolment->status === 'active')
+                                        <button
+                                            wire:click="openClassModal({{ $enrolment->id }})"
+                                            style="padding:4px 9px;border-radius:6px;font-size:11px;font-weight:500;border:1px solid var(--c-border);background:none;cursor:pointer;font-family:var(--f-sans);color:var(--c-accent);white-space:nowrap;">
+                                            Change Class
+                                        </button>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -614,6 +623,39 @@
     @endif
 
 </div>
+
+{{-- Class change modal --}}
+@if($showClassModal)
+<div class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title">Change Class</div>
+        <div style="font-size:13px;color:var(--c-text-2);margin-bottom:16px;">
+            Moving <strong>{{ $student->full_name }}</strong> to a different class.
+            This updates their active enrolment record immediately.
+        </div>
+
+        <div class="form-field">
+            <label>New Class <span style="color:var(--c-danger)">*</span></label>
+            <select wire:model="newClassId" style="width:100%;padding:10px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;color:var(--c-text-1);background:var(--c-bg);outline:none;-webkit-appearance:none;">
+                <option value="">Select a class…</option>
+                @foreach($classes as $class)
+                    <option value="{{ $class->id }}">{{ $class->display_name }}</option>
+                @endforeach
+            </select>
+            @error('newClassId') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" wire:click="$set('showClassModal', false)">Cancel</button>
+            <button class="btn-confirm" wire:click="saveClassChange"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>Move Student</span>
+                <span wire:loading>Saving…</span>
+            </button>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- Invoice creation modal --}}
 @if($showInvoiceModal)

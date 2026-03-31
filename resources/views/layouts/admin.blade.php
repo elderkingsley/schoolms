@@ -497,13 +497,30 @@
 
             <div class="nav-group">
                 <div class="nav-label">Settings</div>
-                <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
+                <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <circle cx="6" cy="5" r="2.5"/>
                         <path d="M1 14c0-2.761 2.239-4.5 5-4.5s5 1.739 5 4.5"/>
                         <path d="M11 7.5c.828 0 1.5-.672 1.5-1.5S11.828 4.5 11 4.5M15 14c0-2-1.343-3.5-4-3.5"/>
                     </svg>
-                    Users
+                    Staff
+                </a>
+                <a href="{{ route('admin.teachers') }}" class="nav-link {{ request()->routeIs('admin.teachers*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <circle cx="8" cy="5" r="3"/>
+                        <path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/>
+                        <path d="M11 2l1 1-1 1"/>
+                    </svg>
+                    Teachers
+                </a>
+                <a href="{{ route('admin.parents') }}" class="nav-link {{ request()->routeIs('admin.parents*') ? 'active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <circle cx="6" cy="5" r="2.5"/>
+                        <path d="M1 14c0-2.761 2.239-4.5 5-4.5s5 1.739 5 4.5"/>
+                        <circle cx="11.5" cy="5" r="2"/>
+                        <path d="M9 14c0-2.761 1.567-4.5 4-4.5"/>
+                    </svg>
+                    Parents
                 </a>
                 <a href="{{ route('admin.classes') }}" class="nav-link {{ request()->routeIs('admin.classes*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -527,6 +544,15 @@
                     <div class="user-name">{{ auth()->user()->name }}</div>
                     <div class="user-role">{{ str_replace('_', ' ', auth()->user()->user_type) }}</div>
                 </div>
+                <a href="{{ route('account.password') }}"
+                       style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;font-size:11px;color:rgba(255,255,255,0.4);text-decoration:none;transition:color 150ms;margin-bottom:4px;"
+                       onmouseover="this.style.color='rgba(255,255,255,0.8)'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="3" y="7" width="10" height="8" rx="1.5"/>
+                        <path d="M5 7V5a3 3 0 0 1 6 0v2"/>
+                    </svg>
+                    Change Password
+                </a>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit" class="logout-btn" title="Log out">

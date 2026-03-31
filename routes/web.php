@@ -22,12 +22,16 @@ require __DIR__.'/auth.php';
 // ── Redirect root to login ────────────────────────────────────────────────────
 Route::get('/', fn() => redirect()->route('login'));
 
-// ── Force password change — available to ALL authenticated users ───────────────
+// ── Force password change + voluntary change — available to ALL authenticated users ──
 Route::middleware('auth')->group(function () {
+    // Forced on first login (used by guest-layout controller)
     Route::get('/password/change',  [\App\Http\Controllers\ChangePasswordController::class, 'show'])
         ->name('password.change');
     Route::post('/password/change', [\App\Http\Controllers\ChangePasswordController::class, 'update'])
         ->name('password.change.update');
+    // Voluntary change from within any portal (Livewire component)
+    Route::get('/account/password', \App\Livewire\ChangePassword::class)
+        ->name('account.password');
 });
 
 // ── Admin routes (admin + super_admin) ────────────────────────────────────────
@@ -67,7 +71,9 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         Route::get('/results/{student}/report-card', \App\Http\Controllers\Admin\ReportCardController::class)->name('results.report-card');
 
         // Users — super_admin only (enforced inside the component too)
-        Route::get('/users', \App\Livewire\Admin\UserManager::class)->name('users');
+        Route::get('/users',    \App\Livewire\Admin\UserManager::class)->name('users');
+        Route::get('/teachers', \App\Livewire\Admin\TeacherList::class)->name('teachers');
+        Route::get('/parents',  \App\Livewire\Admin\ParentList::class)->name('parents');
     });
 
 // ── Teacher routes ─────────────────────────────────────────────────────────────

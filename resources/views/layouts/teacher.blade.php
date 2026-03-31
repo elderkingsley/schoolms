@@ -79,6 +79,11 @@
     <div class="t-user">
         <span class="t-username">{{ auth()->user()->name }}</span>
         <div class="t-av">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</div>
+        <a href="{{ route('account.password') }}"
+           style="font-size:12px;color:var(--c-text-3);text-decoration:none;padding:6px 10px;border-radius:6px;transition:background 150ms;"
+           onmouseover="this.style.background='var(--c-bg)'" onmouseout="this.style.background=''">
+            🔒 Password
+        </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="t-logout">Log out</button>

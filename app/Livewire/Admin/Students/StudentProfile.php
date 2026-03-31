@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Students;
 
+use App\Models\Enrolment;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\Term;
@@ -32,7 +33,12 @@ class StudentProfile extends Component
     // ── Invoice creation modal ────────────────────────────────────────────────
     public bool    $showInvoiceModal = false;
     public ?int    $invoiceTermId    = null;
-    public mixed   $invoicePreview   = null;  // null | 'already_exists' | 'no_fee_structure' | array
+    public mixed   $invoicePreview   = null;
+
+    // ── Class change modal ────────────────────────────────────────────────────
+    public bool    $showClassModal   = false;
+    public ?int    $changeEnrolmentId = null;  // which enrolment to edit
+    public ?int    $newClassId        = null;  // the chosen class
 
     public function mount(Student $student): void
     {
@@ -112,12 +118,64 @@ class StudentProfile extends Component
         $this->invoicePreview   = null;
 
         if ($invoice) {
-            // Reload fee invoices so the profile page reflects the new invoice
             $this->student->load('feeInvoices.term.session', 'feeInvoices.items', 'feeInvoices.payments');
             session()->flash('success', "Invoice created for {$this->student->full_name} — {$term->name} Term. Review it in the Fees section below.");
         } else {
             session()->flash('error', 'An invoice already exists for this student and term.');
         }
+    }
+
+    // ── Class change ──────────────────────────────────────────────────────────
+
+    /**
+     * Open the change-class modal for a specific enrolment.
+     * Pre-selects the enrolment's current class.
+     */
+    public function openClassModal(int $enrolmentId): void
+    {
+        $enrolment = Enrolment::findOrFail($enrolmentId);
+
+        // Security: enrolment must belong to this student
+        abort_if($enrolment->student_id !== $this->student->id, 403);
+
+        $this->changeEnrolmentId = $enrolmentId;
+        $this->newClassId        = $enrolment->school_class_id;
+        $this->showClassModal    = true;
+        $this->resetValidation();
+    }
+
+    public function saveClassChange(): void
+    {
+        $this->validate([
+            'newClassId' => 'required|exists:school_classes,id',
+        ]);
+
+        $enrolment = Enrolment::findOrFail($this->changeEnrolmentId);
+        abort_if($enrolment->student_id !== $this->student->id, 403);
+
+        $oldClass = $enrolment->schoolClass?->display_name ?? '—';
+        $newClass = SchoolClass::findOrFail($this->newClassId);
+
+        // Prevent assigning a class the student is already in
+        if ($enrolment->school_class_id === $this->newClassId) {
+            session()->flash('error', "Student is already in {$newClass->display_name}.");
+            $this->showClassModal = false;
+            return;
+        }
+
+        $enrolment->update(['school_class_id' => $this->newClassId]);
+
+        // Reload enrolments so the profile page reflects the change immediately
+        $this->student->load(
+            'enrolments.schoolClass',
+            'enrolments.session'
+        );
+
+        $this->showClassModal    = false;
+        $this->changeEnrolmentId = null;
+        $this->newClassId        = null;
+
+        session()->flash('success', "{$this->student->full_name} moved from {$oldClass} to {$newClass->display_name}.");
     }
 
     public function saveEdit(): void
@@ -179,7 +237,6 @@ class StudentProfile extends Component
         session()->flash('success', 'Photo removed.');
     }
 
-
     public function render()
     {
         $invoices = $this->student->feeInvoices->sortByDesc(fn($i) => $i->term_id);
@@ -200,8 +257,11 @@ class StudentProfile extends Component
             ->orderBy('id')
             ->get();
 
+        // All classes for the class-change modal
+        $classes = SchoolClass::ordered()->get();
+
         return view('livewire.admin.students.student-profile',
-            compact('invoices', 'currentInvoice', 'feeSummary', 'activeTerm', 'terms'))
+            compact('invoices', 'currentInvoice', 'feeSummary', 'activeTerm', 'terms', 'classes'))
             ->layout('layouts.admin', [
                 'title' => $this->student->first_name . ' ' . $this->student->last_name,
             ]);
