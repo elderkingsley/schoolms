@@ -446,7 +446,7 @@
                         </div>
                         <div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;">
                             <span style="color:var(--c-text-3);font-size:12px;">Account Name</span>
-                            <span style="font-weight:600;">{{ $primaryParent->user?->name }}</span>
+                            <span style="font-weight:600;">{{ $invoice->student->full_name }}</span>
                         </div>
                     </div>
                     <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">

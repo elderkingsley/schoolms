@@ -131,17 +131,20 @@ class JuicyWayService
 
         $this->post("/wallets/{$walletId}/payment-method", ['type' => 'bank_account']);
 
-        for ($i = 0; $i < 6; $i++) {
-            sleep(5);
+        // Poll up to 12 × 10 s = 120 s.
+        // JuicyWay provisions NUBANs asynchronously and can take anywhere from
+        // a few seconds to over a minute depending on their banking partner load.
+        for ($i = 0; $i < 12; $i++) {
+            sleep(10);
             $account = $this->getExistingBankAccount($walletId);
             if ($account) {
                 return $account;
             }
-            Log::info("JuicyWay: waiting for NUBAN on wallet {$walletId} (attempt " . ($i + 1) . "/6)");
+            Log::info("JuicyWay: waiting for NUBAN on wallet {$walletId} (attempt " . ($i + 1) . "/12)");
         }
 
         throw new \RuntimeException(
-            "JuicyWay: no payment method appeared after 30s for wallet {$walletId}."
+            "JuicyWay: no payment method appeared after 120s for wallet {$walletId}."
         );
     }
 

@@ -8,6 +8,7 @@ use App\Models\Student;
 use App\Models\Term;
 use App\Services\FeeService;
 use Illuminate\Support\Facades\Storage;
+use App\Jobs\ProvisionParentWalletJob;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -235,6 +236,26 @@ class StudentProfile extends Component
         $this->student->update(['photo' => null]);
         $this->student->refresh();
         session()->flash('success', 'Photo removed.');
+    }
+
+    /**
+     * Retry virtual account provisioning from the student profile page.
+     * Finds the primary parent for this student and re-dispatches the job.
+     */
+    public function retryProvisionWallet(): void
+    {
+        $parent = $this->student->parents
+            ->filter(fn($p) => $p->user !== null)
+            ->first();
+
+        if (! $parent) {
+            session()->flash('error', 'No parent portal account found for this student.');
+            return;
+        }
+
+        $parent->update(['juicyway_wallet_status' => 'pending']);
+        ProvisionParentWalletJob::dispatch($parent);
+        session()->flash('success', 'Virtual account provisioning re-queued. Refresh in about a minute.');
     }
 
     public function render()

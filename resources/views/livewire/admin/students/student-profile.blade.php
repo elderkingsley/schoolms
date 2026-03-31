@@ -423,6 +423,88 @@
         </div>
     </div>
 
+    {{-- Payment Account --}}
+    <div class="info-card full-width">
+        <div class="info-card-head">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14M5 10h2"/>
+            </svg>
+            School Fees Payment Account
+        </div>
+        @php
+            // Each parent row is linked to this specific student.
+            // The virtual account (NUBAN) is stored on that parent row and
+            // provisioned in the child's name for reconciliation clarity.
+            $paymentParent = $student->parents
+                ->filter(fn($p) => $p->user !== null)
+                ->first();
+        @endphp
+        @if($paymentParent && $paymentParent->hasVirtualAccount())
+            <div style="padding:16px 18px;">
+                <p style="font-size:13px;color:var(--c-text-2);margin-bottom:12px;line-height:1.5;">
+                    Dedicated virtual bank account provisioned in this student's name.
+                    Transfers to this account are automatically matched to their invoices.
+                </p>
+                <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;overflow:hidden;" x-data>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
+                        <span style="color:var(--c-text-3);font-size:12px;">Bank</span>
+                        <span style="font-weight:600;">{{ $paymentParent->juicyway_bank_name }}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
+                        <span style="color:var(--c-text-3);font-size:12px;">Account Number</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-weight:700;font-family:var(--f-mono);font-size:14px;">{{ $paymentParent->juicyway_account_number }}</span>
+                            <button style="padding:3px 9px;border:1px solid var(--c-border);border-radius:5px;background:var(--c-surface);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--f-sans);color:var(--c-text-2);"
+                                x-on:click="navigator.clipboard.writeText('{{ $paymentParent->juicyway_account_number }}');
+                                            $el.textContent='Copied!';
+                                            setTimeout(()=>$el.textContent='Copy',2000)">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
+                        <span style="color:var(--c-text-3);font-size:12px;">Account Name</span>
+                        <span style="font-weight:600;">{{ $student->full_name }}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:13px;">
+                        <span style="color:var(--c-text-3);font-size:12px;">Status</span>
+                        <span style="background:rgba(21,128,61,0.08);color:#15803D;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;">Active</span>
+                    </div>
+                </div>
+                <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">
+                    This is a permanent account. The parent can reuse it for all future payments without needing a new account each term.
+                </p>
+            </div>
+        @elseif($paymentParent && $paymentParent->isWalletProvisioning())
+            <div style="padding:16px 18px;">
+                <div style="background:rgba(180,83,9,0.05);border:1px solid rgba(180,83,9,0.2);border-radius:8px;padding:12px 14px;font-size:13px;color:#B45309;line-height:1.5;">
+                    ⏳ Virtual account is being provisioned. This typically takes under a minute.
+                    Refresh this page to check the latest status.
+                </div>
+            </div>
+        @elseif($paymentParent && $paymentParent->isWalletFailed())
+            <div style="padding:16px 18px;">
+                <div style="background:rgba(190,18,60,0.05);border:1px solid rgba(190,18,60,0.2);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--c-danger);line-height:1.5;margin-bottom:10px;">
+                    Virtual account provisioning failed. The parent has been notified with bursary payment instructions as a fallback.
+                </div>
+                <button wire:click="retryProvisionWallet"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50"
+                    style="padding:8px 16px;border:1px solid var(--c-border);border-radius:7px;background:none;font-family:var(--f-sans);font-size:12px;font-weight:500;cursor:pointer;color:var(--c-text-1);">
+                    <span wire:loading.remove>↺ Retry Provisioning</span>
+                    <span wire:loading>Queuing…</span>
+                </button>
+            </div>
+        @elseif(! $paymentParent)
+            <div style="padding:16px 18px;">
+                <div class="empty-note">No parent portal account found. Approve the enrolment so the parent receives their portal login and a virtual account is provisioned.</div>
+            </div>
+        @else
+            <div style="padding:16px 18px;">
+                <div class="empty-note">Virtual account not yet provisioned. It will be set up automatically when the enrolment is approved.</div>
+            </div>
+        @endif
+    </div>
+
     {{-- Enrolment History --}}
     <div class="info-card full-width">
         <div class="info-card-head">
