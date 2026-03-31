@@ -113,7 +113,7 @@ class EnrolmentQueue extends Component
         $student->load('parents.user');
         foreach ($student->parents as $parent) {
             if ($parent->user && ! $parent->hasVirtualAccount()) {
-                ProvisionParentWalletJob::dispatch($parent);
+                ProvisionParentWalletJob::dispatch($parent)->onQueue('provisioning');
                 Log::info("EnrolmentQueue: dispatched ProvisionParentWalletJob for parent {$parent->id}", [
                     'student' => $student->first_name . ' ' . $student->last_name,
                 ]);

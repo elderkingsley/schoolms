@@ -68,7 +68,7 @@ class PayGridInflowController extends Controller
         }
 
         // ── Step 3: Dispatch job — respond fast ───────────────────────────
-        ProcessPayGridInflowJob::dispatch($payload);
+        ProcessPayGridInflowJob::dispatch($payload)->onQueue('payments');
 
         Log::info('PayGridInflow: dispatched to queue', [
             'account_number' => $accountNumber,

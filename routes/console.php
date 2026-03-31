@@ -19,6 +19,6 @@ Artisan::command('inspire', function () {
 // withoutOverlapping(2) prevents concurrent runs if a cycle takes > 1 min.
 // Note: runInBackground() is NOT used here — it only works with commands,
 // not jobs. The job itself is non-blocking via the queue worker.
-Schedule::job(new \App\Jobs\PollJuicyWayDepositsJob)
+Schedule::job(new \App\Jobs\PollJuicyWayDepositsJob, 'payments')
     ->everyMinute()
     ->withoutOverlapping(2);

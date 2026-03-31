@@ -43,9 +43,8 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $queue   = 'payments'; // never blocked by slow provisioning jobs
-    public int    $tries   = 1;
-    public int    $timeout = 55; // must finish within 1-minute window
+    public int $tries   = 1;
+    public int $timeout = 55; // must finish within 1-minute window
 
     public function handle(FeeService $feeService): void
     {
