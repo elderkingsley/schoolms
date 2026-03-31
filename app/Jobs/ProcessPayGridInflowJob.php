@@ -40,7 +40,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public string $queue   = 'payments'; // must never be blocked by provisioning
+    public $queue   = 'payments'; // must never be blocked by provisioning
     public int    $tries   = 3;
     public array  $backoff = [60, 300, 900];
 
