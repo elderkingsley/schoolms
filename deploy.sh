@@ -22,12 +22,11 @@ git fetch origin main
 git reset --hard origin/main
 
 echo "[ 3/9 ] Fixing permissions BEFORE anything writes to storage..."
-# Must run before composer, migrations, and cache commands so that
-# every file written during the deploy is immediately accessible by
-# both the SSH user and www-data. This prevents the session/view
-# permission conflicts that force users to clear their browser cookies.
-chmod -R 775 storage bootstrap/cache
-chown -R www-data:www-data storage bootstrap/cache
+# sudo required — some files are owned by www-data from previous deploys.
+# Must run before composer, migrations, and cache commands so every file
+# written during the deploy is accessible by both the SSH user and www-data.
+sudo chmod -R 775 storage bootstrap/cache
+sudo chown -R www-data:www-data storage bootstrap/cache
 
 echo "[ 4/9 ] Installing PHP dependencies..."
 $COMPOSER install --no-interaction --prefer-dist --optimize-autoloader --no-dev --quiet
