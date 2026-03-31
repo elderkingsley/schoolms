@@ -23,19 +23,31 @@ Schedule::job(new \App\Jobs\PollJuicyWayDepositsJob, 'payments')
     ->everyMinute()
     ->withoutOverlapping(2);
 
-    // Daily sweep — re-dispatch provisioning for any parent without a NUBAN.
-// Catches edge cases where ProvisionParentWalletJob was missed on approval.
+// Daily sweep at 2am — catches any parent whose provisioning was missed
+// (e.g. queue worker was down when enrolment was approved).
+// Resets status to null so ProvisionParentWalletJob starts fresh from step 1.
 Schedule::call(function () {
     App\Models\ParentGuardian::whereNotNull('user_id')
         ->whereNull('juicyway_account_number')
-        ->whereNotIn('juicyway_wallet_status', ['pending'])
+        ->where(function ($q) {
+            $q->whereNull('juicyway_wallet_status')
+              ->orWhere('juicyway_wallet_status', 'failed');
+        })
         ->with(['user', 'students'])
         ->get()
         ->each(function ($parent) {
             if ($parent->user && $parent->students->isNotEmpty()) {
-                $parent->update(['juicyway_wallet_status' => null]);
+                $parent->update([
+                    'juicyway_customer_id'   => null,
+                    'juicyway_wallet_id'     => null,
+                    'juicyway_account_id'    => null,
+                    'juicyway_wallet_status' => null,
+                ]);
                 App\Jobs\ProvisionParentWalletJob::dispatch($parent)
                     ->onQueue('provisioning');
+                \Illuminate\Support\Facades\Log::info(
+                    "DailySweep: dispatched provisioning for parent {$parent->id}"
+                );
             }
         });
 })->dailyAt('02:00')->name('provision-missing-wallets')->withoutOverlapping();
