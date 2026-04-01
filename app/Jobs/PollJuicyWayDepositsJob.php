@@ -194,16 +194,16 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices,
-            $reference, $feeService, $systemActorId
+            $reference, $feeService, $systemActorId, $student
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
 
-                $balance = (float) $invoice->balance;
+                $balance = (float) (string) $invoice->balance;
                 if ($balance <= 0) continue;
 
                 $isLast  = $invoices->last()->id === $invoice->id;
-                $toApply = ($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance);
+                $toApply = (float) (string) (($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance));
 
                 $feeService->recordPayment(
                     invoice:    $invoice,

@@ -120,7 +120,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
 
-                $balance = (float) $invoice->balance;
+                $balance = (float) (string) $invoice->balance;
 
                 if ($balance <= 0) continue; // already paid somehow
 
