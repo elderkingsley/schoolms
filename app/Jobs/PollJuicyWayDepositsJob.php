@@ -81,8 +81,19 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                 ->get($url);
 
             if (! $response->successful()) {
+                $status = $response->status();
+
+                // 401 = JuicyWay intermittent auth failure — throw so the
+                // queue retries automatically rather than silently giving up.
+                // This ensures missed deposits are picked up on next attempt.
+                if ($status === 401) {
+                    throw new \RuntimeException(
+                        "JuicyWay API returned 401 — possible intermittent auth issue. Will retry."
+                    );
+                }
+
                 Log::error('PollJuicyWayDeposits[SchoolMS]: API error', [
-                    'status' => $response->status(),
+                    'status' => $status,
                     'body'   => substr($response->body(), 0, 300),
                 ]);
                 return;
@@ -183,7 +194,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices,
-            $reference, $feeService
+            $reference, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;

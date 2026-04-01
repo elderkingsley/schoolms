@@ -115,7 +115,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices,
-            $reference, $senderName, $depositId, $feeService
+            $reference, $senderName, $depositId, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
