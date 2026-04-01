@@ -41,6 +41,11 @@ class User extends Authenticatable
         return $this->hasMany(SchoolClass::class, 'form_teacher_id');
     }
 
+    public function assistantClasses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SchoolClass::class, 'assistant_teacher_id');
+    }
+
     // ── Type helpers ──────────────────────────────────────────────────────────
 
     public function isAdmin(): bool
@@ -75,7 +80,8 @@ class User extends Authenticatable
         return match($type) {
             'super_admin' => 'Super Admin',
             'admin'       => 'Admin',
-            'teacher'     => 'Teacher',
+            'teacher'             => 'Teacher',
+            'teaching_assistant'  => 'Teaching Assistant',
             'accountant'  => 'Accountant',
             'parent'      => 'Parent',
             default       => ucfirst($type),

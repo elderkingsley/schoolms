@@ -21,6 +21,7 @@ Route::post('/api/paygrid/inflow', [\App\Http\Controllers\PayGridInflowControlle
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
+Route::get('/staff/register', \App\Livewire\Public\StaffRegistrationForm::class)->name('staff.register');
 
 // ── Auth routes (Breeze) ──────────────────────────────────────────────────────
 require __DIR__.'/auth.php';
@@ -78,7 +79,8 @@ Route::middleware(['auth', 'role:super_admin|admin'])
 
         // Users — super_admin only (enforced inside the component too)
         Route::get('/users',    \App\Livewire\Admin\UserManager::class)->name('users');
-        Route::get('/teachers', \App\Livewire\Admin\TeacherList::class)->name('teachers');
+        Route::get('/teachers', \App\Livewire\Admin\TeacherManager::class)->name('teachers');
+        Route::get('/sessions', \App\Livewire\Admin\Academics\SessionTermManager::class)->name('sessions');
         Route::get('/parents',  \App\Livewire\Admin\ParentList::class)->name('parents');
     });
 

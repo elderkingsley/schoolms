@@ -529,7 +529,7 @@
                     </svg>
                     Classes & Subjects
                 </a>
-                <a href="#" class="nav-link {{ request()->routeIs('admin.sessions*') ? 'active' : '' }}">
+                <a href="{{ route('admin.sessions') }}" class="nav-link {{ request()->routeIs('admin.sessions*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                         <rect x="1" y="2" width="14" height="13" rx="1.5"/>
                         <path d="M1 6h14M5 1v2M11 1v2"/>

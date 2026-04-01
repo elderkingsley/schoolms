@@ -9,13 +9,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SchoolClass extends Model
 {
-    protected $fillable = ['name', 'level', 'arm', 'form_teacher_id', 'order'];
+    protected $fillable = ['name', 'level', 'arm', 'form_teacher_id', 'assistant_teacher_id', 'order'];
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function formTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'form_teacher_id');
+    }
+
+    public function assistantTeacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assistant_teacher_id');
     }
 
     public function subjects(): BelongsToMany
