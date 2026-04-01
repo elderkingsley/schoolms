@@ -152,23 +152,28 @@ class JuicyWayService
             }
         }
 
-        // Step 2: Poll GET /wallets/{id}/payment-methods (different endpoint)
-        // Falls back to GET /wallets/{id} if that fails too.
-        for ($i = 0; $i < 12; $i++) {
+        // Step 2: Poll up to 18 × 10s = 180s.
+        // JuicyWay typically provisions NUBANs within 2-3 minutes.
+        // GET /wallets/{id} and GET /wallets/{id}/payment-methods are both
+        // broken on JuicyWay's side (404 and 422). The only working detection
+        // is GET /deposits — but that requires a payment to have been made.
+        // We therefore poll GET /wallets/{id}/payment-methods and fall back
+        // to GET /wallets/{id} on each cycle, extending timeout to 180s to
+        // cover JuicyWay's slow provisioning without needing a retry.
+        for ($i = 0; $i < 18; $i++) {
             sleep(10);
 
-            // Try the payment-methods sub-endpoint first
             $account = $this->tryGetPaymentMethod($walletId);
             if ($account) {
                 Log::info("JuicyWay: NUBAN confirmed on wallet {$walletId} (attempt " . ($i + 1) . ")");
                 return $account;
             }
 
-            Log::info("JuicyWay: waiting for NUBAN on wallet {$walletId} (attempt " . ($i + 1) . "/12)");
+            Log::info("JuicyWay: waiting for NUBAN on wallet {$walletId} (attempt " . ($i + 1) . "/18)");
         }
 
         throw new \RuntimeException(
-            "JuicyWay: no payment method appeared after 120s for wallet {$walletId}."
+            "JuicyWay: no payment method appeared after 180s for wallet {$walletId}."
         );
     }
 
