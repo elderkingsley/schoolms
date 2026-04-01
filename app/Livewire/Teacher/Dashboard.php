@@ -20,9 +20,9 @@ class Dashboard extends Component
         $myClasses = SchoolClass::with([
             'enrolments' => fn($q) => $q->where('status', 'active')
                 ->when($activeSession, fn($q) => $q->where('academic_session_id', $activeSession->id)),
-            'subjects' => fn($q) => $q->when($activeSession,
-                fn($q) => $q->wherePivot('academic_session_id', $activeSession->id)
-            ),
+            // Load subjects without filtering by pivot session — wherePivot on
+            // aliased pivot columns causes a MySQL error. Filter in the view instead.
+            'subjects',
         ])
         ->where('form_teacher_id', $user->id)
         ->ordered()

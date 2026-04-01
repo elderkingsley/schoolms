@@ -142,6 +142,10 @@ class TeacherManager extends Component
                 'force_password_change' => true,
             ]);
 
+            // Assign Spatie role so the role middleware grants portal access.
+            // teaching_assistant uses the 'teacher' Spatie role (same portal, same permissions).
+            $user->assignRole($this->staffRole === 'teaching_assistant' ? 'teacher' : $this->staffRole);
+
             $this->syncClassAssignments($user->id);
             $user->notify(new UserWelcomeNotification($user, $tempPassword));
 
@@ -232,6 +236,9 @@ class TeacherManager extends Component
             'is_active'             => true,
             'force_password_change' => true,
         ]);
+
+        // Assign Spatie role — teaching_assistant uses 'teacher' role for portal access
+        $user->assignRole($reg->role === 'teaching_assistant' ? 'teacher' : $reg->role);
 
         $reg->update([
             'status'      => 'approved',
