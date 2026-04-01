@@ -85,18 +85,11 @@ class ProcessPayGridInflowJob implements ShouldQueue
             return;
         }
 
-        // ── Authenticate as system user so FeeService::recordPayment() ──
-        // has a non-null auth()->id() for the recorded_by column.
-        // Queue workers have no authenticated user — we use the first
-        // super_admin as the system actor for automated payments.
-        $systemUser = \App\Models\User::where('user_type', 'super_admin')
+        // ── Resolve system actor for audit trail ─────────────────────────
+        $systemActorId = \App\Models\User::where('user_type', 'super_admin')
             ->orWhere('user_type', 'admin')
             ->orderBy('id')
-            ->first();
-
-        if ($systemUser) {
-            auth()->setUser($systemUser);
-        }
+            ->value('id');
 
         // ── Find unpaid/partial invoices — oldest first ───────────────────
         $invoices = FeeInvoice::where('student_id', $student->id)
@@ -142,10 +135,12 @@ class ProcessPayGridInflowJob implements ShouldQueue
                 }
 
                 $feeService->recordPayment(
-                    invoice:   $invoice,
-                    amount:    $toApply,
-                    method:    'JuicyWay Transfer',
-                    reference: $reference,
+                    invoice:    $invoice,
+                    amount:     $toApply,
+                    method:     'JuicyWay Transfer',
+                    reference:  $reference,
+                    recordedBy: $systemActorId,
+                    source:     'automation',
                 );
 
                 $remaining -= $toApply;

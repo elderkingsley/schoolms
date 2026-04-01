@@ -168,14 +168,14 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             return true;
         }
 
-        // ── Set system user so FeeService::recordPayment() has auth()->id() ─
-        $systemUser = User::where('user_type', 'super_admin')
+        // ── Resolve system actor for audit trail ────────────────────────────
+        // We pass recorded_by explicitly to FeeService::recordPayment() so
+        // the queue worker never needs auth()->setUser() — which pollutes
+        // the audit trail by making automated payments look like manual ones.
+        $systemActorId = \App\Models\User::where('user_type', 'super_admin')
             ->orWhere('user_type', 'admin')
             ->orderBy('id')
-            ->first();
-        if ($systemUser) {
-            auth()->setUser($systemUser);
-        }
+            ->value('id');
 
         // ── Apply deposit across invoices (FIFO) ──────────────────────────
         $remaining       = $amountNgn;
@@ -195,10 +195,12 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                 $toApply = ($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance);
 
                 $feeService->recordPayment(
-                    invoice:   $invoice,
-                    amount:    $toApply,
-                    method:    'JuicyWay Transfer',
-                    reference: $reference,
+                    invoice:    $invoice,
+                    amount:     $toApply,
+                    method:     'JuicyWay Transfer',
+                    reference:  $reference,
+                    recordedBy: $systemActorId,
+                    source:     'automation',
                 );
 
                 $remaining -= $toApply;
@@ -294,6 +296,38 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             Log::warning("PollJuicyWayDeposits[SchoolMS]: PayGrid notification exception: {$e->getMessage()}", [
                 'ref' => $reference,
             ]);
+        }
+    }
+
+    /**
+     * Called when the job permanently fails after all retries.
+     * Sends an email alert to all admin users so no payment goes unnoticed.
+     */
+    public function failed(\Throwable $e): void
+    {
+        Log::critical('PollJuicyWayDepositsJob: permanently failed — ' . $e->getMessage());
+
+        try {
+            $admins = \App\Models\User::whereIn('user_type', ['super_admin', 'admin'])
+                ->where('is_active', true)
+                ->get();
+
+            foreach ($admins as $admin) {
+                \Illuminate\Support\Facades\Mail::raw(
+                    "ALERT: The automated school fees payment detection job has permanently failed.\n\n" .
+                    "Error: " . $e->getMessage() . "\n\n" .
+                    "This means student fee payments made via bank transfer may NOT be " .
+                    "automatically recorded until this is resolved.\n\n" .
+                    "Please check the queue logs and restart the payments worker:\n" .
+                    "sudo supervisorctl restart nurtureville-payments:*\n\n" .
+                    "Time: " . now()->format('d M Y, g:ia') . " (Africa/Lagos)",
+                    fn($message) => $message
+                        ->to($admin->email)
+                        ->subject('⚠️ URGENT: Payment Detection Job Failed — Nurtureville SchoolMS')
+                );
+            }
+        } catch (\Throwable $mailError) {
+            Log::error('PollJuicyWayDepositsJob: failed to send failure alert — ' . $mailError->getMessage());
         }
     }
 }

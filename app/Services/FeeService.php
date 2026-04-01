@@ -10,6 +10,7 @@ use App\Models\FeeStructure;
 use App\Models\Student;
 use App\Models\Term;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class FeeService
@@ -146,23 +147,60 @@ class FeeService
     }
 
     /**
-     * Record a manual payment against an invoice and update its balance.
+     * Record a payment against an invoice and update its balance.
+     *
+     * @param FeeInvoice $invoice    The invoice to record payment against
+     * @param float      $amount     Amount paid in naira
+     * @param string     $method     Payment method
+     * @param string     $reference  Bank/transfer reference for idempotency
+     * @param int|null   $recordedBy User ID who recorded the payment.
+     *                               Pass null for automated payments (polling job, webhook).
+     *                               Falls back to auth()->id() for manual UI payments.
+     * @param string     $source     'manual' for UI, 'automation' for polling/webhook.
+     *                               Stored on receipt_number prefix for audit trail.
      */
     public function recordPayment(
         FeeInvoice $invoice,
         float      $amount,
         string     $method,
-        string     $reference = ''
+        string     $reference = '',
+        ?int       $recordedBy = null,
+        string     $source = 'manual'
     ): void {
-        FeePayment::create([
-            'fee_invoice_id' => $invoice->id,
-            'amount'         => $amount,
-            'method'         => $method,
-            'receipt_number' => 'RCP-' . strtoupper(Str::random(10)),
-            'reference'      => $reference,
-            'recorded_by'    => auth()->id(),
-            'paid_at'        => now(),
-        ]);
+        // Resolve who recorded the payment.
+        // Automated sources pass $recordedBy explicitly so we never need
+        // auth()->id() in a queue worker context (where auth is null).
+        $actor = $recordedBy ?? auth()->id();
+
+        if (! $actor) {
+            // Last resort — find first super_admin as system actor
+            $actor = \App\Models\User::where('user_type', 'super_admin')
+                ->orWhere('user_type', 'admin')
+                ->orderBy('id')
+                ->value('id');
+        }
+
+        // Prefix receipt number with source so audit trail is unambiguous:
+        // RCP- = manual entry by staff
+        // AUTO- = recorded automatically by polling/webhook
+        $prefix = $source === 'automation' ? 'AUTO-' : 'RCP-';
+
+        try {
+            FeePayment::create([
+                'fee_invoice_id' => $invoice->id,
+                'amount'         => $amount,
+                'method'         => $method,
+                'receipt_number' => $prefix . strtoupper(Str::random(10)),
+                'reference'      => $reference,
+                'recorded_by'    => $actor,
+                'paid_at'        => now(),
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Duplicate reference — another process already recorded this payment.
+            // This is the database-level idempotency guard. Log and return safely.
+            \Illuminate\Support\Facades\Log::info("FeeService: duplicate payment reference '{$reference}' rejected by DB constraint — skipping.");
+            return;
+        }
 
         $invoice->recalculateTotal();
     }
