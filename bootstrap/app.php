@@ -20,6 +20,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Route middleware aliases
+        // Override the default guest middleware to redirect to the correct portal
+        // instead of /home (which doesn't exist and causes a 404 loop).
+        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectUsersTo(fn ($request) => match(auth()->user()?->user_type) {
+            'super_admin', 'admin' => route('admin.dashboard'),
+            'teacher', 'teaching_assistant' => route('teacher.dashboard'),
+            'accountant'           => route('accountant.dashboard'),
+            'parent'               => route('parent.dashboard'),
+            default                => route('admin.dashboard'),
+        });
+
         $middleware->alias([
             'role'               => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission'         => \Spatie\Permission\Middleware\PermissionMiddleware::class,
