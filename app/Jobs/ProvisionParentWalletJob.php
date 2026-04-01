@@ -39,7 +39,7 @@ class ProvisionParentWalletJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries   = 10;
-    public int $timeout = 240; // 4 min — covers NUBAN polling (up to 180s) + API calls
+    public int $timeout = 120; // 2 min per attempt — polls 30s then fails fast for retry
 
     public function backoff(): array
     {
