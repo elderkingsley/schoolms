@@ -17,6 +17,7 @@ class ResultEntry extends Component
     public ?int   $selectedTermId    = null;
     public array  $scores            = [];
     public bool   $saved             = false;
+    public bool   $isLocked          = false; // true once submitted — teacher cannot edit
 
     public function mount(): void
     {
@@ -36,8 +37,9 @@ class ResultEntry extends Component
 
     public function updatedSelectedSubjectId(): void
     {
-        $this->scores = [];
-        $this->saved  = false;
+        $this->scores    = [];
+        $this->saved     = false;
+        $this->isLocked  = false;
         $this->loadScores();
     }
 
@@ -61,6 +63,9 @@ class ResultEntry extends Component
                 'exam' => $result->exam_score > 0 ? (string) $result->exam_score : '',
             ];
         }
+
+        // Lock if any result in this set has been submitted
+        $this->isLocked = $existing->whereNotNull('submitted_at')->isNotEmpty();
     }
 
     public function save(): void
@@ -78,6 +83,12 @@ class ResultEntry extends Component
     protected function persistScores(bool $submit): void
     {
         if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) return;
+
+        // Hard server-side block — prevents direct method invocations bypassing the UI lock
+        if ($this->isLocked) {
+            session()->flash('error', 'These results are submitted and locked. Contact the admin to make changes.');
+            return;
+        }
 
         $this->validateScores();
 
@@ -172,7 +183,7 @@ class ResultEntry extends Component
         }
 
         return view('livewire.teacher.result-entry',
-            compact('myClasses', 'terms', 'subjects', 'students', 'isSubmitted'))
+            compact('myClasses', 'terms', 'subjects', 'students', 'isSubmitted', 'isLocked'))
             ->layout('layouts.teacher', ['title' => 'Results Entry']);
     }
 }

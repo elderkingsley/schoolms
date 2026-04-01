@@ -51,6 +51,9 @@
 @if(session('success'))
     <div class="flash flash-success">✓ {{ session('success') }}</div>
 @endif
+@if(session('error'))
+    <div class="flash" style="background:rgba(190,18,60,0.07);border:1px solid rgba(190,18,60,0.2);color:#BE123C;">✗ {{ session('error') }}</div>
+@endif
 
 <div class="pg-title">Enter Results</div>
 <div class="pg-sub">Save as draft at any time. Submit for review when scores are final.</div>
@@ -81,9 +84,13 @@
     </select>
 </div>
 
-@if($isSubmitted)
+@if($isLocked)
+    <div class="submitted-banner" style="background:rgba(190,18,60,0.07);border-color:rgba(190,18,60,0.2);color:#BE123C;">
+        🔒 These results have been submitted and are now locked. Contact the admin if a correction is needed.
+    </div>
+@elseif($isSubmitted)
     <div class="submitted-banner">
-        ⏳ You have already submitted these results for admin review. You can still update scores — submitting again will reset the review timestamp.
+        ⏳ These results are submitted for admin review. You can still update and resubmit before the admin publishes them.
     </div>
 @endif
 
@@ -129,11 +136,13 @@
                             </td>
                             <td style="text-align:center">
                                 <input type="number" min="0" max="40" class="score-input"
-                                    wire:model.lazy="scores.{{ $student->id }}.ca" placeholder="—">
+                                    wire:model.lazy="scores.{{ $student->id }}.ca" placeholder="—"
+                                    @if($isLocked) disabled style="opacity:0.5;cursor:not-allowed;" @endif>
                             </td>
                             <td style="text-align:center">
                                 <input type="number" min="0" max="60" class="score-input"
-                                    wire:model.lazy="scores.{{ $student->id }}.exam" placeholder="—">
+                                    wire:model.lazy="scores.{{ $student->id }}.exam" placeholder="—"
+                                    @if($isLocked) disabled style="opacity:0.5;cursor:not-allowed;" @endif>
                             </td>
                             <td style="text-align:center">
                                 <span class="score-total"
@@ -151,20 +160,27 @@
     </div>
 
     <div class="save-bar">
-        <span class="save-hint">Drafts are not visible to parents. Submit for admin review when ready.</span>
-        <div class="save-actions">
-            <button class="btn-draft" wire:click="save"
-                wire:loading.attr="disabled" wire:loading.class="opacity-50">
-                <span wire:loading.remove wire:target="save">Save Draft</span>
-                <span wire:loading wire:target="save">Saving…</span>
-            </button>
-            <button class="btn-submit" wire:click="submitForReview"
-                wire:confirm="Submit these results for admin review? The admin will be able to see and publish them."
-                wire:loading.attr="disabled" wire:loading.class="opacity-50">
-                <span wire:loading.remove wire:target="submitForReview">Submit for Review</span>
-                <span wire:loading wire:target="submitForReview">Submitting…</span>
-            </button>
-        </div>
+        @if($isLocked)
+            <span class="save-hint" style="color:#BE123C;font-weight:500;">
+                🔒 Submitted and locked — contact admin to make corrections
+            </span>
+            <div class="save-actions"></div>
+        @else
+            <span class="save-hint">Drafts are not visible to parents. Submit for admin review when ready.</span>
+            <div class="save-actions">
+                <button class="btn-draft" wire:click="save"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove wire:target="save">Save Draft</span>
+                    <span wire:loading wire:target="save">Saving…</span>
+                </button>
+                <button class="btn-submit" wire:click="submitForReview"
+                    wire:confirm="Submit for admin review? You will not be able to make changes after submitting."
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove wire:target="submitForReview">Submit for Review</span>
+                    <span wire:loading wire:target="submitForReview">Submitting…</span>
+                </button>
+            </div>
+        @endif
     </div>
 @endif
 </div>

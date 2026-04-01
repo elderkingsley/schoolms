@@ -136,6 +136,12 @@
         <div class="no-content">No active students enrolled in this class for the selected term.</div>
     </div>
 @else
+    @if($isPublished && ! $confirmingOverwrite)
+        <div style="background:rgba(21,128,61,0.07);border:1px solid rgba(21,128,61,0.2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:12px;font-size:13px;color:#15803D;font-weight:500;">
+            ✓ These results are published and visible to parents. Click "Edit Published Results" below to make changes.
+        </div>
+    @endif
+
     <div class="panel">
         <div class="panel-head">
             <span class="panel-title">
@@ -239,22 +245,56 @@
 
     {{-- Sticky save bar --}}
     <div class="save-bar">
-        <span class="save-hint">
-            Scores are not saved until you click Save. Publishing makes results visible to parents.
-        </span>
-        <div class="save-actions">
-            <button class="btn-save" wire:click="save"
-                wire:loading.attr="disabled" wire:loading.class="opacity-50">
-                <span wire:loading.remove wire:target="save">Save Draft</span>
-                <span wire:loading wire:target="save">Saving…</span>
-            </button>
-            <button class="btn-publish" wire:click="saveAndPublish"
-                wire:confirm="Publish results? Parents will be able to see these scores in their portal."
-                wire:loading.attr="disabled" wire:loading.class="opacity-50">
-                <span wire:loading.remove wire:target="saveAndPublish">Save & Publish</span>
-                <span wire:loading wire:target="saveAndPublish">Publishing…</span>
-            </button>
-        </div>
+        @if($isPublished && ! $confirmingOverwrite)
+            <span style="font-size:13px;font-weight:600;color:#15803D;">✓ Published — visible to parents</span>
+            <div class="save-actions">
+                <button class="btn-save" style="background:none;border:1px solid var(--c-border);color:var(--c-text-2);"
+                    wire:click="unpublish"
+                    wire:confirm="Unpublish these results? Parents will no longer see them, and the teacher can resubmit corrections.">
+                    Unpublish
+                </button>
+                <button class="btn-publish" wire:click="requestEdit">
+                    Edit Published Results
+                </button>
+            </div>
+        @elseif($confirmingOverwrite)
+            <span style="font-size:13px;color:#B45309;font-weight:500;">
+                ⚠️ You are editing results that parents can currently see. Changes take effect immediately.
+            </span>
+            <div class="save-actions">
+                <button class="btn-save" style="background:none;border:1px solid var(--c-border);color:var(--c-text-2);"
+                    wire:click="$set('confirmingOverwrite', false)">
+                    Cancel
+                </button>
+                <button class="btn-save" wire:click="save"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove wire:target="save">Save Changes</span>
+                    <span wire:loading wire:target="save">Saving…</span>
+                </button>
+                <button class="btn-publish" wire:click="saveAndPublish"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove wire:target="saveAndPublish">Save & Re-publish</span>
+                    <span wire:loading wire:target="saveAndPublish">Saving…</span>
+                </button>
+            </div>
+        @else
+            <span class="save-hint">
+                Scores are not saved until you click Save. Publishing makes results visible to parents.
+            </span>
+            <div class="save-actions">
+                <button class="btn-save" wire:click="save"
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove wire:target="save">Save Draft</span>
+                    <span wire:loading wire:target="save">Saving…</span>
+                </button>
+                <button class="btn-publish" wire:click="saveAndPublish"
+                    wire:confirm="Publish results? Parents will be able to see these scores in their portal."
+                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <span wire:loading.remove wire:target="saveAndPublish">Save & Publish</span>
+                    <span wire:loading wire:target="saveAndPublish">Publishing…</span>
+                </button>
+            </div>
+        @endif
     </div>
 @endif
 

@@ -21,7 +21,9 @@ class ResultEntry extends Component
     // scores[student_id] = ['ca' => '', 'exam' => '']
     public array $scores = [];
 
-    public bool $saved = false;
+    public bool $saved              = false;
+    public bool $isPublished        = false; // true if current selection has published results
+    public bool $confirmingOverwrite = false; // admin must confirm before editing published results
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -47,8 +49,10 @@ class ResultEntry extends Component
 
     public function updatedSelectedSubjectId(): void
     {
-        $this->scores = [];
-        $this->saved  = false;
+        $this->scores             = [];
+        $this->saved              = false;
+        $this->isPublished        = false;
+        $this->confirmingOverwrite = false;
         $this->loadScores();
     }
 
@@ -80,9 +84,58 @@ class ResultEntry extends Component
                 'exam' => $result->exam_score > 0 ? (string) $result->exam_score : '',
             ];
         }
+
+        // Track whether any results in this set are already published
+        $this->isPublished = $existing->where('is_published', true)->isNotEmpty();
     }
 
     // ── Save scores ───────────────────────────────────────────────────────────
+
+    /**
+     * Called when admin clicks Save/Publish on already-published results.
+     * Shows a confirmation step instead of immediately overwriting.
+     */
+    public function requestEdit(): void
+    {
+        $this->confirmingOverwrite = true;
+    }
+
+    /**
+     * Admin confirmed they want to edit published results.
+     * Clears the confirmation flag — the save/publish buttons become active.
+     */
+    public function confirmOverwrite(): void
+    {
+        $this->confirmingOverwrite = false;
+        $this->isPublished         = false; // treat as unlocked for this session
+        session()->flash('success', 'Results unlocked. Make your corrections then save or republish.');
+    }
+
+    /**
+     * Unpublish all results for the current class/subject/term.
+     * Useful when corrections are needed — teacher can resubmit after.
+     */
+    public function unpublish(): void
+    {
+        if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) return;
+
+        $students = $this->getStudents();
+
+        Result::where('term_id', $this->selectedTermId)
+            ->where('subject_id', $this->selectedSubjectId)
+            ->whereIn('student_id', $students->pluck('id'))
+            ->update([
+                'is_published' => false,
+                'submitted_at' => null, // also unlock for teacher
+                'submitted_by' => null,
+            ]);
+
+        $this->isPublished         = false;
+        $this->confirmingOverwrite = false;
+        $this->loadScores(); // reload so teacher lock is cleared
+
+        session()->flash('success', 'Results unpublished. The teacher can now resubmit after corrections.');
+    }
 
     public function save(bool $publish = false): void
     {
@@ -184,8 +237,10 @@ class ResultEntry extends Component
 
         $students = $this->getStudents();
 
+        $isPublished         = $this->isPublished;
+        $confirmingOverwrite = $this->confirmingOverwrite;
         return view('livewire.admin.results.result-entry',
-            compact('terms', 'classes', 'subjects', 'students'))
+            compact('terms', 'classes', 'subjects', 'students', 'isPublished', 'confirmingOverwrite'))
             ->layout('layouts.admin', ['title' => 'Results Entry']);
     }
 }
