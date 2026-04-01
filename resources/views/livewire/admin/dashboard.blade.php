@@ -340,8 +340,8 @@
         </div>
     </a>
 
-    {{-- Fees collected → /admin/payments (placeholder # until Phase 4) --}}
-    <a href="#" class="stat-card-link">
+    {{-- Fees collected → /admin/fees/invoices --}}
+    <a href="{{ route('admin.fees.invoices') }}" class="stat-card-link">
         <div class="stat-card c-amber">
             <div class="stat-icon c-amber">
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -349,9 +349,9 @@
                     <path d="M1 6h14M5 10h2"/>
                 </svg>
             </div>
-            <div class="stat-val">₦{{ number_format($feesCollected / 1000, 0) }}k</div>
+            <div class="stat-val" style="font-size:22px;">₦{{ number_format($feesCollected) }}</div>
             <div class="stat-lbl">Collected</div>
-            <div class="stat-sub">₦{{ number_format($feesCollected) }} this term</div>
+            <div class="stat-sub">This term</div>
             <div class="stat-card-arrow">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 3l5 5-5 5"/>
@@ -360,17 +360,17 @@
         </div>
     </a>
 
-    {{-- Outstanding fees → /admin/payments --}}
-    <a href="#" class="stat-card-link">
+    {{-- Outstanding fees → /admin/fees/invoices --}}
+    <a href="{{ route('admin.fees.invoices') }}" class="stat-card-link">
         <div class="stat-card c-rose">
             <div class="stat-icon c-rose">
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
                     <path d="M8 1v14M5 4h4.5a2.5 2.5 0 0 1 0 5H5M5 9h5a2.5 2.5 0 0 1 0 5H5"/>
                 </svg>
             </div>
-            <div class="stat-val">₦{{ number_format($feesOutstanding / 1000, 0) }}k</div>
+            <div class="stat-val" style="font-size:22px;">₦{{ number_format($feesOutstanding) }}</div>
             <div class="stat-lbl">Outstanding</div>
-            <div class="stat-sub">₦{{ number_format($feesOutstanding) }} unpaid</div>
+            <div class="stat-sub">Unpaid this term</div>
             <div class="stat-card-arrow">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 3l5 5-5 5"/>
