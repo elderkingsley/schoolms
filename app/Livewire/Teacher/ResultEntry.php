@@ -182,6 +182,8 @@ class ResultEntry extends Component
                 ->exists();
         }
 
+        $isLocked = $this->isLocked;
+
         return view('livewire.teacher.result-entry',
             compact('myClasses', 'terms', 'subjects', 'students', 'isSubmitted', 'isLocked'))
             ->layout('layouts.teacher', ['title' => 'Results Entry']);
