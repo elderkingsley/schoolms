@@ -503,7 +503,7 @@
                         <path d="M1 14c0-2.761 2.239-4.5 5-4.5s5 1.739 5 4.5"/>
                         <path d="M11 7.5c.828 0 1.5-.672 1.5-1.5S11.828 4.5 11 4.5M15 14c0-2-1.343-3.5-4-3.5"/>
                     </svg>
-                    Staff
+                    Users
                 </a>
                 <a href="{{ route('admin.teachers') }}" class="nav-link {{ request()->routeIs('admin.teachers*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
