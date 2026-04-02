@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\Log;
  * If a parent somehow still has no NUBAN when this job runs (e.g. the
  * provisioning job failed and was never retried), the FeeInvoiceNotification
  * handles it gracefully by showing bursary fallback instructions instead.
+ *
+ * After marking the invoice sent, this job dispatches PushInvoiceToPayGridJob
+ * so PayGrid creates a matching invoice in Nurtureville's account. When the
+ * parent pays, PayGrid will auto-settle directly to account 4400 (School Fees
+ * Income) instead of parking the inflow in 2199 (Unreconciled Receipts).
  */
 class SendInvoiceJob implements ShouldQueue
 {
@@ -64,5 +69,15 @@ class SendInvoiceJob implements ShouldQueue
 
         $invoice->update(['sent_at' => now()]);
         Log::info("SendInvoiceJob: invoice {$invoice->id} sent.");
+
+        // Push the invoice to PayGrid so it can be auto-matched when the
+        // parent pays. Dispatched on the 'payments' queue so it shares
+        // priority with the polling job. Dispatched with a 5-second delay
+        // to ensure sent_at has propagated before PayGrid reads any state.
+        PushInvoiceToPayGridJob::dispatch($invoice->fresh())
+            ->onQueue('payments')
+            ->delay(now()->addSeconds(5));
+
+        Log::info("SendInvoiceJob: PushInvoiceToPayGridJob queued for invoice {$invoice->id}.");
     }
 }

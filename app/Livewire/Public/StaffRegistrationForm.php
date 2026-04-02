@@ -3,6 +3,7 @@
 namespace App\Livewire\Public;
 
 use App\Models\TeacherRegistration;
+use App\Models\User;
 use Livewire\Component;
 
 /**
@@ -13,10 +14,18 @@ use Livewire\Component;
  *
  * Submitted registrations land in the admin review queue
  * (TeacherManager → Registrations tab). An admin then approves
- * or rejects each application, which triggers account creation
+ * or rejects each application, which triggers account promotion
  * and credential email on approval.
  *
- * Duplicate email detection prevents re-submissions.
+ * Email uniqueness rules:
+ *   - Rejected outright if the email already has a pending or approved
+ *     teacher registration (prevents duplicate applications).
+ *   - Rejected outright if the email belongs to a non-parent user
+ *     (admins, existing teachers, accountants cannot re-register).
+ *   - ALLOWED if the email belongs to a parent — a parent applying
+ *     to join as a teacher is a legitimate scenario. On approval,
+ *     TeacherManager will promote their existing account rather than
+ *     creating a duplicate.
  */
 class StaffRegistrationForm extends Component
 {
@@ -32,7 +41,32 @@ class StaffRegistrationForm extends Component
     {
         return [
             'name'  => 'required|string|min:2|max:100',
-            'email' => 'required|email|unique:teacher_registrations,email|unique:users,email',
+            'email' => [
+                'required',
+                'email',
+                // Block duplicate teacher registrations
+                'unique:teacher_registrations,email',
+                // Custom rule — see validateEmail() below
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    $existingUser = User::where('email', $value)->first();
+
+                    if (! $existingUser) {
+                        // No user account at all — fine, proceed
+                        return;
+                    }
+
+                    if ($existingUser->user_type === 'parent') {
+                        // Parent applying as teacher — allowed.
+                        // TeacherManager::approveRegistration() will promote
+                        // this existing account instead of creating a new one.
+                        return;
+                    }
+
+                    // Any other user type (admin, teacher, accountant, etc.)
+                    // already has a staff account — block the registration.
+                    $fail('A staff account already exists for this email address. Please contact the admin if you need access.');
+                },
+            ],
             'phone' => 'nullable|string|max:20',
             'role'  => 'required|in:teacher,teaching_assistant',
             'notes' => 'nullable|string|max:1000',
@@ -42,7 +76,7 @@ class StaffRegistrationForm extends Component
     protected function messages(): array
     {
         return [
-            'email.unique' => 'An application with this email address already exists.',
+            'email.unique' => 'An application with this email address has already been submitted.',
         ];
     }
 
