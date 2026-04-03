@@ -1,4 +1,5 @@
 <?php
 
 return [
-yield];
+    App\Providers\AppServiceProvider::class,
+];
