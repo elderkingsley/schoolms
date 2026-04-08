@@ -323,16 +323,24 @@
             flex: 1;
             overflow-y: auto;
             padding: 20px 16px;
-            /* on mobile add bottom padding for bottom nav */
+            /* always reserve space for bottom nav on mobile (below 1024px) */
             padding-bottom: calc(var(--bottom-nav-h) + 20px);
         }
 
         @media (min-width: 640px) {
-            .page-content { padding: 24px 20px; padding-bottom: 24px; }
+            /* tablet — more side padding but keep bottom nav clearance */
+            .page-content {
+                padding: 24px 20px;
+                padding-bottom: calc(var(--bottom-nav-h) + 24px);
+            }
         }
 
         @media (min-width: 1024px) {
-            .page-content { padding: 28px 28px; padding-bottom: 28px; }
+            /* desktop — no bottom nav, normal padding all sides */
+            .page-content {
+                padding: 28px 28px;
+                padding-bottom: 28px;
+            }
         }
 
         /* ─────────────────────────────────────────
@@ -503,7 +511,7 @@
                         <path d="M1 14c0-2.761 2.239-4.5 5-4.5s5 1.739 5 4.5"/>
                         <path d="M11 7.5c.828 0 1.5-.672 1.5-1.5S11.828 4.5 11 4.5M15 14c0-2-1.343-3.5-4-3.5"/>
                     </svg>
-                    Users
+                    Staff
                 </a>
                 <a href="{{ route('admin.teachers') }}" class="nav-link {{ request()->routeIs('admin.teachers*') ? 'active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
