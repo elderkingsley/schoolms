@@ -50,6 +50,9 @@ class BudPayService
      * the NUBAN account name reads "Nurtureville / Uchechi Smart"
      * making it unambiguously linked to one student on the bank statement.
      *
+     * Handles "Customer already exist" gracefully — fetches the existing
+     * customer by email and returns their customer_code so step 2 can proceed.
+     *
      * @return string customer_code (e.g. "CUS_abc123")
      */
     public function createCustomer(
@@ -58,22 +61,79 @@ class BudPayService
         string $email,
         string $phone,
     ): string {
-        $response = $this->post('/customer', [
-            'email'      => $email,
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'phone'      => $this->normalisePhone($phone),
-        ]);
+        try {
+            $response = $this->post('/customer', [
+                'email'      => $email,
+                'first_name' => $firstName,
+                'last_name'  => $lastName,
+                'phone'      => $this->normalisePhone($phone),
+            ]);
 
-        $customerCode = $response['data']['customer_code'] ?? null;
+            $customerCode = $response['data']['customer_code'] ?? null;
 
-        if (empty($customerCode)) {
+            if (empty($customerCode)) {
+                throw new \RuntimeException(
+                    'BudPay: customer_code missing from response — ' . json_encode($response)
+                );
+            }
+
+            return $customerCode;
+
+        } catch (\RuntimeException $e) {
+            // BudPay returns 401 + "Customer already exist" when the email
+            // was already registered. Fetch the existing customer instead.
+            if (str_contains($e->getMessage(), 'already exist')) {
+                Log::info("BudPay: customer already exists for {$email} — fetching existing record.");
+                return $this->fetchCustomerCodeByEmail($email);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Fetch an existing BudPay customer's code by email.
+     * Used as a recovery path when createCustomer() finds the email already registered.
+     *
+     * BudPay doesn't have a direct "get by email" endpoint, so we use
+     * GET /customer which lists all customers, then filter by email.
+     *
+     * @return string customer_code
+     */
+    public function fetchCustomerCodeByEmail(string $email): string
+    {
+        if (empty($this->secretKey)) {
+            throw new \RuntimeException('BudPay: BUDPAY_SECRET_KEY is not set in .env');
+        }
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Authorization' => 'Bearer ' . $this->secretKey,
+                'Accept'        => 'application/json',
+            ])
+            ->get($this->baseUrl . '/customer');
+
+        if (! $response->successful()) {
             throw new \RuntimeException(
-                'BudPay: customer_code missing from response — ' . json_encode($response)
+                'BudPay: failed to fetch customer list — HTTP ' . $response->status()
             );
         }
 
-        return $customerCode;
+        $customers = $response->json()['data'] ?? [];
+
+        foreach ($customers as $customer) {
+            if (strtolower($customer['email'] ?? '') === strtolower($email)) {
+                $code = $customer['customer_code'] ?? null;
+                if ($code) {
+                    Log::info("BudPay: found existing customer_code {$code} for {$email}");
+                    return $code;
+                }
+            }
+        }
+
+        throw new \RuntimeException(
+            "BudPay: customer with email {$email} not found in customer list after 'already exist' error"
+        );
     }
 
     /**
