@@ -22,6 +22,9 @@ Route::post('/api/paygrid/inflow', [\App\Http\Controllers\PayGridInflowControlle
 Route::post('/api/budpay/webhook', [App\Http\Controllers\BudPayWebhookController::class, 'handle'])
     ->name('webhooks.budpay');
 
+Route::post('/api/korapay/webhook', [App\Http\Controllers\KorapayWebhookController::class, 'handle'])
+    ->name('webhooks.korapay');
+
 // ── Public routes ─────────────────────────────────────────────────────────────
 Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
 Route::get('/staff/register', \App\Livewire\Public\StaffRegistrationForm::class)->name('staff.register');

@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/juicyway/webhook',
             'api/paygrid/inflow',
             'api/budpay/webhook',
+            'api/korapay/webhook',
         ]);
 
         // Route middleware aliases

@@ -21,7 +21,7 @@ class ParentGuardian extends Model
         'emergency_contact_relationship',
         '_temp_name',
         '_temp_email',
-        // JuicyWay virtual account (legacy — kept during pilot)
+        // JuicyWay (legacy)
         'juicyway_customer_id',
         'juicyway_wallet_id',
         'juicyway_account_id',
@@ -29,12 +29,18 @@ class ParentGuardian extends Model
         'juicyway_bank_name',
         'juicyway_bank_code',
         'juicyway_wallet_status',
-        // BudPay virtual account (new)
+        // BudPay (pilot — superseded by Korapay)
         'budpay_customer_code',
         'budpay_account_number',
         'budpay_bank_name',
         'budpay_bank_code',
         'budpay_wallet_status',
+        // Korapay (current)
+        'korapay_account_reference',
+        'korapay_account_number',
+        'korapay_bank_name',
+        'korapay_bank_code',
+        'korapay_wallet_status',
     ];
 
     public function user(): BelongsTo
@@ -52,31 +58,36 @@ class ParentGuardian extends Model
     // ── Virtual account helpers ───────────────────────────────────────────────
 
     /**
-     * Returns true if this parent has an active BudPay NUBAN.
-     * This is the primary check going forward.
+     * Returns true if this parent has an active permanent NUBAN.
+     * Checks Korapay first, then BudPay, then JuicyWay.
      */
     public function hasVirtualAccount(): bool
     {
-        return ! empty($this->budpay_account_number);
+        return ! empty($this->korapay_account_number)
+            || ! empty($this->budpay_account_number)
+            || ! empty($this->juicyway_account_number);
     }
 
     /**
-     * The active NUBAN to show parents and use for payment matching.
-     * Returns BudPay number if provisioned, falls back to JuicyWay
-     * during the transition period.
+     * The active NUBAN to display and use for payment matching.
+     * Priority: Korapay → BudPay → JuicyWay
      */
     public function getActiveAccountNumberAttribute(): ?string
     {
-        return $this->budpay_account_number
+        return $this->korapay_account_number
+            ?? $this->budpay_account_number
             ?? $this->juicyway_account_number
             ?? null;
     }
 
     /**
-     * The active bank name — BudPay if provisioned, JuicyWay fallback.
+     * The active bank name — follows same priority as account number.
      */
     public function getActiveBankNameAttribute(): ?string
     {
+        if (! empty($this->korapay_account_number)) {
+            return $this->korapay_bank_name;
+        }
         if (! empty($this->budpay_account_number)) {
             return $this->budpay_bank_name;
         }
@@ -84,21 +95,31 @@ class ParentGuardian extends Model
     }
 
     /**
-     * Overall wallet status — reflects BudPay status if a provisioning
-     * attempt has been made, otherwise JuicyWay status.
+     * The account reference used to match Korapay webhooks.
+     * Only set for Korapay accounts.
+     */
+    public function getActiveAccountReferenceAttribute(): ?string
+    {
+        return $this->korapay_account_reference ?? null;
+    }
+
+    /**
+     * Overall provisioning status — reflects the most recent provider.
      */
     public function getWalletStatusAttribute(): ?string
     {
-        return $this->budpay_wallet_status ?? $this->juicyway_wallet_status;
+        return $this->korapay_wallet_status
+            ?? $this->budpay_wallet_status
+            ?? $this->juicyway_wallet_status;
     }
 
     public function isWalletProvisioning(): bool
     {
-        return ($this->budpay_wallet_status ?? $this->juicyway_wallet_status) === 'pending';
+        return $this->wallet_status === 'pending';
     }
 
     public function isWalletFailed(): bool
     {
-        return ($this->budpay_wallet_status ?? $this->juicyway_wallet_status) === 'failed';
+        return $this->wallet_status === 'failed';
     }
 }

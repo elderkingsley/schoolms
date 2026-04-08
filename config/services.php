@@ -67,4 +67,12 @@ return [
     'base_url'   => env('BUDPAY_BASE_URL', 'https://api.budpay.com/api/v2'),
     ],
 
+    'korapay' => [
+    'secret_key' => env('KORAPAY_SECRET_KEY'),
+    'public_key' => env('KORAPAY_PUBLIC_KEY'),
+    'base_url'   => env('KORAPAY_BASE_URL', 'https://api.korapay.com/merchant/api/v1'),
+    'bank_code'  => env('KORAPAY_BANK_CODE', '035'),
+    'bvn'        => env('KORAPAY_BVN'),
+    ],
+
 ];
