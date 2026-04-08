@@ -142,30 +142,98 @@ class BudPayService
      * BudPay provisions the account synchronously — the account_number
      * is returned immediately in the response. No polling needed.
      *
+     * Handles "Dedicated Account already created for Customer" (HTTP 409)
+     * gracefully — fetches the existing account details instead so we can
+     * save the NUBAN to our database even if the job previously crashed
+     * before reaching the save step.
+     *
      * @return array ['account_number', 'bank_name', 'bank_code']
      */
     public function createDedicatedAccount(string $customerCode): array
     {
-        $response = $this->post('/dedicated_virtual_account', [
-            'customer' => $customerCode,
-        ]);
+        try {
+            $response = $this->post('/dedicated_virtual_account', [
+                'customer' => $customerCode,
+            ]);
 
-        $data        = $response['data'] ?? [];
-        $accountNumber = (string) ($data['account_number'] ?? '');
-        $bankName      = $data['bank']['name']      ?? 'Wema Bank';
-        $bankCode      = $data['bank']['bank_code'] ?? '';
+            return $this->extractAccountFromResponse($response);
 
-        if (empty($accountNumber)) {
+        } catch (\RuntimeException $e) {
+            // BudPay returns 409 when the dedicated account already exists.
+            // Fetch the existing account details so we can save them to DB.
+            if (str_contains($e->getMessage(), 'already created')) {
+                Log::info("BudPay: dedicated account already exists for customer {$customerCode} — fetching existing.");
+                return $this->fetchExistingDedicatedAccount($customerCode);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Fetch an existing dedicated virtual account for a customer.
+     * Used as recovery when createDedicatedAccount() finds one already exists.
+     *
+     * BudPay endpoint: GET /dedicated_account/:customer_id
+     * Note: the path uses the customer_code as the identifier.
+     *
+     * @return array ['account_number', 'bank_name', 'bank_code']
+     */
+    public function fetchExistingDedicatedAccount(string $customerCode): array
+    {
+        if (empty($this->secretKey)) {
+            throw new \RuntimeException('BudPay: BUDPAY_SECRET_KEY is not set in .env');
+        }
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Authorization' => 'Bearer ' . $this->secretKey,
+                'Accept'        => 'application/json',
+            ])
+            ->get($this->baseUrl . '/dedicated_account/' . $customerCode);
+
+        if (! $response->successful()) {
             throw new \RuntimeException(
-                'BudPay: account_number missing from dedicated account response — ' . json_encode($response)
+                "BudPay: failed to fetch existing dedicated account for {$customerCode} — HTTP " . $response->status()
             );
         }
 
-        Log::info("BudPay: NUBAN provisioned — {$accountNumber} ({$bankName}) for customer {$customerCode}");
+        return $this->extractAccountFromResponse($response->json() ?? []);
+    }
+
+    /**
+     * Extract account_number, bank_name, bank_code from a BudPay
+     * dedicated account response. Handles both create and fetch response shapes.
+     *
+     * @return array ['account_number', 'bank_name', 'bank_code']
+     */
+    private function extractAccountFromResponse(array $response): array
+    {
+        $data = $response['data'] ?? [];
+
+        // Response shape from POST /dedicated_virtual_account
+        $accountNumber = (string) ($data['account_number'] ?? '');
+        $bankName      = $data['bank']['name']      ?? null;
+        $bankCode      = $data['bank']['bank_code'] ?? '';
+
+        // Response shape from GET /dedicated_account/:id (slightly different)
+        if (empty($accountNumber) && isset($data['dedicated_account'])) {
+            $dedicated     = $data['dedicated_account'];
+            $accountNumber = (string) ($dedicated['account_number'] ?? '');
+            $provider      = $data['provider'] ?? [];
+            $bankName      = $bankName ?? $provider['bank_name'] ?? 'Wema Bank';
+            $bankCode      = $bankCode ?: ($provider['bank_code'] ?? '');
+        }
+
+        if (empty($accountNumber)) {
+            throw new \RuntimeException(
+                'BudPay: account_number missing from response — ' . json_encode($response)
+            );
+        }
 
         return [
             'account_number' => $accountNumber,
-            'bank_name'      => $bankName,
+            'bank_name'      => $bankName ?? 'Wema Bank',
             'bank_code'      => $bankCode,
         ];
     }
