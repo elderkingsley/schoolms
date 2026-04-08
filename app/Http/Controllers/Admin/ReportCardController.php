@@ -41,7 +41,7 @@ class ReportCardController extends Controller
         $filename = 'ReportCard-'
             . $student->admission_number
             . '-' . str_replace(' ', '', $term->name)
-            . '-' . $term->session->name
+            . '-' . str_replace(['/', '\\', ' '], '-', $term->session->name)
             . '.pdf';
 
         return $pdf->stream($filename);
