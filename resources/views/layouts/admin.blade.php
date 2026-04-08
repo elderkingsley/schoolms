@@ -354,6 +354,11 @@
             border-top: 1px solid var(--c-sidebar-border);
             z-index: 15;
             padding: 0 4px;
+            transition: transform 300ms var(--ease);
+        }
+
+        .bottom-nav.hidden {
+            transform: translateY(100%);
         }
 
         @media (min-width: 1024px) {
@@ -679,6 +684,27 @@
             if (window.innerWidth < 1024) closeSidebar();
         });
     });
+
+    // Bottom nav — hide on scroll, reappear 1s after scroll stops
+    (function () {
+        const nav = document.querySelector('.bottom-nav');
+        if (!nav) return;
+        const content = document.querySelector('.page-content');
+        if (!content) return;
+
+        let scrollTimer = null;
+
+        content.addEventListener('scroll', function () {
+            if (window.innerWidth >= 1024) return;
+
+            nav.classList.add('hidden');
+            clearTimeout(scrollTimer);
+
+            scrollTimer = setTimeout(function () {
+                nav.classList.remove('hidden');
+            }, 1000);
+        }, { passive: true });
+    })();
 </script>
 
 </body>
