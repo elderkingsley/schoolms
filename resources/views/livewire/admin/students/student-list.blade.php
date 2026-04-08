@@ -156,7 +156,7 @@
     <select class="filter-select" wire:model.live="filterClass">
         <option value="">All Classes</option>
         @foreach($classes as $class)
-            <option value="{{ $class }}">{{ $class }}</option>
+            <option value="{{ $class->id }}">{{ $class->display_name }}</option>
         @endforeach
     </select>
 </div>

@@ -41,9 +41,7 @@ class StudentList extends Component
             ->when($this->filterClass && $activeSession, function ($q) use ($activeSession) {
                 $q->whereHas('enrolments', function ($q) use ($activeSession) {
                     $q->where('academic_session_id', $activeSession->id)
-                      ->whereHas('schoolClass', fn($q) =>
-                          $q->where('name', $this->filterClass)
-                      );
+                      ->where('school_class_id', $this->filterClass);
                 });
             })
             ->with(['enrolments' => function ($q) use ($activeSession) {
@@ -55,7 +53,7 @@ class StudentList extends Component
             ->latest()
             ->paginate(20);
 
-        $classes = SchoolClass::orderBy('order')->pluck('name');
+        $classes = SchoolClass::ordered()->get(['id', 'name', 'arm']);
 
         return view('livewire.admin.students.student-list', compact('students', 'classes', 'activeSession'))
             ->layout('layouts.admin', ['title' => 'Students']);
