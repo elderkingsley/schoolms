@@ -39,11 +39,10 @@ class ReportCardController extends Controller
         ))->setPaper('a4', 'portrait');
 
         $filename = 'ReportCard-'
-            . $student->admission_number
-            . '-' . str_replace(' ', '', $term->name)
-            . '-' . str_replace(['/', '\\', ' '], '-', $term->session->name)
-            . '.pdf';
-
+        . str_replace(['/', '\\', ' '], '-', $student->admission_number)
+        . '-' . str_replace(['/', '\\', ' '], '-', $term->name)
+        . '-' . str_replace(['/', '\\', ' '], '-', $term->session->name)
+        . '.pdf';
         return $pdf->stream($filename);
     }
 }
