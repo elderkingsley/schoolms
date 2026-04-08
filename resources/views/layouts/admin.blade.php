@@ -702,7 +702,7 @@
 
             scrollTimer = setTimeout(function () {
                 nav.classList.remove('hidden');
-            }, 1000);
+            }, 2000);
         }, { passive: true });
     })();
 </script>

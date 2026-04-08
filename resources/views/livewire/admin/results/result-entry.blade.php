@@ -114,7 +114,7 @@
     <select wire:model.live="selectedClassId" class="sel" @if(!$selectedTermId) disabled @endif>
         <option value="">Select class…</option>
         @foreach($classes as $class)
-            <option value="{{ $class->id }}">{{ $class->name }}</option>
+            <option value="{{ $class->id }}">{{ $class->display_name }}</option>
         @endforeach
     </select>
 
