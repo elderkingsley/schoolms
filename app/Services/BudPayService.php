@@ -174,8 +174,9 @@ class BudPayService
      * Fetch an existing dedicated virtual account for a customer.
      * Used as recovery when createDedicatedAccount() finds one already exists.
      *
-     * BudPay endpoint: GET /dedicated_account/:customer_id
-     * Note: the path uses the customer_code as the identifier.
+     * Uses GET /list_dedicated_accounts and filters by customer_code —
+     * the individual GET /dedicated_account/:id endpoint requires a numeric
+     * id not the customer_code, so the list approach is more reliable.
      *
      * @return array ['account_number', 'bank_name', 'bank_code']
      */
@@ -190,15 +191,49 @@ class BudPayService
                 'Authorization' => 'Bearer ' . $this->secretKey,
                 'Accept'        => 'application/json',
             ])
-            ->get($this->baseUrl . '/dedicated_account/' . $customerCode);
+            ->get($this->baseUrl . '/list_dedicated_accounts');
 
         if (! $response->successful()) {
             throw new \RuntimeException(
-                "BudPay: failed to fetch existing dedicated account for {$customerCode} — HTTP " . $response->status()
+                "BudPay: failed to fetch dedicated accounts list — HTTP " . $response->status()
             );
         }
 
-        return $this->extractAccountFromResponse($response->json() ?? []);
+        $accounts = $response->json()['data'] ?? [];
+
+        foreach ($accounts as $account) {
+            $code = $account['customer']['customer_code']
+                ?? $account['customer_code']
+                ?? null;
+
+            if ($code === $customerCode) {
+                $accountNumber = (string) ($account['account_number'] ?? '');
+                $bankName      = $account['provider']['bank_name']
+                    ?? $account['bank']['name']
+                    ?? 'Wema Bank';
+                $bankCode      = $account['provider']['bank_code']
+                    ?? $account['bank']['bank_code']
+                    ?? '';
+
+                if (empty($accountNumber)) {
+                    throw new \RuntimeException(
+                        "BudPay: found account for {$customerCode} but account_number is empty"
+                    );
+                }
+
+                Log::info("BudPay: retrieved existing NUBAN {$accountNumber} for customer {$customerCode}");
+
+                return [
+                    'account_number' => $accountNumber,
+                    'bank_name'      => $bankName,
+                    'bank_code'      => $bankCode,
+                ];
+            }
+        }
+
+        throw new \RuntimeException(
+            "BudPay: no dedicated account found in list for customer_code {$customerCode}"
+        );
     }
 
     /**
