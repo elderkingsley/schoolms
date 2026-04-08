@@ -61,4 +61,10 @@ return [
         'api_base_url' => env('PAYGRID_API_BASE_URL', ''),
     ],
 
+    'budpay' => [
+    'secret_key' => env('BUDPAY_SECRET_KEY'),
+    'public_key' => env('BUDPAY_PUBLIC_KEY'),
+    'base_url'   => env('BUDPAY_BASE_URL', 'https://api.budpay.com/api/v2'),
+    ],
+
 ];

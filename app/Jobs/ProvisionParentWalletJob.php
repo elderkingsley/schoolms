@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\ParentGuardian;
-use App\Services\JuicyWayService;
+use App\Services\BudPayService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,44 +12,40 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * ProvisionParentWalletJob
+ * ProvisionParentWalletJob — BudPay edition
  *
- * Provisions a JuicyWay virtual bank account (NUBAN) for a parent row.
- * Dispatched immediately when an enrolment is approved — not when an invoice
- * is sent — so the NUBAN is ready before the first invoice ever goes out.
+ * Provisions a BudPay dedicated virtual bank account (NUBAN) for a parent.
+ * Dispatched when an enrolment is approved so the NUBAN is ready before
+ * any invoice is ever sent.
  *
- * The JuicyWay customer is created in the CHILD's name so each NUBAN is
- * unambiguously linked to one student:
- *   "Jaanai Kingsley — Access Bank — 0812345678"
- * Email and phone remain the parent's (JuicyWay identity requirement).
+ * BudPay is simpler than JuicyWay — only 2 steps, fully synchronous:
+ *   Step 1 — POST /customer    → budpay_customer_code
+ *   Step 2 — POST /dedicated_virtual_account → NUBAN immediately
  *
- * Three-step sequence — each step is idempotent (skipped if already done):
- *   1. POST /customers → juicyway_customer_id
- *   2. POST /wallets   → juicyway_wallet_id + juicyway_account_id
- *   3. POST /wallets/{id}/payment-method → polls for NUBAN
+ * No polling needed. If BudPay returns the account number, we're done.
  *
- * duplicate_currency_wallet recovery:
- *   JuicyWay has no list-wallets endpoint. If step 1 succeeded but the job
- *   crashed before step 2, the wallet_id is unrecoverable. We delete the
- *   orphaned customer and recreate it — safe because it has no wallet or
- *   transactions. DELETE /customers/{id} returns 204 on success.
+ * Idempotency:
+ *   - If budpay_account_number is already set, skip entirely.
+ *   - If budpay_customer_code is set but account is missing, skip step 1.
+ *
+ * The customer is created in the CHILD's name so the bank statement reads
+ * "Nurtureville / Uchechi Smart" — unambiguously linked to one student.
  */
 class ProvisionParentWalletJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries   = 10;
-    public int $timeout = 120; // 2 min per attempt — polls 30s then fails fast for retry
+    public int $tries   = 5;
+    public int $timeout = 60;
 
     public function backoff(): array
     {
-        // Exponential backoff — spreads retries across JuicyWay outages
-        return [30, 60, 120, 240, 480, 960, 1920, 3600, 3600, 3600];
+        return [30, 60, 120, 300, 600];
     }
 
     public function __construct(public readonly ParentGuardian $parent) {}
 
-    public function handle(JuicyWayService $juicyWay): void
+    public function handle(BudPayService $budPay): void
     {
         $parent = $this->parent->fresh()->load(['user', 'students']);
 
@@ -59,8 +55,9 @@ class ProvisionParentWalletJob implements ShouldQueue
         }
 
         // Already fully provisioned — nothing to do
-        if ($parent->hasVirtualAccount()) {
-            Log::info("ProvisionParentWalletJob: parent {$parent->id} already has NUBAN — skipping.");
+        if (! empty($parent->budpay_account_number)) {
+            Log::info("ProvisionParentWalletJob: parent {$parent->id} already has BudPay NUBAN — skipping.");
+            $parent->update(['budpay_wallet_status' => 'active']);
             return;
         }
 
@@ -71,123 +68,45 @@ class ProvisionParentWalletJob implements ShouldQueue
         }
 
         try {
-            $parent->update(['juicyway_wallet_status' => 'pending']);
+            $parent->update(['budpay_wallet_status' => 'pending']);
 
-            // ── Step 1: Customer in the CHILD's name ─────────────────────
-            if (empty($parent->juicyway_customer_id)) {
-                $customerId = $juicyWay->createCustomer(
+            // ── Step 1: Create BudPay customer in child's name ────────────
+            if (empty($parent->budpay_customer_code)) {
+                $customerCode = $budPay->createCustomer(
                     firstName: $student->first_name,
                     lastName:  $student->last_name,
                     email:     $parent->user->email,
                     phone:     $parent->phone ?? '08000000000',
                 );
-                $parent->update(['juicyway_customer_id' => $customerId]);
+
+                $parent->update(['budpay_customer_code' => $customerCode]);
                 $parent->refresh();
-                Log::info("ProvisionParentWalletJob: customer created for parent {$parent->id}", [
-                    'customer_id'   => $customerId,
-                    'student_name'  => "{$student->first_name} {$student->last_name}",
-                ]);
-            } else {
-                // Validate the stored customer_id is still known to JuicyWay.
-                // If JuicyWay returns customer_kyx_not_found (stale ID from a
-                // previous deleted customer), clear all IDs and start fresh.
-                try {
-                    $juicyWay->getCustomer($parent->juicyway_customer_id);
-                } catch (\RuntimeException $e) {
-                    if (str_contains($e->getMessage(), 'customer_kyx_not_found')
-                        || str_contains($e->getMessage(), 'not_found')
-                        || str_contains($e->getMessage(), '404')
-                    ) {
-                        Log::warning("ProvisionParentWalletJob: stale customer_id for parent {$parent->id} — clearing and restarting.", [
-                            'old_customer_id' => $parent->juicyway_customer_id,
-                        ]);
-                        $parent->update([
-                            'juicyway_customer_id'  => null,
-                            'juicyway_wallet_id'    => null,
-                            'juicyway_account_id'   => null,
-                        ]);
-                        $parent->refresh();
 
-                        // Re-create customer fresh
-                        $customerId = $juicyWay->createCustomer(
-                            firstName: $student->first_name,
-                            lastName:  $student->last_name,
-                            email:     $parent->user->email,
-                            phone:     $parent->phone ?? '08000000000',
-                        );
-                        $parent->update(['juicyway_customer_id' => $customerId]);
-                        $parent->refresh();
-                        Log::info("ProvisionParentWalletJob: fresh customer created for parent {$parent->id}", [
-                            'customer_id' => $customerId,
-                        ]);
-                    } else {
-                        throw $e; // Unknown error — let the job retry normally
-                    }
-                }
+                Log::info("ProvisionParentWalletJob: BudPay customer created for parent {$parent->id}", [
+                    'customer_code' => $customerCode,
+                    'student'       => $student->full_name,
+                ]);
             }
 
-            // ── Step 2: Wallet — with duplicate_currency_wallet recovery ──
-            if (empty($parent->juicyway_wallet_id)) {
-                try {
-                    $wallet = $juicyWay->createWallet($parent->juicyway_customer_id);
+            // ── Step 2: Assign dedicated NUBAN ────────────────────────────
+            // BudPay returns the account number synchronously — no polling.
+            $account = $budPay->createDedicatedAccount($parent->budpay_customer_code);
 
-                } catch (\RuntimeException $e) {
-                    if (! str_contains($e->getMessage(), 'duplicate_currency_wallet')) {
-                        throw $e;
-                    }
+            $parent->update([
+                'budpay_account_number' => $account['account_number'],
+                'budpay_bank_name'      => $account['bank_name'],
+                'budpay_bank_code'      => $account['bank_code'],
+                'budpay_wallet_status'  => 'active',
+            ]);
 
-                    // Orphaned customer — delete it and recreate fresh
-                    Log::warning("ProvisionParentWalletJob: duplicate_currency_wallet for parent {$parent->id} — deleting orphaned customer.", [
-                        'old_customer_id' => $parent->juicyway_customer_id,
-                    ]);
-
-                    $juicyWay->deleteCustomer($parent->juicyway_customer_id);
-
-                    $newCustomerId = $juicyWay->createCustomer(
-                        firstName: $student->first_name,
-                        lastName:  $student->last_name,
-                        email:     $parent->user->email,
-                        phone:     $parent->phone ?? '08000000000',
-                    );
-                    $parent->update(['juicyway_customer_id' => $newCustomerId]);
-                    $parent->refresh();
-
-                    Log::info("ProvisionParentWalletJob: recreated customer for parent {$parent->id}", [
-                        'new_customer_id' => $newCustomerId,
-                    ]);
-
-                    $wallet = $juicyWay->createWallet($newCustomerId);
-                }
-
-                $parent->update([
-                    'juicyway_wallet_id'  => $wallet['wallet_id'],
-                    'juicyway_account_id' => $wallet['account_id'],
-                ]);
-                $parent->refresh();
-                Log::info("ProvisionParentWalletJob: wallet created for parent {$parent->id}");
-            }
-
-            // ── Step 3: NUBAN ─────────────────────────────────────────────
-            if (empty($parent->juicyway_account_number)) {
-                $bank = $juicyWay->addBankAccount($parent->juicyway_wallet_id);
-                $parent->update([
-                    'juicyway_account_number' => $bank['account_number'],
-                    'juicyway_bank_name'      => $bank['bank_name'],
-                    'juicyway_bank_code'      => $bank['bank_code'],
-                    'juicyway_wallet_status'  => 'active',
-                ]);
-                Log::info("ProvisionParentWalletJob: NUBAN provisioned for parent {$parent->id}", [
-                    'account_number' => $bank['account_number'],
-                    'bank_name'      => $bank['bank_name'],
-                    'student'        => "{$student->first_name} {$student->last_name}",
-                ]);
-            } else {
-                $parent->update(['juicyway_wallet_status' => 'active']);
-                Log::info("ProvisionParentWalletJob: parent {$parent->id} already has NUBAN — marked active.");
-            }
+            Log::info("ProvisionParentWalletJob: BudPay NUBAN provisioned for parent {$parent->id}", [
+                'account_number' => $account['account_number'],
+                'bank_name'      => $account['bank_name'],
+                'student'        => $student->full_name,
+            ]);
 
         } catch (\Throwable $e) {
-            $parent->update(['juicyway_wallet_status' => 'failed']);
+            $parent->update(['budpay_wallet_status' => 'failed']);
             Log::error("ProvisionParentWalletJob: failed for parent {$parent->id}: {$e->getMessage()}");
             throw $e; // re-throw so queue retries with backoff
         }
@@ -195,9 +114,31 @@ class ProvisionParentWalletJob implements ShouldQueue
 
     public function failed(?\Throwable $e): void
     {
-        $this->parent->fresh()?->update(['juicyway_wallet_status' => 'failed']);
+        $this->parent->fresh()?->update(['budpay_wallet_status' => 'failed']);
+
         Log::critical("ProvisionParentWalletJob: permanently failed for parent {$this->parent->id}", [
             'error' => $e?->getMessage(),
         ]);
+
+        // Email all admins
+        try {
+            $admins = \App\Models\User::whereIn('user_type', ['super_admin', 'admin'])
+                ->where('is_active', true)->get();
+
+            foreach ($admins as $admin) {
+                \Illuminate\Support\Facades\Mail::raw(
+                    "ALERT: BudPay virtual account provisioning permanently failed.\n\n" .
+                    "Parent ID: {$this->parent->id}\n" .
+                    "Error: " . $e?->getMessage() . "\n\n" .
+                    "This parent cannot receive automated payment detection until resolved.\n\n" .
+                    "Time: " . now()->format('d M Y, g:ia') . " (Africa/Lagos)",
+                    fn($m) => $m
+                        ->to($admin->email)
+                        ->subject('⚠️ BudPay Provisioning Failed — Nurtureville SchoolMS')
+                );
+            }
+        } catch (\Throwable $mailError) {
+            Log::error('ProvisionParentWalletJob: failed to send failure alert — ' . $mailError->getMessage());
+        }
     }
 }

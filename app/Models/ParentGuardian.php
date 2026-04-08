@@ -21,7 +21,7 @@ class ParentGuardian extends Model
         'emergency_contact_relationship',
         '_temp_name',
         '_temp_email',
-        // JuicyWay virtual account
+        // JuicyWay virtual account (legacy — kept during pilot)
         'juicyway_customer_id',
         'juicyway_wallet_id',
         'juicyway_account_id',
@@ -29,6 +29,12 @@ class ParentGuardian extends Model
         'juicyway_bank_name',
         'juicyway_bank_code',
         'juicyway_wallet_status',
+        // BudPay virtual account (new)
+        'budpay_customer_code',
+        'budpay_account_number',
+        'budpay_bank_name',
+        'budpay_bank_code',
+        'budpay_wallet_status',
     ];
 
     public function user(): BelongsTo
@@ -43,18 +49,56 @@ class ParentGuardian extends Model
                     ->withTimestamps();
     }
 
+    // ── Virtual account helpers ───────────────────────────────────────────────
+
+    /**
+     * Returns true if this parent has an active BudPay NUBAN.
+     * This is the primary check going forward.
+     */
     public function hasVirtualAccount(): bool
     {
-        return ! empty($this->juicyway_account_number);
+        return ! empty($this->budpay_account_number);
+    }
+
+    /**
+     * The active NUBAN to show parents and use for payment matching.
+     * Returns BudPay number if provisioned, falls back to JuicyWay
+     * during the transition period.
+     */
+    public function getActiveAccountNumberAttribute(): ?string
+    {
+        return $this->budpay_account_number
+            ?? $this->juicyway_account_number
+            ?? null;
+    }
+
+    /**
+     * The active bank name — BudPay if provisioned, JuicyWay fallback.
+     */
+    public function getActiveBankNameAttribute(): ?string
+    {
+        if (! empty($this->budpay_account_number)) {
+            return $this->budpay_bank_name;
+        }
+        return $this->juicyway_bank_name;
+    }
+
+    /**
+     * Overall wallet status — reflects BudPay status if a provisioning
+     * attempt has been made, otherwise JuicyWay status.
+     */
+    public function getWalletStatusAttribute(): ?string
+    {
+        return $this->budpay_wallet_status ?? $this->juicyway_wallet_status;
     }
 
     public function isWalletProvisioning(): bool
     {
-        return $this->juicyway_wallet_status === 'pending';
+        return ($this->budpay_wallet_status ?? $this->juicyway_wallet_status) === 'pending';
     }
 
     public function isWalletFailed(): bool
     {
-        return $this->juicyway_wallet_status === 'failed';
+        return ($this->budpay_wallet_status ?? $this->juicyway_wallet_status) === 'failed';
     }
 }

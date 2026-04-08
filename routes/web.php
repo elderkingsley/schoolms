@@ -19,6 +19,9 @@ Route::post('/api/juicyway/webhook', [\App\Http\Controllers\JuicyWayWebhookContr
 Route::post('/api/paygrid/inflow', [\App\Http\Controllers\PayGridInflowController::class, 'handle'])
     ->name('webhooks.paygrid.inflow');
 
+Route::post('/api/budpay/webhook', [App\Http\Controllers\BudPayWebhookController::class, 'handle'])
+    ->name('webhooks.budpay');
+
 // ── Public routes ─────────────────────────────────────────────────────────────
 Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
 Route::get('/staff/register', \App\Livewire\Public\StaffRegistrationForm::class)->name('staff.register');
