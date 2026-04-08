@@ -21,8 +21,8 @@ class InvoicePdfController extends Controller
         $pdf = Pdf::loadView('pdf.invoice', compact('invoice'))
             ->setPaper('a4', 'portrait');
 
-        $filename = 'Invoice-' . $invoice->student->admission_number
-            . '-' . str_replace(' ', '', $invoice->term->name)
+        $filename = 'Invoice-' . str_replace(['/', '\\', ' '], '-', $invoice->student->admission_number)
+            . '-' . str_replace(['/', '\\', ' '], '-', $invoice->term->name)
             . '.pdf';
 
         return $pdf->stream($filename);
