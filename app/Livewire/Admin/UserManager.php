@@ -86,8 +86,28 @@ class UserManager extends Component
                 'user_type' => $data['userType'],
             ]);
 
-            // If user type changed, sync role
-            $user->syncRoles([$data['userType']]);
+            // Update roles — use assignRole not syncRoles to avoid wiping
+            // roles that should be kept. Specifically: a user who is both a
+            // teacher and a parent must keep BOTH roles. syncRoles() would
+            // wipe the parent role when an admin edits a teacher-parent user.
+            $newRole = $data['userType'] === 'teaching_assistant' ? 'teacher' : $data['userType'];
+
+            // Always assign the new role
+            $user->assignRole($newRole);
+
+            // If the user has a parent record, always ensure they keep the parent role
+            $isAlsoParent = \App\Models\ParentGuardian::where('user_id', $user->id)->exists();
+            if ($isAlsoParent) {
+                $user->assignRole('parent');
+            }
+
+            // Remove roles that no longer apply — but never remove parent role
+            // if the user has a parent record
+            $user->roles->each(function ($role) use ($newRole, $isAlsoParent, $user) {
+                if ($role->name === 'parent' && $isAlsoParent) return; // keep it
+                if ($role->name === $newRole) return; // keep it
+                $user->removeRole($role->name);
+            });
 
             session()->flash('success', "{$user->name}'s account updated.");
         } else {
