@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\ParentGuardian;
-use App\Services\KorapayService;
+use App\Services\BudPayService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,28 +12,31 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * ProvisionParentWalletJob — Korapay edition
+ * ProvisionParentWalletJob — BudPay edition
  *
- * Provisions a permanent Korapay virtual bank account (NUBAN) for a parent.
+ * Provisions a BudPay dedicated virtual bank account (NUBAN) for a parent.
  * Dispatched when an enrolment is approved so the NUBAN is ready before
  * any invoice is ever sent.
  *
- * Korapay is a single-step flow:
- *   POST /virtual-bank-account → returns permanent NUBAN immediately
+ * BudPay is simpler than JuicyWay — only 2 steps, fully synchronous:
+ *   Step 1 — POST /customer    → budpay_customer_code
+ *   Step 2 — POST /dedicated_virtual_account → NUBAN immediately
  *
- * The account_reference is deterministic (NV-P{parentId}-S{studentId})
- * so if the job runs twice, the second call either returns the existing
- * account or we fetch it — no duplicate accounts are created.
+ * No polling needed. If BudPay returns the account number, we're done.
  *
- * The account is created in the student's name so the bank statement
- * reads "Nurtureville / Uchechi Smart" — unambiguous per student.
+ * Idempotency:
+ *   - If budpay_account_number is already set, skip entirely.
+ *   - If budpay_customer_code is set but account is missing, skip step 1.
+ *
+ * The customer is created in the CHILD's name so the bank statement reads
+ * "Nurtureville / Uchechi Smart" — unambiguously linked to one student.
  */
 class ProvisionParentWalletJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int   $tries   = 5;
-    public int   $timeout = 60;
+    public int $tries   = 5;
+    public int $timeout = 60;
 
     public function backoff(): array
     {
@@ -42,7 +45,7 @@ class ProvisionParentWalletJob implements ShouldQueue
 
     public function __construct(public readonly ParentGuardian $parent) {}
 
-    public function handle(KorapayService $korapay): void
+    public function handle(BudPayService $budPay): void
     {
         $parent = $this->parent->fresh()->load(['user', 'students']);
 
@@ -51,10 +54,10 @@ class ProvisionParentWalletJob implements ShouldQueue
             return;
         }
 
-        // Already fully provisioned with Korapay — nothing to do
-        if (! empty($parent->korapay_account_number)) {
-            Log::info("ProvisionParentWalletJob: parent {$parent->id} already has Korapay NUBAN — skipping.");
-            $parent->update(['korapay_wallet_status' => 'active']);
+        // Already fully provisioned — nothing to do
+        if (! empty($parent->budpay_account_number)) {
+            Log::info("ProvisionParentWalletJob: parent {$parent->id} already has BudPay NUBAN — skipping.");
+            $parent->update(['budpay_wallet_status' => 'active']);
             return;
         }
 
@@ -64,66 +67,78 @@ class ProvisionParentWalletJob implements ShouldQueue
             return;
         }
 
-        // Generate deterministic reference — stable across retries
-        $accountReference = KorapayService::makeAccountReference($parent->id, $student->id);
-
         try {
-            $parent->update(['korapay_wallet_status' => 'pending']);
+            $parent->update(['budpay_wallet_status' => 'pending']);
 
-            $account = $korapay->createVirtualAccount(
-                studentName:      $student->full_name,
-                parentEmail:      $parent->user->email,
-                accountReference: $accountReference,
-            );
+            // ── Step 1: Create BudPay customer in child's name ────────────
+            if (empty($parent->budpay_customer_code)) {
+                $customerCode = $budPay->createCustomer(
+                    firstName: $student->first_name,
+                    lastName:  $student->last_name,
+                    email:     $parent->user->email,
+                    phone:     $parent->phone ?? '08000000000',
+                );
+
+                $parent->update(['budpay_customer_code' => $customerCode]);
+                $parent->refresh();
+
+                Log::info("ProvisionParentWalletJob: BudPay customer created for parent {$parent->id}", [
+                    'customer_code' => $customerCode,
+                    'student'       => $student->full_name,
+                ]);
+            }
+
+            // ── Step 2: Assign dedicated NUBAN ────────────────────────────
+            // BudPay returns the account number synchronously — no polling.
+            $account = $budPay->createDedicatedAccount($parent->budpay_customer_code);
 
             $parent->update([
-                'korapay_account_reference' => $account['account_reference'],
-                'korapay_account_number'    => $account['account_number'],
-                'korapay_bank_name'         => $account['bank_name'],
-                'korapay_bank_code'         => $account['bank_code'],
-                'korapay_wallet_status'     => 'active',
+                'budpay_account_number' => $account['account_number'],
+                'budpay_bank_name'      => $account['bank_name'],
+                'budpay_bank_code'      => $account['bank_code'],
+                'budpay_wallet_status'  => 'active',
             ]);
 
-            Log::info("ProvisionParentWalletJob: Korapay NUBAN provisioned for parent {$parent->id}", [
-                'account_number'    => $account['account_number'],
-                'bank_name'         => $account['bank_name'],
-                'account_reference' => $account['account_reference'],
-                'student'           => $student->full_name,
+            Log::info("ProvisionParentWalletJob: BudPay NUBAN provisioned for parent {$parent->id}", [
+                'account_number' => $account['account_number'],
+                'bank_name'      => $account['bank_name'],
+                'student'        => $student->full_name,
             ]);
 
         } catch (\Throwable $e) {
-            $parent->update(['korapay_wallet_status' => 'failed']);
+            $parent->update(['budpay_wallet_status' => 'failed']);
             Log::error("ProvisionParentWalletJob: failed for parent {$parent->id}: {$e->getMessage()}");
-            throw $e;
+            throw $e; // re-throw so queue retries with backoff
         }
     }
 
     public function failed(?\Throwable $e): void
     {
-        $this->parent->fresh()?->update(['korapay_wallet_status' => 'failed']);
+        $this->parent->fresh()?->update(['budpay_wallet_status' => 'failed']);
 
         Log::critical("ProvisionParentWalletJob: permanently failed for parent {$this->parent->id}", [
             'error' => $e?->getMessage(),
         ]);
 
+        // Email all admins
         try {
             $admins = \App\Models\User::whereIn('user_type', ['super_admin', 'admin'])
                 ->where('is_active', true)->get();
 
             foreach ($admins as $admin) {
                 \Illuminate\Support\Facades\Mail::raw(
-                    "ALERT: Korapay virtual account provisioning permanently failed.\n\n" .
+                    "ALERT: BudPay virtual account provisioning permanently failed.\n\n" .
                     "Parent ID: {$this->parent->id}\n" .
                     "Error: " . $e?->getMessage() . "\n\n" .
                     "This parent cannot receive automated payment detection until resolved.\n\n" .
                     "Time: " . now()->format('d M Y, g:ia') . " (Africa/Lagos)",
                     fn($m) => $m
                         ->to($admin->email)
-                        ->subject('⚠️ Korapay Provisioning Failed — Nurtureville SchoolMS')
+                        ->subject('⚠️ BudPay Provisioning Failed — Nurtureville SchoolMS')
                 );
             }
         } catch (\Throwable $mailError) {
-            Log::error('ProvisionParentWalletJob: failed to send alert — ' . $mailError->getMessage());
+            Log::error('ProvisionParentWalletJob: failed to send failure alert — ' . $mailError->getMessage());
         }
     }
 }
