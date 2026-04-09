@@ -90,7 +90,7 @@
 <div class="panel">
     <div class="panel-head">
         How to Pay
-        @if($parentProfile?->budpay_wallet_status === 'active' || $parentProfile?->juicyway_wallet_status === 'active')
+        @if($parentProfile?->active_account_number)
             <span style="font-size:10px;background:rgba(21,128,61,0.08);color:#15803D;padding:2px 8px;border-radius:10px;font-weight:600;">
                 Bank Transfer Ready
             </span>
