@@ -66,7 +66,9 @@ class BudPayWebhookController extends Controller
                 'updated_at'       => now(),
             ]);
 
-            return response()->json(['error' => 'Invalid signature'], 401);
+            // Return 200 anyway — BudPay retries on non-200 responses
+            // We log the failure for investigation but don't block
+            return response()->json(['status' => 'invalid_signature'], 200);
         }
 
         DB::table('budpay_webhook_events')->where('id', $logId)
