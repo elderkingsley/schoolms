@@ -90,14 +90,14 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                 'reference' => $reference,
             ]);
             // Still notify PayGrid so the inflow appears in the ledger
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId);
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
             return;
         }
 
         $student = $parent->students->first();
         if (! $student) {
             Log::warning("ProcessBudPayWebhookJob: parent {$parent->id} has no linked student");
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId);
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
             return;
         }
 
@@ -113,7 +113,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                 'account'   => $accountNumber,
                 'reference' => $reference,
             ]);
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId);
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
             return;
         }
 
@@ -160,7 +160,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         });
 
         // ── Notify PayGrid ────────────────────────────────────────────────
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId);
+        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
@@ -195,7 +195,6 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         string  $reference,
         string  $accountNumber,
         string  $senderName,
-        ?string $depositId,
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
@@ -217,7 +216,6 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                     'amount_ngn'     => $amountNgn,
                     'account_number' => $accountNumber,
                     'sender_name'    => $senderName,
-                    'deposit_id'     => $depositId,
                     'deposited_at'   => now()->toISOString(),
                     'source'         => 'schoolms',
                 ]);
