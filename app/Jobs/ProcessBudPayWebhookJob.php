@@ -48,19 +48,21 @@ class ProcessBudPayWebhookJob implements ShouldQueue
 
     public function handle(FeeService $feeService): void
     {
-        $data      = $this->payload['data'] ?? [];
-        $reference = $data['reference']     ?? null;
-        $amountNgn = isset($data['amount'])  ? (float) $data['amount'] : 0;
-        // BudPay sends amount in Naira directly (not kobo) for dedicated NUBAN
-        // Verify: if amount looks like kobo (> 100000 for typical school fees), divide by 100
-        // Based on webhook sample in docs: "amount": "5.22" — this is Naira
-        $senderName    = $data['customer']['first_name'] ?? 'Unknown Sender';
-        $depositId     = $data['id'] ?? null;
+        $data      = $this->payload['data']            ?? [];
+        $reference = $data['reference']                ?? null;
+        $amountNgn = (float) ($data['amount']          ?? 0);
 
-        // Extract account number from metadata or dedicated_account field
-        $accountNumber = $data['dedicated_account']['account_number']
-            ?? $data['metadata']['dedicated_account_number']
-            ?? null;
+        // Real BudPay webhook puts account number in transferDetails.craccount
+        $transferDetails = $this->payload['transferDetails'] ?? [];
+        $accountNumber   = (string) ($transferDetails['craccount']      ?? '');
+        $senderName      = $transferDetails['originatorname']           ?? 'Unknown Sender';
+
+        // Fallback: older payload shape used data.dedicated_account
+        if (empty($accountNumber)) {
+            $accountNumber = (string) ($data['dedicated_account']['account_number']
+                ?? $data['metadata']['dedicated_account_number']
+                ?? '');
+        }
 
         if (! $reference || $amountNgn <= 0 || ! $accountNumber) {
             Log::error('ProcessBudPayWebhookJob: missing required fields', [

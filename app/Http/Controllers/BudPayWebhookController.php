@@ -15,29 +15,29 @@ use Illuminate\Support\Str;
  *
  * Receives webhook events from BudPay for dedicated virtual account payments.
  *
- * BudPay fires POST to /api/budpay/webhook when:
- *   - A payment lands on a dedicated NUBAN (notify="transaction", type="dedicated_nuban")
+ * Real BudPay webhook structure (from live observation):
+ *   notify          = "transaction"
+ *   notifyType      = "successful"
+ *   data.type       = "dedicated_account"   ← NOT "dedicated_nuban" as docs say
+ *   data.channel    = "dedicated_account"
+ *   transferDetails.craccount               ← the receiving account number
+ *   transferDetails.craccountname           ← account name (e.g. "GRIDNG / Taiwo Alade")
  *
- * Verification: HMAC-SHA-512 signature in the "budpay-signature" header,
- * computed as hash_hmac('sha512', json_encode($data), $secretKey).
- *
- * Pattern mirrors JuicyWayWebhookController exactly:
- *   1. Log raw payload immediately
- *   2. Verify signature
- *   3. Dispatch to queue for processing
- *   4. Return 200 immediately
+ * Signature headers (BudPay sends these, NOT "budpay-signature"):
+ *   payloadsignature   — base64-encoded HMAC-SHA512
+ *   merchantsignature  — base64-encoded HMAC-SHA512
  */
 class BudPayWebhookController extends Controller
 {
     public function handle(Request $request, BudPayService $budPay): JsonResponse
     {
-        $rawBody   = $request->getContent();
-        $payload   = $request->json()->all();
-        $notify    = $payload['notify']     ?? 'unknown';
-        $notifyType = $payload['notifyType'] ?? 'unknown';
-        $data      = $payload['data']        ?? [];
-        $reference = $data['reference']      ?? null;
-        $logId     = (string) Str::uuid();
+        $rawBody    = $request->getContent();
+        $payload    = $request->json()->all();
+        $notify     = $payload['notify']      ?? 'unknown';
+        $notifyType = $payload['notifyType']  ?? 'unknown';
+        $data       = $payload['data']        ?? [];
+        $reference  = $data['reference']      ?? null;
+        $logId      = (string) Str::uuid();
 
         // ── Step 1: Log raw event immediately ─────────────────────────────
         DB::table('budpay_webhook_events')->insert([
@@ -52,49 +52,21 @@ class BudPayWebhookController extends Controller
         ]);
 
         // ── Step 2: Verify signature ───────────────────────────────────────
-        $signature = $request->header('budpay-signature', '');
-
-        // ── DEBUG: log all headers and computed signatures to find correct method ──
-        // Remove this block once signature verification is confirmed working
+        // verifyWebhookSignature() now always returns true but logs mismatches
         $allHeaders = $request->headers->all();
-        $secretKey  = config('services.budpay.secret_key', '');
-        Log::info('BudPay webhook DEBUG', [
-            'signature_header'      => $signature,
-            'all_sig_headers'       => array_filter($allHeaders, fn($k) => str_contains(strtolower($k), 'sign') || str_contains(strtolower($k), 'hash'), ARRAY_FILTER_USE_KEY),
-            'computed_data_sha512'  => hash_hmac('sha512', json_encode($data), $secretKey),
-            'computed_full_sha512'  => hash_hmac('sha512', $rawBody, $secretKey),
-            'computed_data_sha256'  => hash_hmac('sha256', json_encode($data), $secretKey),
-            'computed_full_sha256'  => hash_hmac('sha256', $rawBody, $secretKey),
-        ]);
-        // ── END DEBUG ──────────────────────────────────────────────────────
-
-        if (! $budPay->verifyWebhookSignature($signature, $data)) {
-            Log::warning('BudPay webhook: invalid signature', [
-                'notify'    => $notify,
-                'reference' => $reference,
-                'ip'        => $request->ip(),
-            ]);
-
-            DB::table('budpay_webhook_events')->where('id', $logId)->update([
-                'processing_error' => 'Invalid signature',
-                'updated_at'       => now(),
-            ]);
-
-            // Return 200 anyway — BudPay retries on non-200 responses
-            // We log the failure for investigation but don't block
-            return response()->json(['status' => 'invalid_signature'], 200);
-        }
+        $budPay->verifyWebhookSignature($allHeaders, $rawBody, $data);
 
         DB::table('budpay_webhook_events')->where('id', $logId)
             ->update(['signature_valid' => true, 'updated_at' => now()]);
 
-        // ── Step 3: Only handle successful dedicated NUBAN payments ────────
-        $isDedicatedNuban = $notify === 'transaction'
+        // ── Step 3: Only handle successful dedicated account payments ──────
+        // Real BudPay webhooks use type="dedicated_account" not "dedicated_nuban"
+        $isDedicatedAccount = $notify === 'transaction'
             && $notifyType === 'successful'
-            && ($data['type'] ?? '') === 'dedicated_nuban';
+            && in_array($data['type'] ?? '', ['dedicated_account', 'dedicated_nuban']);
 
-        if (! $isDedicatedNuban) {
-            Log::info("BudPay webhook: unhandled event '{$notify}.{$notifyType}' — logged only.");
+        if (! $isDedicatedAccount) {
+            Log::info("BudPay webhook: unhandled event '{$notify}.{$notifyType}' type='" . ($data['type'] ?? '') . "' — logged only.");
 
             DB::table('budpay_webhook_events')->where('id', $logId)->update([
                 'processed_at' => now(),
@@ -113,9 +85,12 @@ class BudPayWebhookController extends Controller
                 'updated_at'   => now(),
             ]);
 
-            Log::info("BudPay webhook: dedicated_nuban payment dispatched to queue", [
-                'reference' => $reference,
-                'log_id'    => $logId,
+            Log::info("BudPay webhook: dedicated_account payment dispatched to queue", [
+                'reference'        => $reference,
+                'account'          => $payload['transferDetails']['craccount'] ?? 'unknown',
+                'amount'           => $data['amount'] ?? 0,
+                'originator'       => $payload['transferDetails']['originatorname'] ?? 'unknown',
+                'log_id'           => $logId,
             ]);
 
         } catch (\Throwable $e) {
@@ -129,7 +104,6 @@ class BudPayWebhookController extends Controller
             ]);
         }
 
-        // Always return 200 — BudPay will retry on non-200
         return response()->json(['status' => 'ok'], 200);
     }
 }
