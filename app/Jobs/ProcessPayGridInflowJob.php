@@ -1,4 +1,5 @@
 <?php
+// Deploy to: /var/www/schoolms/app/Jobs/ProcessPayGridInflowJob.php
 
 namespace App\Jobs;
 
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Log;
  * Processes a confirmed deposit notification from PayGrid.
  *
  * Flow:
- *   1. Find the ParentGuardian row by juicyway_account_number
+ *   1. Find the ParentGuardian row by budpay_account_number (or juicyway as legacy fallback)
  *   2. Idempotency check — skip if reference already recorded
  *   3. Find the student linked to that parent row
  *   4. Find all unpaid/partial invoices ordered oldest first
@@ -69,7 +70,11 @@ class ProcessPayGridInflowJob implements ShouldQueue
         }
 
         // ── Find parent by account number ─────────────────────────────────
-        $parent = ParentGuardian::where('juicyway_account_number', $accountNumber)
+        // Check BudPay first (current provider), then JuicyWay as fallback
+        // for any legacy parents who were never migrated.
+        $parent = ParentGuardian::where('budpay_account_number', $accountNumber)
+            ->orWhere('korapay_account_number', $accountNumber)
+            ->orWhere('juicyway_account_number', $accountNumber)
             ->with(['user', 'students'])
             ->first();
 
@@ -134,10 +139,17 @@ class ProcessPayGridInflowJob implements ShouldQueue
                     $toApply = $remaining; // record full amount — creates credit
                 }
 
+                // Derive the payment method from whichever provider's NUBAN matched
+                $paymentMethod = match(true) {
+                    ! empty($parent->korapay_account_number) && $parent->korapay_account_number === $accountNumber => 'Korapay Transfer',
+                    ! empty($parent->budpay_account_number)  && $parent->budpay_account_number  === $accountNumber => 'BudPay Transfer',
+                    default => 'JuicyWay Transfer',
+                };
+
                 $feeService->recordPayment(
                     invoice:    $invoice,
                     amount:     $toApply,
-                    method:     'JuicyWay Transfer',
+                    method:     $paymentMethod,
                     reference:  $reference,
                     recordedBy: $systemActorId,
                     source:     'automation',

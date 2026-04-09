@@ -1,4 +1,5 @@
 <?php
+// Deploy to: /var/www/schoolms/app/Jobs/PushInvoiceToPayGridJob.php
 
 namespace App\Jobs;
 
@@ -66,7 +67,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
 
         // Find the first parent with a portal account and a provisioned NUBAN
         $parent = $student->parents
-            ->filter(fn ($p) => $p->user !== null && ! empty($p->juicyway_account_number))
+            ->filter(fn ($p) => $p->user !== null && ! empty($p->active_account_number))
             ->first();
 
         if (! $parent) {
@@ -89,7 +90,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             'student_email'       => $parent->user?->email,
             'amount'              => (float) $invoice->total_amount,
             'term_label'          => $termLabel,
-            'account_number'      => $parent->juicyway_account_number,
+            'account_number'      => $parent->active_account_number,
             'due_date'            => now()->addDays(30)->toDateString(),
             'items'               => $invoice->items->map(fn ($item) => [
                 'name'   => $item->item_name,
