@@ -236,12 +236,12 @@
         <tr>
             <td style="color:#999;width:30px;">{{ $i + 1 }}</td>
             <td>{{ $item->item_name }}</td>
-            <td class="right">₦{{ number_format($item->amount, 2) }}</td>
+            <td class="right">&#8358;{{ number_format($item->amount, 2) }}</td>
         </tr>
         @endforeach
         <tr class="total-row">
             <td colspan="2">Total</td>
-            <td class="right">₦{{ number_format($invoice->total_amount, 2) }}</td>
+            <td class="right">&#8358;{{ number_format($invoice->total_amount, 2) }}</td>
         </tr>
     </tbody>
 </table>
@@ -250,17 +250,17 @@
 <div class="summary-box">
     <div class="summary-row">
         <div class="summary-label">Subtotal</div>
-        <div class="summary-value">₦{{ number_format($invoice->total_amount, 2) }}</div>
+        <div class="summary-value">&#8358;{{ number_format($invoice->total_amount, 2) }}</div>
     </div>
     <hr class="summary-divider">
     <div class="summary-row">
         <div class="summary-label">Amount Paid</div>
-        <div class="summary-value" style="color:#15803D">₦{{ number_format($invoice->amount_paid, 2) }}</div>
+        <div class="summary-value" style="color:#15803D">&#8358;{{ number_format($invoice->amount_paid, 2) }}</div>
     </div>
     <hr class="summary-divider">
     <div class="summary-row balance {{ $invoice->balance <= 0 ? 'cleared' : '' }}">
         <div class="summary-label">Balance Due</div>
-        <div class="summary-value">₦{{ number_format($invoice->balance, 2) }}</div>
+        <div class="summary-value">&#8358;{{ number_format($invoice->balance, 2) }}</div>
     </div>
 </div>
 
@@ -284,7 +284,7 @@
             <td>{{ $payment->method }}</td>
             <td class="mono">{{ $payment->receipt_number }}</td>
             <td class="mono">{{ $payment->reference ?: '—' }}</td>
-            <td class="right">₦{{ number_format($payment->amount, 2) }}</td>
+            <td class="right">&#8358;{{ number_format($payment->amount, 2) }}</td>
         </tr>
         @endforeach
     </tbody>
