@@ -90,7 +90,7 @@
 <div class="panel">
     <div class="panel-head">
         How to Pay
-        @if($parentProfile?->juicyway_wallet_status === 'active')
+        @if($parentProfile?->budpay_wallet_status === 'active' || $parentProfile?->juicyway_wallet_status === 'active')
             <span style="font-size:10px;background:rgba(21,128,61,0.08);color:#15803D;padding:2px 8px;border-radius:10px;font-weight:600;">
                 Bank Transfer Ready
             </span>
@@ -110,15 +110,15 @@
                 <div class="nuban-row">
                     <span class="nuban-label">Bank</span>
                     <span class="nuban-value" style="font-family:var(--f-sans);">
-                        {{ $parentProfile->juicyway_bank_name }}
+                        {{ $parentProfile->active_bank_name }}
                     </span>
                 </div>
                 <div class="nuban-row">
                     <span class="nuban-label">Account Number</span>
                     <div class="copy-wrap">
-                        <span class="nuban-value">{{ $parentProfile->juicyway_account_number }}</span>
+                        <span class="nuban-value">{{ $parentProfile->active_account_number }}</span>
                         <button class="copy-btn"
-                            x-on:click="navigator.clipboard.writeText('{{ $parentProfile->juicyway_account_number }}');
+                            x-on:click="navigator.clipboard.writeText('{{ $parentProfile->active_account_number }}');
                                         $el.textContent='Copied!';
                                         setTimeout(()=>$el.textContent='Copy',2000)">
                             Copy

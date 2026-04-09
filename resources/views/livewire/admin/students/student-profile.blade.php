@@ -471,14 +471,14 @@
                 <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;overflow:hidden;" x-data>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
                         <span style="color:var(--c-text-3);font-size:12px;">Bank</span>
-                        <span style="font-weight:600;">{{ $paymentParent->juicyway_bank_name }}</span>
+                        <span style="font-weight:600;">{{ $paymentParent->active_bank_name }}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--c-border);font-size:13px;">
                         <span style="color:var(--c-text-3);font-size:12px;">Account Number</span>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="font-weight:700;font-family:var(--f-mono);font-size:14px;">{{ $paymentParent->juicyway_account_number }}</span>
+                            <span style="font-weight:700;font-family:var(--f-mono);font-size:14px;">{{ $paymentParent->active_account_number }}</span>
                             <button style="padding:3px 9px;border:1px solid var(--c-border);border-radius:5px;background:var(--c-surface);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--f-sans);color:var(--c-text-2);"
-                                x-on:click="navigator.clipboard.writeText('{{ $paymentParent->juicyway_account_number }}');
+                                x-on:click="navigator.clipboard.writeText('{{ $paymentParent->active_account_number }}');
                                             $el.textContent='Copied!';
                                             setTimeout(()=>$el.textContent='Copy',2000)">
                                 Copy

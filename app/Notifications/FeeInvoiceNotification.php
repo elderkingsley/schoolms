@@ -42,7 +42,7 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
             ?? $student->parents->filter(fn($p) => $p->user !== null)->first();
 
         $hasVirtualAccount = $parentGuardian
-            && ! empty($parentGuardian->juicyway_account_number);
+            && ! empty($parentGuardian->active_account_number);
 
         $mail = (new MailMessage)
             ->subject("Fee Invoice — {$studentName} ({$termLabel})")
@@ -71,8 +71,8 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
                     'Your payment will be confirmed automatically — no need to send a receipt.'
                 )
                 ->line('')
-                ->line('**Bank:** ' . $parentGuardian->juicyway_bank_name)
-                ->line('**Account Number:** ' . $parentGuardian->juicyway_account_number)
+                ->line('**Bank:** ' . $parentGuardian->active_bank_name)
+                ->line('**Account Number:** ' . $parentGuardian->active_account_number)
                 ->line('**Account Name:** ' . $notifiable->name)
                 ->line('')
                 ->line(
