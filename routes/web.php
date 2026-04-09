@@ -83,6 +83,8 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         Route::get('/results/overview',              \App\Livewire\Admin\Results\ResultsOverview::class)->name('results.overview');
         Route::get('/results/{student}/report-card', \App\Http\Controllers\Admin\ReportCardController::class)->name('results.report-card');
 
+        Route::get('/settings', \App\Livewire\Admin\SchoolSettings::class)->name('admin.settings');
+
         // Users — super_admin only (enforced inside the component too)
         Route::get('/users',    \App\Livewire\Admin\UserManager::class)->name('users');
         Route::get('/teachers', \App\Livewire\Admin\TeacherManager::class)->name('teachers');

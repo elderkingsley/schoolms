@@ -21,33 +21,21 @@
         border-bottom: 3px solid #1A56FF;
         padding-bottom: 18px;
     }
-    .school-logo-cell { display: table-cell; vertical-align: middle; width: 60px; }
-    .school-logo {
-        width: 52px; height: 52px; border-radius: 50%;
+    .school-logo-cell { display: table-cell; vertical-align: middle; width: 70px; }
+    .school-logo-img  { width: 60px; height: 60px; border-radius: 8px; object-fit: contain; }
+    .school-logo-initial {
+        width: 60px; height: 60px; border-radius: 50%;
         background: #1A56FF; color: #fff;
-        font-size: 20px; font-weight: 700;
-        text-align: center; line-height: 52px;
+        font-size: 24px; font-weight: 700;
+        text-align: center; line-height: 60px;
+        display: inline-block;
     }
     .school-info-cell { display: table-cell; vertical-align: middle; padding-left: 14px; }
-    .school-name { font-size: 18px; font-weight: 700; color: #111; letter-spacing: -0.02em; }
+    .school-name    { font-size: 18px; font-weight: 700; color: #111; letter-spacing: -0.02em; }
     .school-tagline { font-size: 11px; color: #777; margin-top: 2px; }
     .invoice-label-cell { display: table-cell; vertical-align: middle; text-align: right; }
-    .invoice-label { font-size: 22px; font-weight: 700; color: #1A56FF; letter-spacing: -0.02em; }
+    .invoice-label  { font-size: 22px; font-weight: 700; color: #1A56FF; letter-spacing: -0.02em; }
     .invoice-number { font-size: 11px; color: #777; margin-top: 3px; font-family: 'Courier New', monospace; }
-
-    /* ── Meta row ── */
-    .meta-row {
-        display: table;
-        width: 100%;
-        margin-bottom: 24px;
-    }
-    .meta-cell { display: table-cell; width: 50%; vertical-align: top; }
-    .meta-cell.right { text-align: right; }
-    .meta-block { background: #F5F4F0; border-radius: 6px; padding: 14px 16px; display: inline-block; width: 100%; }
-    .meta-label { font-size: 9px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-    .meta-value { font-size: 13px; font-weight: 600; color: #111; }
-    .meta-sub   { font-size: 11px; color: #555; margin-top: 2px; }
-    .meta-mono  { font-family: 'Courier New', monospace; font-size: 11px; color: #777; margin-top: 2px; }
 
     /* ── Status pill ── */
     .status-pill {
@@ -60,18 +48,23 @@
     .status-partial { background: #fef3e2; color: #B45309; }
     .status-paid    { background: #dcfce7; color: #15803D; }
 
-    /* ── Line items table ── */
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 0;
-    }
+    /* ── Meta row ── */
+    .meta-row  { display: table; width: 100%; margin-bottom: 24px; }
+    .meta-cell { display: table-cell; width: 50%; vertical-align: top; }
+    .meta-cell.right { text-align: right; }
+    .meta-block { background: #F5F4F0; border-radius: 6px; padding: 14px 16px; display: inline-block; width: 100%; }
+    .meta-label { font-size: 9px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .meta-value { font-size: 13px; font-weight: 600; color: #111; }
+    .meta-sub   { font-size: 11px; color: #555; margin-top: 2px; }
+    .meta-mono  { font-family: 'Courier New', monospace; font-size: 11px; color: #777; margin-top: 2px; }
+
+    /* ── Line items table — no Type column ── */
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
     .items-table th {
         font-size: 9px; font-weight: 700; color: #999;
         text-transform: uppercase; letter-spacing: 0.08em;
         padding: 8px 12px; text-align: left;
-        background: #F5F4F0;
-        border-bottom: 1px solid #E8E6E1;
+        background: #F5F4F0; border-bottom: 1px solid #E8E6E1;
     }
     .items-table th.right { text-align: right; }
     .items-table td {
@@ -86,19 +79,13 @@
         border-top: 2px solid #E8E6E1;
         border-bottom: none;
     }
-    .badge-admin  { background: #fef3e2; color: #B45309; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
-    .badge-system { background: #EEF2FF; color: #1A56FF; font-size: 9px; padding: 1px 5px; border-radius: 3px; }
 
     /* ── Summary box ── */
     .summary-box {
-        width: 240px;
-        float: right;
-        margin-top: 16px;
-        border: 1px solid #E8E6E1;
-        border-radius: 6px;
-        overflow: hidden;
+        width: 240px; float: right; margin-top: 16px;
+        border: 1px solid #E8E6E1; border-radius: 6px; overflow: hidden;
     }
-    .summary-row { display: table; width: 100%; }
+    .summary-row   { display: table; width: 100%; }
     .summary-label { display: table-cell; padding: 9px 14px; font-size: 11px; color: #555; }
     .summary-value { display: table-cell; padding: 9px 14px; font-size: 11px; font-family: 'Courier New', monospace; text-align: right; font-weight: 600; }
     .summary-row.balance { background: #F5F4F0; }
@@ -128,38 +115,65 @@
 
     /* ── Payment instructions ── */
     .instructions {
-        margin-top: 28px;
-        border: 1px solid #E8E6E1;
-        border-radius: 6px;
-        padding: 16px;
-        background: #FAFAF8;
-        clear: both;
+        margin-top: 28px; border: 1px solid #E8E6E1;
+        border-radius: 6px; padding: 16px; background: #FAFAF8; clear: both;
     }
     .instructions-title { font-size: 10px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
-    .bank-row { display: table; width: 100%; margin-bottom: 6px; }
+    .bank-row   { display: table; width: 100%; margin-bottom: 6px; }
     .bank-label { display: table-cell; width: 130px; font-size: 11px; color: #777; }
     .bank-value { display: table-cell; font-size: 11px; font-weight: 600; color: #111; font-family: 'Courier New', monospace; }
 
     /* ── Footer ── */
     .footer {
-        margin-top: 32px;
-        padding-top: 14px;
+        margin-top: 32px; padding-top: 14px;
         border-top: 1px solid #E8E6E1;
-        font-size: 10px; color: #999;
-        text-align: center;
+        font-size: 10px; color: #999; text-align: center;
     }
 </style>
 </head>
 <body>
 
+@php
+    use App\Models\SchoolSetting;
+    $schoolName    = SchoolSetting::get('school_name',    'Nurtureville School');
+    $schoolTagline = SchoolSetting::get('school_tagline', 'Nurturing Minds, Building Futures');
+    $schoolAddress = SchoolSetting::get('school_address', '');
+    $schoolEmail   = SchoolSetting::get('school_email',   '');
+    $schoolPhone   = SchoolSetting::get('school_phone',   '');
+    $schoolWebsite = SchoolSetting::get('school_website', 'connect.nurturevilleschool.org');
+    $logoBase64    = SchoolSetting::logoBase64();
+
+    $bankName      = SchoolSetting::get('invoice_bank_name',      '');
+    $accountName   = SchoolSetting::get('invoice_account_name',   '');
+    $accountNumber = SchoolSetting::get('invoice_account_number', '');
+    $paymentNote   = SchoolSetting::get('invoice_payment_note',   '');
+
+    // Per-student NUBAN from BudPay/Korapay/JuicyWay takes priority over school-wide bank
+    $student       = $invoice->student;
+    $parentWithAccount = $student->parents->first(fn($p) => ! empty($p->active_account_number));
+    if ($parentWithAccount) {
+        $bankName      = $parentWithAccount->active_bank_name ?? $bankName;
+        $accountName   = $schoolName . ' / ' . $student->full_name;
+        $accountNumber = $parentWithAccount->active_account_number;
+    }
+
+    $hasPaymentDetails = ! empty($bankName) || ! empty($accountNumber);
+@endphp
+
 {{-- ── School header ── --}}
 <div class="school-header">
     <div class="school-logo-cell">
-        <div class="school-logo">N</div>
+        @if($logoBase64)
+            <img src="{{ $logoBase64 }}" class="school-logo-img" alt="{{ $schoolName }}">
+        @else
+            <span class="school-logo-initial">{{ strtoupper(substr($schoolName, 0, 1)) }}</span>
+        @endif
     </div>
     <div class="school-info-cell">
-        <div class="school-name">Nurtureville School</div>
-        <div class="school-tagline">Nurturing Minds, Building Futures</div>
+        <div class="school-name">{{ $schoolName }}</div>
+        @if($schoolTagline)
+            <div class="school-tagline">{{ $schoolTagline }}</div>
+        @endif
     </div>
     <div class="invoice-label-cell">
         <div class="invoice-label">INVOICE</div>
@@ -208,13 +222,12 @@
     </div>
 </div>
 
-{{-- ── Fee line items ── --}}
+{{-- ── Fee line items — no Type column ── --}}
 <table class="items-table">
     <thead>
         <tr>
             <th>#</th>
             <th>Description</th>
-            <th>Type</th>
             <th class="right">Amount</th>
         </tr>
     </thead>
@@ -223,18 +236,11 @@
         <tr>
             <td style="color:#999;width:30px;">{{ $i + 1 }}</td>
             <td>{{ $item->item_name }}</td>
-            <td>
-                @if($item->added_by === 'admin')
-                    <span class="badge-admin">Optional</span>
-                @else
-                    <span class="badge-system">Compulsory</span>
-                @endif
-            </td>
             <td class="right">₦{{ number_format($item->amount, 2) }}</td>
         </tr>
         @endforeach
         <tr class="total-row">
-            <td colspan="3">Total</td>
+            <td colspan="2">Total</td>
             <td class="right">₦{{ number_format($invoice->total_amount, 2) }}</td>
         </tr>
     </tbody>
@@ -286,35 +292,50 @@
 @endif
 
 {{-- ── Payment instructions ── --}}
-@if($invoice->balance > 0)
+@if($invoice->balance > 0 && $hasPaymentDetails)
 <div class="instructions">
     <div class="instructions-title">Payment Instructions</div>
+    @if($bankName)
     <div class="bank-row">
         <div class="bank-label">Bank Name</div>
-        <div class="bank-value">— (configured by school)</div>
+        <div class="bank-value">{{ $bankName }}</div>
     </div>
+    @endif
+    @if($accountName)
     <div class="bank-row">
         <div class="bank-label">Account Name</div>
-        <div class="bank-value">— (configured by school)</div>
+        <div class="bank-value">{{ $accountName }}</div>
     </div>
+    @endif
+    @if($accountNumber)
     <div class="bank-row">
         <div class="bank-label">Account Number</div>
-        <div class="bank-value">— (configured by school)</div>
+        <div class="bank-value">{{ $accountNumber }}</div>
     </div>
+    @endif
     <div class="bank-row">
         <div class="bank-label">Payment Reference</div>
         <div class="bank-value">{{ $invoice->student->admission_number }}</div>
     </div>
-    <div style="font-size:10px;color:#999;margin-top:10px;">
-        Please use your child's admission number as the payment reference for easy identification.
-    </div>
+    @if($paymentNote)
+    <div style="font-size:10px;color:#999;margin-top:10px;">{{ $paymentNote }}</div>
+    @endif
 </div>
 @endif
 
-{{-- ── Footer ── --}}
+{{-- ── Footer — school name, address, email only ── --}}
 <div class="footer">
-    <div>Nurtureville School · connect.nurturevilleschool.org</div>
-    <div style="margin-top:3px;">This invoice was generated on {{ now()->format('d M Y, g:ia') }} · Invoice #{{ str_pad($invoice->id, 6, '0', STR_PAD_LEFT) }}</div>
+    <div style="font-weight:600;color:#555;">{{ $schoolName }}</div>
+    @if($schoolAddress)
+        <div style="margin-top:2px;">{{ $schoolAddress }}</div>
+    @endif
+    <div style="margin-top:2px;">
+        @if($schoolEmail){{ $schoolEmail }}@endif
+        @if($schoolEmail && $schoolPhone) &nbsp;·&nbsp; @endif
+        @if($schoolPhone){{ $schoolPhone }}@endif
+        @if(($schoolEmail || $schoolPhone) && $schoolWebsite) &nbsp;·&nbsp; @endif
+        @if($schoolWebsite){{ $schoolWebsite }}@endif
+    </div>
 </div>
 
 </body>
