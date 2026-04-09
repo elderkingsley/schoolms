@@ -78,6 +78,8 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         Route::get('/classes/subjects', \App\Livewire\Admin\Academics\ClassSubjectManager::class)->name('classes.subjects');
         Route::get('/subjects',         \App\Livewire\Admin\Academics\SubjectManager::class)->name('subjects');
 
+        Route::get('/settings', \App\Livewire\Admin\SchoolSettings::class)->name('admin.settings');
+
         // Results
         Route::get('/results/entry',                 \App\Livewire\Admin\Results\ResultEntry::class)->name('results.entry');
         Route::get('/results/overview',              \App\Livewire\Admin\Results\ResultsOverview::class)->name('results.overview');
