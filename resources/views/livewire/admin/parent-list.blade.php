@@ -1,3 +1,4 @@
+{{-- Deploy to: /var/www/schoolms/resources/views/livewire/admin/parent-list.blade.php --}}
 <div>
 <style>
 .pg-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
@@ -177,6 +178,13 @@
                                     wire:confirm="{{ $user->is_active ? 'Deactivate' : 'Reactivate' }} {{ $user->name }}?">
                                     {{ $user->is_active ? 'Deactivate' : 'Reactivate' }}
                                 </button>
+                                @if(! $parent->hasVirtualAccount() || $parent->wallet_status !== 'active')
+                                <button class="btn-sm"
+                                    wire:click="retryProvisioning({{ $parent->id }})"
+                                    wire:confirm="Retry NUBAN provisioning for {{ $user->name }}?">
+                                    Retry NUBAN
+                                </button>
+                                @endif
                             </div>
                             @endif
                         </td>

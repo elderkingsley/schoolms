@@ -1,4 +1,5 @@
 <?php
+// Deploy to: /var/www/schoolms/app/Livewire/Admin/ParentList.php
 
 namespace App\Livewire\Admin;
 
@@ -46,6 +47,33 @@ class ParentList extends Component
         $user->update(['is_active' => ! $user->is_active]);
         $status = $user->is_active ? 'reactivated' : 'deactivated';
         session()->flash('success', "{$user->name}'s account has been {$status}.");
+    }
+
+    /**
+     * Manually re-trigger wallet provisioning for a parent whose job
+     * previously failed or whose status is stuck.
+     *
+     * Self-heals: if the parent already has a NUBAN in the DB but the
+     * status column is wrong (e.g. stuck at 'failed'), we fix the status
+     * without hitting BudPay again.
+     */
+    public function retryProvisioning(int $parentId): void
+    {
+        abort_if(! auth()->user()->isSuperAdmin(), 403);
+
+        $parent = \App\Models\ParentGuardian::findOrFail($parentId);
+
+        // NUBAN already in DB but status is wrong — just correct the status.
+        if (! empty($parent->budpay_account_number) && $parent->budpay_wallet_status !== 'active') {
+            $parent->update(['budpay_wallet_status' => 'active']);
+            session()->flash('success', "Status corrected for parent #{$parentId} — NUBAN was already provisioned.");
+            return;
+        }
+
+        // No NUBAN yet — dispatch a fresh provisioning job.
+        \App\Jobs\ProvisionParentWalletJob::dispatch($parent);
+        $parent->update(['budpay_wallet_status' => 'pending']);
+        session()->flash('success', "Provisioning job queued for parent #{$parentId}.");
     }
 
     public function render()
