@@ -143,32 +143,14 @@
                         <td class="hide-sm">
                             @if($parent->hasVirtualAccount())
                                 <span class="badge badge-wallet-active">Active</span>
-                                @php $linkedStudent = $parent->students->first(); @endphp
-                                @if($linkedStudent)
-                                    <div style="font-size:11px;font-weight:600;color:var(--c-text-1);margin-top:5px;">
-                                        {{ $linkedStudent->full_name }}
-                                    </div>
-                                @endif
-                                <div class="mono" style="margin-top:2px;font-size:11px;color:var(--c-text-2);">
-                                    {{ $parent->juicyway_bank_name }}<br>
-                                    {{ $parent->juicyway_account_number }}
+                                <div class="mono" style="margin-top:4px;font-size:11px;color:var(--c-text-2);">
+                                    {{ $parent->active_bank_name }}<br>
+                                    {{ $parent->active_account_number }}
                                 </div>
-                            @elseif($parent->juicyway_wallet_status === 'pending')
+                            @elseif($parent->wallet_status === 'pending')
                                 <span class="badge badge-wallet-pending">Provisioning</span>
-                                @php $linkedStudent = $parent->students->first(); @endphp
-                                @if($linkedStudent)
-                                    <div style="font-size:11px;color:var(--c-text-3);margin-top:4px;">
-                                        {{ $linkedStudent->full_name }}
-                                    </div>
-                                @endif
-                            @elseif($parent->juicyway_wallet_status === 'failed')
+                            @elseif($parent->wallet_status === 'failed')
                                 <span class="badge badge-wallet-failed">Failed</span>
-                                @php $linkedStudent = $parent->students->first(); @endphp
-                                @if($linkedStudent)
-                                    <div style="font-size:11px;color:var(--c-text-3);margin-top:4px;">
-                                        {{ $linkedStudent->full_name }}
-                                    </div>
-                                @endif
                             @else
                                 <span class="badge badge-wallet-none">Not set up</span>
                             @endif

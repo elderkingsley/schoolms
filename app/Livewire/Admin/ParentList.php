@@ -63,19 +63,74 @@ class ParentList extends Component
                 )
                 ->orWhere('phone', 'like', "%{$this->search}%")
             )
-            ->when($this->filterWallet === 'active',  fn($q) => $q->where('juicyway_wallet_status', 'active'))
-            ->when($this->filterWallet === 'pending', fn($q) => $q->where('juicyway_wallet_status', 'pending'))
-            ->when($this->filterWallet === 'failed',  fn($q) => $q->where('juicyway_wallet_status', 'failed'))
-            ->when($this->filterWallet === 'none',    fn($q) => $q->whereNull('juicyway_wallet_status'))
+            ->when($this->filterWallet === 'active', fn($q) =>
+                $q->where(fn($w) =>
+                    $w->where('korapay_wallet_status', 'active')
+                      ->orWhere(fn($b) =>
+                          $b->whereNull('korapay_wallet_status')
+                            ->where('budpay_wallet_status', 'active')
+                      )
+                      ->orWhere(fn($j) =>
+                          $j->whereNull('korapay_wallet_status')
+                            ->whereNull('budpay_wallet_status')
+                            ->where('juicyway_wallet_status', 'active')
+                      )
+                )
+            )
+            ->when($this->filterWallet === 'pending', fn($q) =>
+                $q->where(fn($w) =>
+                    $w->where('korapay_wallet_status', 'pending')
+                      ->orWhere(fn($b) =>
+                          $b->whereNull('korapay_wallet_status')
+                            ->where('budpay_wallet_status', 'pending')
+                      )
+                      ->orWhere(fn($j) =>
+                          $j->whereNull('korapay_wallet_status')
+                            ->whereNull('budpay_wallet_status')
+                            ->where('juicyway_wallet_status', 'pending')
+                      )
+                )
+            )
+            ->when($this->filterWallet === 'failed', fn($q) =>
+                $q->where(fn($w) =>
+                    $w->where('korapay_wallet_status', 'failed')
+                      ->orWhere(fn($b) =>
+                          $b->whereNull('korapay_wallet_status')
+                            ->where('budpay_wallet_status', 'failed')
+                      )
+                      ->orWhere(fn($j) =>
+                          $j->whereNull('korapay_wallet_status')
+                            ->whereNull('budpay_wallet_status')
+                            ->where('juicyway_wallet_status', 'failed')
+                      )
+                )
+            )
+            ->when($this->filterWallet === 'none', fn($q) =>
+                $q->whereNull('korapay_wallet_status')
+                  ->whereNull('budpay_wallet_status')
+                  ->whereNull('juicyway_wallet_status')
+            )
             ->orderByDesc('created_at');
 
         $parents = $query->paginate(25);
 
         $stats = [
             'total'          => ParentGuardian::whereNotNull('user_id')->count(),
-            'wallet_active'  => ParentGuardian::where('juicyway_wallet_status', 'active')->count(),
-            'wallet_pending' => ParentGuardian::where('juicyway_wallet_status', 'pending')->count(),
-            'wallet_failed'  => ParentGuardian::where('juicyway_wallet_status', 'failed')->count(),
+            'wallet_active'  => ParentGuardian::whereNotNull('user_id')->where(fn($q) =>
+                $q->where('korapay_wallet_status', 'active')
+                  ->orWhere(fn($b) => $b->whereNull('korapay_wallet_status')->where('budpay_wallet_status', 'active'))
+                  ->orWhere(fn($j) => $j->whereNull('korapay_wallet_status')->whereNull('budpay_wallet_status')->where('juicyway_wallet_status', 'active'))
+            )->count(),
+            'wallet_pending' => ParentGuardian::whereNotNull('user_id')->where(fn($q) =>
+                $q->where('korapay_wallet_status', 'pending')
+                  ->orWhere(fn($b) => $b->whereNull('korapay_wallet_status')->where('budpay_wallet_status', 'pending'))
+                  ->orWhere(fn($j) => $j->whereNull('korapay_wallet_status')->whereNull('budpay_wallet_status')->where('juicyway_wallet_status', 'pending'))
+            )->count(),
+            'wallet_failed'  => ParentGuardian::whereNotNull('user_id')->where(fn($q) =>
+                $q->where('korapay_wallet_status', 'failed')
+                  ->orWhere(fn($b) => $b->whereNull('korapay_wallet_status')->where('budpay_wallet_status', 'failed'))
+                  ->orWhere(fn($j) => $j->whereNull('korapay_wallet_status')->whereNull('budpay_wallet_status')->where('juicyway_wallet_status', 'failed'))
+            )->count(),
         ];
 
         return view('livewire.admin.parent-list', compact('parents', 'stats'))
