@@ -54,6 +54,20 @@ class BudPayWebhookController extends Controller
         // ── Step 2: Verify signature ───────────────────────────────────────
         $signature = $request->header('budpay-signature', '');
 
+        // ── DEBUG: log all headers and computed signatures to find correct method ──
+        // Remove this block once signature verification is confirmed working
+        $allHeaders = $request->headers->all();
+        $secretKey  = config('services.budpay.secret_key', '');
+        Log::info('BudPay webhook DEBUG', [
+            'signature_header'      => $signature,
+            'all_sig_headers'       => array_filter($allHeaders, fn($k) => str_contains(strtolower($k), 'sign') || str_contains(strtolower($k), 'hash'), ARRAY_FILTER_USE_KEY),
+            'computed_data_sha512'  => hash_hmac('sha512', json_encode($data), $secretKey),
+            'computed_full_sha512'  => hash_hmac('sha512', $rawBody, $secretKey),
+            'computed_data_sha256'  => hash_hmac('sha256', json_encode($data), $secretKey),
+            'computed_full_sha256'  => hash_hmac('sha256', $rawBody, $secretKey),
+        ]);
+        // ── END DEBUG ──────────────────────────────────────────────────────
+
         if (! $budPay->verifyWebhookSignature($signature, $data)) {
             Log::warning('BudPay webhook: invalid signature', [
                 'notify'    => $notify,
