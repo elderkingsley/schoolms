@@ -1,82 +1,150 @@
 <?php
-// Deploy to: /var/www/schoolms/scripts/fix_wallet_status.php
-
 /**
- * fix_wallet_status.php
+ * One-time recovery script.
  *
- * One-time repair script for parents whose budpay_wallet_status is stuck
- * at 'failed' (or 'pending') even though their NUBAN was successfully
- * provisioned and is sitting in budpay_account_number in the DB.
+ * 1. Deletes the orphaned test customer (cbf60d8c) from JuicyWay which is
+ *    blocking wallet creation for real parents.
+ * 2. Clears parent 84's stale customer_id so provisioning can start fresh.
+ * 3. Runs the full three-step provisioning sequence for all stuck parents.
  *
- * This happens when ProvisionParentWalletJob retried, succeeded in
- * creating the BudPay account, but the final update() call was interrupted
- * — or when the job permanently failed AFTER BudPay had already assigned
- * the account (BudPay provisioned it, our DB save crashed).
+ * ALSO handles any other parents stuck in failed/half-provisioned state.
  *
- * Run on the server:
- *   cd /var/www/schoolms
- *   php scripts/fix_wallet_status.php
- *
- * Safe to run multiple times — uses dry-run mode by default.
- * Set DRY_RUN=false to apply changes.
+ * RUN:  cd /var/www/schoolms && php fix_wallets.php
+ * DELETE after: rm fix_wallets.php
  */
 
-define('DRY_RUN', true); // ← set to false to apply changes
+require __DIR__ . '/vendor/autoload.php';
+$app = require __DIR__ . '/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
-require __DIR__ . '/../vendor/autoload.php';
+use App\Models\ParentGuardian;
+use App\Services\JuicyWayService;
+use Illuminate\Support\Facades\Http;
 
-$app = require_once __DIR__ . '/../bootstrap/app.php';
-$app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$svc  = app(JuicyWayService::class);
+$key  = config('services.juicyway.api_key');
+$base = config('services.juicyway.base_url');
 
-use Illuminate\Support\Facades\DB;
+// ── Step 0: Delete the orphaned test customer that is blocking provisioning ──
+$orphanedCustomerIds = [
+    'cbf60d8c-e04b-43ad-8831-c9e0aa40b3cf', // "Test Parent" — created during debugging
+];
 
-echo "=== fix_wallet_status.php ===\n";
-echo "Mode: " . (DRY_RUN ? "DRY RUN (no changes will be saved)" : "LIVE — changes will be applied") . "\n\n";
+echo "=== Cleaning up orphaned test customers ===\n";
+foreach ($orphanedCustomerIds as $cid) {
+    $r = Http::timeout(30)->withHeaders(['Authorization' => $key, 'Accept' => 'application/json'])
+        ->delete($base . "/customers/{$cid}");
+    echo "DELETE /customers/{$cid}: HTTP {$r->status()}" . ($r->status() === 204 ? " ✓ deleted" : " (already gone or error)") . "\n";
+}
 
-// ── Case 1: NUBAN present but status is not 'active' ─────────────────────────
-// These are the stuck-failed parents. The NUBAN is in the DB, BudPay is
-// working, but our status column never got updated to 'active'.
+// ── Also clear the stale customer_id from parent 84 (if wallet_id is still NULL) ──
+$parent84 = ParentGuardian::find(84);
+if ($parent84 && empty($parent84->juicyway_wallet_id) && ! empty($parent84->juicyway_customer_id)) {
+    echo "\nClearing stale customer_id from parent 84 (wallet_id is NULL — customer was orphaned)...\n";
+    // Delete the old customer from JuicyWay too (in case it still exists)
+    $r = Http::timeout(30)->withHeaders(['Authorization' => $key, 'Accept' => 'application/json'])
+        ->delete($base . "/customers/{$parent84->juicyway_customer_id}");
+    echo "DELETE /customers/{$parent84->juicyway_customer_id}: HTTP {$r->status()}\n";
+    $parent84->update([
+        'juicyway_customer_id'   => null,
+        'juicyway_wallet_id'     => null,
+        'juicyway_account_id'    => null,
+        'juicyway_account_number'=> null,
+        'juicyway_bank_name'     => null,
+        'juicyway_bank_code'     => null,
+        'juicyway_wallet_status' => null,
+    ]);
+    echo "Parent 84 reset to clean state.\n";
+}
 
-$stuck = DB::table('parents')
-    ->whereNotNull('budpay_account_number')
-    ->where(fn($q) => $q
-        ->where('budpay_wallet_status', '!=', 'active')
-        ->orWhereNull('budpay_wallet_status')
-    )
-    ->select('id', 'budpay_account_number', 'budpay_bank_name', 'budpay_wallet_status')
+echo "\n=== Provisioning all unprovisioned / stuck parents ===\n";
+
+// Find all parents who need provisioning
+$parents = ParentGuardian::whereNotNull('user_id')
+    ->whereNull('juicyway_account_number')  // everyone without a NUBAN
     ->get();
 
-echo "Found {$stuck->count()} parent(s) with NUBAN present but status NOT active:\n\n";
+echo "Found {$parents->count()} parent(s) to provision.\n\n";
 
-foreach ($stuck as $row) {
-    echo "  Parent #{$row->id} | NUBAN: {$row->budpay_account_number} | Bank: {$row->budpay_bank_name} | Status: {$row->budpay_wallet_status}\n";
-    if (! DRY_RUN) {
-        DB::table('parents')->where('id', $row->id)->update([
-            'budpay_wallet_status' => 'active',
-            'updated_at'           => now(),
-        ]);
-        echo "    → Fixed to 'active'\n";
-    } else {
-        echo "    → Would fix to 'active'\n";
+foreach ($parents as $parent) {
+    $parent->refresh();
+    $student   = $parent->students()->first();
+    $childName = $student ? "{$student->first_name} {$student->last_name}" : '(no student)';
+
+    echo "--- Parent ID: {$parent->id} | {$parent->user->name} | Child: {$childName}\n";
+
+    if (! $student) {
+        echo "  SKIP: no student linked.\n\n";
+        continue;
+    }
+
+    try {
+        // Step 1
+        if (empty($parent->juicyway_customer_id)) {
+            $cid = $svc->createCustomer(
+                $student->first_name, $student->last_name,
+                $parent->user->email, $parent->phone ?? '08000000000'
+            );
+            $parent->update(['juicyway_customer_id' => $cid]);
+            $parent->refresh();
+            echo "  Step 1 OK: customer as '{$childName}' → {$cid}\n";
+        } else {
+            echo "  Step 1 SKIP: customer_id={$parent->juicyway_customer_id}\n";
+        }
+
+        // Step 2 — with duplicate recovery
+        if (empty($parent->juicyway_wallet_id)) {
+            try {
+                $wallet = $svc->createWallet($parent->juicyway_customer_id);
+            } catch (\RuntimeException $e) {
+                if (! str_contains($e->getMessage(), 'duplicate_currency_wallet')) throw $e;
+
+                echo "  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...\n";
+                $svc->deleteCustomer($parent->juicyway_customer_id);
+
+                $newCid = $svc->createCustomer(
+                    $student->first_name, $student->last_name,
+                    $parent->user->email, $parent->phone ?? '08000000000'
+                );
+                $parent->update(['juicyway_customer_id' => $newCid]);
+                $parent->refresh();
+                echo "  Step 2: new customer_id={$newCid}\n";
+
+                $wallet = $svc->createWallet($newCid);
+            }
+
+            $parent->update([
+                'juicyway_wallet_id'  => $wallet['wallet_id'],
+                'juicyway_account_id' => $wallet['account_id'],
+            ]);
+            $parent->refresh();
+            echo "  Step 2 OK: wallet_id={$wallet['wallet_id']}\n";
+        } else {
+            echo "  Step 2 SKIP: wallet_id={$parent->juicyway_wallet_id}\n";
+        }
+
+        // Step 3
+        if (empty($parent->juicyway_account_number)) {
+            echo "  Step 3: requesting NUBAN (polling up to 120s)...\n";
+            $bank = $svc->addBankAccount($parent->juicyway_wallet_id);
+            $parent->update([
+                'juicyway_account_number' => $bank['account_number'],
+                'juicyway_bank_name'      => $bank['bank_name'],
+                'juicyway_bank_code'      => $bank['bank_code'],
+                'juicyway_wallet_status'  => 'active',
+            ]);
+            echo "  Step 3 OK: {$bank['bank_name']} — {$bank['account_number']} (name: {$childName})\n";
+        } else {
+            $parent->update(['juicyway_wallet_status' => 'active']);
+            echo "  Step 3 SKIP: account_number={$parent->juicyway_account_number}\n";
+        }
+
+        echo "  ✓ Done.\n\n";
+
+    } catch (\Throwable $e) {
+        $parent->update(['juicyway_wallet_status' => 'failed']);
+        echo "  ✗ FAILED: {$e->getMessage()}\n\n";
     }
 }
 
-// ── Case 2: Status is 'failed' AND no NUBAN — these need a real retry ────────
-$needsRetry = DB::table('parents')
-    ->whereNull('budpay_account_number')
-    ->where('budpay_wallet_status', 'failed')
-    ->whereNotNull('user_id')
-    ->select('id', 'budpay_customer_code', 'budpay_wallet_status')
-    ->get();
-
-echo "\nFound {$needsRetry->count()} parent(s) with failed status AND no NUBAN (need real retry):\n\n";
-
-foreach ($needsRetry as $row) {
-    echo "  Parent #{$row->id} | customer_code: " . ($row->budpay_customer_code ?? 'none') . "\n";
-    echo "    → Use the 'Retry NUBAN' button on the admin parent page, or dispatch ProvisionParentWalletJob manually.\n";
-}
-
-echo "\nDone.\n";
-if (DRY_RUN) {
-    echo "\nTo apply Case 1 fixes, set DRY_RUN = false and run again.\n";
-}
+echo "Complete. Run: rm fix_wallets.php\n";
