@@ -1,3 +1,4 @@
+{{-- Deploy to: resources/views/pdf/report-card.blade.php --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -95,6 +96,28 @@
 
 @php $hasAnyComment = $results->whereNotNull('admin_comment')->isNotEmpty(); @endphp
 
+@if($isRemarkOnly)
+{{-- Nursery / remark-only layout: Subject | Teacher's Remark --}}
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Subject</th>
+            <th>Teacher's Remark</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($results as $i => $result)
+        <tr>
+            <td style="color:#aaa;width:24px;">{{ $i + 1 }}</td>
+            <td style="font-weight:500;">{{ $result->subject->name }}</td>
+            <td style="color:#333;">{{ $result->remark ?? '—' }}</td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
+@else
+{{-- Standard scored layout: CA | Exam | Total | Grade | Remark --}}
 <table class="results-table">
     <thead>
         <tr>
@@ -136,8 +159,9 @@
         @endif
     </tbody>
 </table>
+@endif
 
-@if($results->isNotEmpty())
+@if($results->isNotEmpty() && ! $isRemarkOnly)
 <div class="summary-row">
     <div class="summary-card">
         <div class="sum-label">Subjects Taken</div>
@@ -154,6 +178,7 @@
 </div>
 @endif
 
+@if(! $isRemarkOnly)
 <div class="grade-key">
     <div class="grade-key-title">Grading Scale</div>
     <div class="grade-key-row">
@@ -165,6 +190,7 @@
         @endforeach
     </div>
 </div>
+@endif
 
 @php
     // Use the first non-null admin_comment as the principal's remark

@@ -1,3 +1,4 @@
+{{-- Deploy to: resources/views/livewire/admin/academics/class-manager.blade.php --}}
 <div>
 <style>
 .pg-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
@@ -17,6 +18,8 @@
 .data-table tr:last-child td { border-bottom:none; }
 .data-table tr:hover td { background:#fafaf8; }
 .class-name { font-weight:600; color:var(--c-text-1); }
+.result-badge-scored      { display:inline-flex; align-items:center; padding:2px 7px; background:rgba(26,86,255,0.08); color:var(--c-accent); border-radius:4px; font-size:10px; font-weight:600; }
+.result-badge-remark_only { display:inline-flex; align-items:center; padding:2px 7px; background:rgba(180,83,9,0.08); color:#B45309; border-radius:4px; font-size:10px; font-weight:600; }
 .arm-badge { display:inline-flex; align-items:center; padding:2px 8px; background:var(--c-accent-bg); color:var(--c-accent); border-radius:4px; font-size:11px; font-weight:600; margin-left:8px; }
 .order-btns { display:flex; flex-direction:column; gap:2px; }
 .btn-order { width:22px; height:22px; border-radius:4px; border:1px solid var(--c-border); background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--c-text-3); padding:0; transition:background 150ms; }
@@ -107,6 +110,9 @@
                             @if($class->arm)
                                 <span class="arm-badge">{{ $class->arm }}</span>
                             @endif
+                            <span class="result-badge-{{ $class->result_type ?? 'scored' }}" style="margin-left:6px;">
+                                {{ $class->result_type === 'remark_only' ? 'Remarks Only' : 'Scored' }}
+                            </span>
                         </td>
                         <td class="hide-mobile" style="font-size:12px;color:var(--c-text-3);">{{ $class->level }}</td>
                         <td class="hide-mobile" style="font-size:12px;color:var(--c-text-2);">
@@ -161,6 +167,16 @@
                 @endforeach
             </select>
             @error('formTeacherId') <div class="field-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="form-field">
+            <label>Results Format <span style="color:var(--c-danger)">*</span></label>
+            <select wire:model="resultType">
+                <option value="scored">Scored — CA (40%) + Exam (60%)</option>
+                <option value="remark_only">Remarks Only — Nursery classes</option>
+            </select>
+            <div class="field-hint">Nursery classes use remarks only. All other classes use scored format.</div>
+            @error('resultType') <div class="field-error">{{ $message }}</div> @enderror
         </div>
 
         <div class="modal-actions">

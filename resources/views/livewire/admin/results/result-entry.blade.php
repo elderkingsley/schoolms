@@ -1,3 +1,4 @@
+{{-- Deploy to: resources/views/livewire/admin/results/result-entry.blade.php --}}
 <div>
 <style>
 .pg-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
@@ -26,6 +27,13 @@
 .sel:focus { border-color:var(--c-accent); }
 .sel:disabled { opacity:0.5; cursor:not-allowed; }
 
+/* Nursery mode badge */
+.mode-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600;
+    background:rgba(180,83,9,0.08); color:#B45309; border:1px solid rgba(180,83,9,0.2);
+}
+
 .panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); overflow:hidden; margin-bottom:0; }
 .panel-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--c-border); flex-wrap:wrap; gap:8px; }
 .panel-title { font-size:13px; font-weight:600; color:var(--c-text-1); }
@@ -51,10 +59,17 @@
 }
 .score-input:focus { border-color:var(--c-accent); background:#fff; box-shadow:0 0 0 2px rgba(26,86,255,0.08); }
 
-/* Auto-computed total */
-.score-total { font-family:var(--f-mono); font-size:14px; font-weight:700; text-align:center; min-width:40px; display:inline-block; }
+/* Remark textarea */
+.remark-input {
+    width:100%; min-width:220px; padding:7px 10px;
+    border:1px solid var(--c-border); border-radius:6px;
+    font-size:13px; font-family:var(--f-sans);
+    background:var(--c-bg); color:var(--c-text-1); outline:none;
+    resize:vertical; line-height:1.4; transition:border-color 150ms;
+}
+.remark-input:focus { border-color:var(--c-accent); background:#fff; box-shadow:0 0 0 2px rgba(26,86,255,0.08); }
 
-/* Grade badge */
+.score-total { font-family:var(--f-mono); font-size:14px; font-weight:700; text-align:center; min-width:40px; display:inline-block; }
 .grade-badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; text-align:center; min-width:28px; }
 .grade-A { background:rgba(21,128,61,0.1);  color:#15803D; }
 .grade-B { background:rgba(26,86,255,0.08); color:var(--c-accent); }
@@ -74,7 +89,7 @@
 }
 .save-hint { font-size:12px; color:var(--c-text-3); }
 .save-actions { display:flex; gap:8px; }
-.btn-save { padding:10px 20px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
+.btn-save    { padding:10px 20px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
 .btn-save:hover { opacity:0.9; }
 .btn-publish { padding:10px 20px; background:#15803D; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); transition:opacity 150ms; }
 .btn-publish:hover { opacity:0.9; }
@@ -92,7 +107,13 @@
 <div class="pg-header">
     <div>
         <h1 class="pg-title">Results Entry</h1>
-        <p class="pg-sub">Enter CA and exam scores. Total, grade and remark are calculated automatically.</p>
+        <p class="pg-sub">
+            @if($isRemarkOnly)
+                Nursery mode — enter a remark per subject for each student.
+            @else
+                Enter CA and exam scores. Total, grade and remark are calculated automatically.
+            @endif
+        </p>
     </div>
     <a href="{{ route('admin.results.overview') }}"
        style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid var(--c-border);border-radius:8px;font-size:13px;font-weight:500;color:var(--c-text-2);text-decoration:none;background:var(--c-surface);">
@@ -125,6 +146,13 @@
             <option value="{{ $subject->id }}">{{ $subject->name }}</option>
         @endforeach
     </select>
+
+    @if($isRemarkOnly)
+        <span class="mode-badge">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2 2-8 8H4v-2L12 2z"/></svg>
+            Nursery — Remarks Only
+        </span>
+    @endif
 </div>
 
 @if(! $selectedSubjectId)
@@ -147,7 +175,11 @@
             <span class="panel-title">
                 {{ $students->count() }} {{ Str::plural('student', $students->count()) }}
             </span>
-            <span class="panel-hint">CA max: 40 &nbsp;|&nbsp; Exam max: 60 &nbsp;|&nbsp; Total: 100</span>
+            @if(! $isRemarkOnly)
+                <span class="panel-hint">CA max: 40 &nbsp;|&nbsp; Exam max: 60 &nbsp;|&nbsp; Total: 100</span>
+            @else
+                <span class="panel-hint">Type a remark for each student. Leave blank to skip.</span>
+            @endif
         </div>
 
         <div style="overflow-x:auto">
@@ -156,87 +188,100 @@
                     <tr>
                         <th>#</th>
                         <th>Student</th>
-                        <th class="center">CA <span style="font-weight:400;text-transform:none;">(/ 40)</span></th>
-                        <th class="center">Exam <span style="font-weight:400;text-transform:none;">(/ 60)</span></th>
-                        <th class="center">Total</th>
-                        <th class="center">Grade</th>
-                        <th class="center">Remark</th>
+                        @if($isRemarkOnly)
+                            <th>Teacher's Remark</th>
+                        @else
+                            <th class="center">CA <span style="font-weight:400;text-transform:none;">(/ 40)</span></th>
+                            <th class="center">Exam <span style="font-weight:400;text-transform:none;">(/ 60)</span></th>
+                            <th class="center">Total</th>
+                            <th class="center">Grade</th>
+                            <th class="center">Remark</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($students as $i => $student)
-                        {{--
-                            Alpine.js x-data component per row.
-                            Reads the Livewire-bound CA and Exam values reactively,
-                            computes total locally (no server round trip on each keystroke),
-                            and derives grade/remark from the percentage scale.
-                        --}}
-                        <tr x-data="{
-                            get ca()   { return parseInt($wire.scores['{{ $student->id }}']?.ca   || 0) },
-                            get exam() { return parseInt($wire.scores['{{ $student->id }}']?.exam || 0) },
-                            get total() { return Math.min(100, this.ca + this.exam) },
-                            get grade() {
-                                const t = this.total;
-                                if (t >= 75) return 'A';
-                                if (t >= 65) return 'B';
-                                if (t >= 55) return 'C';
-                                if (t >= 45) return 'D';
-                                if (t >= 35) return 'E';
-                                if (t > 0)   return 'F';
-                                return '—';
-                            },
-                            get remark() {
-                                const t = this.total;
-                                if (t >= 75) return 'Excellent';
-                                if (t >= 65) return 'Very Good';
-                                if (t >= 55) return 'Good';
-                                if (t >= 45) return 'Fair';
-                                if (t >= 35) return 'Pass';
-                                if (t > 0)   return 'Fail';
-                                return '—';
-                            },
-                            get gradeClass() { return 'grade-' + (this.grade === '—' ? '' : this.grade) }
-                        }">
-                            <td style="color:var(--c-text-3);font-size:12px;width:36px;">{{ $i + 1 }}</td>
-                            <td>
-                                <div class="student-name">{{ $student->full_name }}</div>
-                                <div class="student-adm">{{ $student->admission_number }}</div>
-                            </td>
-                            <td style="text-align:center">
-                                <input
-                                    type="number"
-                                    min="0" max="40"
-                                    class="score-input"
-                                    wire:model.lazy="scores.{{ $student->id }}.ca"
-                                    placeholder="—">
-                                @error("scores.{$student->id}.ca")
-                                    <div style="font-size:10px;color:var(--c-danger);margin-top:2px;">{{ $message }}</div>
-                                @enderror
-                            </td>
-                            <td style="text-align:center">
-                                <input
-                                    type="number"
-                                    min="0" max="60"
-                                    class="score-input"
-                                    wire:model.lazy="scores.{{ $student->id }}.exam"
-                                    placeholder="—">
-                                @error("scores.{$student->id}.exam")
-                                    <div style="font-size:10px;color:var(--c-danger);margin-top:2px;">{{ $message }}</div>
-                                @enderror
-                            </td>
-                            <td style="text-align:center">
-                                <span class="score-total"
-                                    :style="total > 0 ? 'color:var(--c-text-1)' : 'color:var(--c-text-3)'"
-                                    x-text="total > 0 ? total : '—'">
-                                </span>
-                            </td>
-                            <td style="text-align:center">
-                                <span class="grade-badge" :class="gradeClass" x-text="grade"></span>
-                            </td>
-                            <td style="text-align:center;font-size:12px;color:var(--c-text-3);">
-                                <span x-text="remark"></span>
-                            </td>
-                        </tr>
+                        @if($isRemarkOnly)
+                            {{-- Nursery: single remark textarea per student --}}
+                            <tr>
+                                <td style="color:var(--c-text-3);font-size:12px;width:36px;">{{ $i + 1 }}</td>
+                                <td>
+                                    <div class="student-name">{{ $student->full_name }}</div>
+                                    <div class="student-adm">{{ $student->admission_number }}</div>
+                                </td>
+                                <td>
+                                    <textarea
+                                        class="remark-input"
+                                        rows="2"
+                                        wire:model.lazy="scores.{{ $student->id }}.remark"
+                                        placeholder="e.g. Shows excellent creativity and enthusiasm…"
+                                        maxlength="200"></textarea>
+                                    @error("scores.{$student->id}.remark")
+                                        <div style="font-size:10px;color:var(--c-danger);margin-top:2px;">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                            </tr>
+                        @else
+                            {{-- Standard: CA + Exam with Alpine live preview --}}
+                            <tr x-data="{
+                                get ca()   { return parseInt($wire.scores['{{ $student->id }}']?.ca   || 0) },
+                                get exam() { return parseInt($wire.scores['{{ $student->id }}']?.exam || 0) },
+                                get total() { return Math.min(100, this.ca + this.exam) },
+                                get grade() {
+                                    const t = this.total;
+                                    if (t >= 75) return 'A';
+                                    if (t >= 65) return 'B';
+                                    if (t >= 55) return 'C';
+                                    if (t >= 45) return 'D';
+                                    if (t >= 35) return 'E';
+                                    if (t > 0)   return 'F';
+                                    return '—';
+                                },
+                                get remark() {
+                                    const t = this.total;
+                                    if (t >= 75) return 'Excellent';
+                                    if (t >= 65) return 'Very Good';
+                                    if (t >= 55) return 'Good';
+                                    if (t >= 45) return 'Fair';
+                                    if (t >= 35) return 'Pass';
+                                    if (t > 0)   return 'Fail';
+                                    return '—';
+                                },
+                                get gradeClass() { return 'grade-' + (this.grade === '—' ? '' : this.grade) }
+                            }">
+                                <td style="color:var(--c-text-3);font-size:12px;width:36px;">{{ $i + 1 }}</td>
+                                <td>
+                                    <div class="student-name">{{ $student->full_name }}</div>
+                                    <div class="student-adm">{{ $student->admission_number }}</div>
+                                </td>
+                                <td style="text-align:center">
+                                    <input type="number" min="0" max="40" class="score-input"
+                                        wire:model.lazy="scores.{{ $student->id }}.ca" placeholder="—">
+                                    @error("scores.{$student->id}.ca")
+                                        <div style="font-size:10px;color:var(--c-danger);margin-top:2px;">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                                <td style="text-align:center">
+                                    <input type="number" min="0" max="60" class="score-input"
+                                        wire:model.lazy="scores.{{ $student->id }}.exam" placeholder="—">
+                                    @error("scores.{$student->id}.exam")
+                                        <div style="font-size:10px;color:var(--c-danger);margin-top:2px;">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                                <td style="text-align:center">
+                                    <span class="score-total"
+                                        :style="total > 0 ? 'color:var(--c-text-1)' : 'color:var(--c-text-3)'"
+                                        x-text="total > 0 ? total : '—'">
+                                    </span>
+                                </td>
+                                <td style="text-align:center">
+                                    <span class="grade-badge" :class="gradeClass" x-text="grade"></span>
+                                </td>
+                                <td style="text-align:center;font-size:12px;color:var(--c-text-3);">
+                                    <span x-text="remark"></span>
+                                </td>
+                            </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>
@@ -250,7 +295,7 @@
             <div class="save-actions">
                 <button class="btn-save" style="background:none;border:1px solid var(--c-border);color:var(--c-text-2);"
                     wire:click="unpublish"
-                    wire:confirm="Unpublish these results? Parents will no longer see them, and the teacher can resubmit corrections.">
+                    wire:confirm="Unpublish these results? Parents will no longer see them.">
                     Unpublish
                 </button>
                 <button class="btn-publish" wire:click="requestEdit">
@@ -279,7 +324,8 @@
             </div>
         @else
             <span class="save-hint">
-                Scores are not saved until you click Save. Publishing makes results visible to parents.
+                {{ $isRemarkOnly ? 'Remarks are not saved until you click Save.' : 'Scores are not saved until you click Save.' }}
+                Publishing makes results visible to parents.
             </span>
             <div class="save-actions">
                 <button class="btn-save" wire:click="save"
@@ -288,7 +334,7 @@
                     <span wire:loading wire:target="save">Saving…</span>
                 </button>
                 <button class="btn-publish" wire:click="saveAndPublish"
-                    wire:confirm="Publish results? Parents will be able to see these scores in their portal."
+                    wire:confirm="Publish results? Parents will be able to see these in their portal."
                     wire:loading.attr="disabled" wire:loading.class="opacity-50">
                     <span wire:loading.remove wire:target="saveAndPublish">Save & Publish</span>
                     <span wire:loading wire:target="saveAndPublish">Publishing…</span>

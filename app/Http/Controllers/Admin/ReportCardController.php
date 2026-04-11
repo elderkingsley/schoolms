@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Http/Controllers/Admin/ReportCardController.php
 
 namespace App\Http\Controllers\Admin;
 
@@ -34,8 +35,10 @@ class ReportCardController extends Controller
         $totalScore   = $results->sum('total');
         $average      = $subjectCount > 0 ? round($totalScore / $subjectCount, 1) : 0;
 
+        $isRemarkOnly = $enrolment?->schoolClass?->isRemarkOnly() ?? false;
+
         $pdf = Pdf::loadView('pdf.report-card', compact(
-            'student', 'term', 'results', 'enrolment', 'average', 'subjectCount'
+            'student', 'term', 'results', 'enrolment', 'average', 'subjectCount', 'isRemarkOnly'
         ))->setPaper('a4', 'portrait');
 
         $filename = 'ReportCard-'

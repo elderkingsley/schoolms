@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Livewire/Admin/Academics/ClassManager.php
 
 namespace App\Livewire\Admin\Academics;
 
@@ -12,6 +13,7 @@ class ClassManager extends Component
     public string $level          = '';
     public string $arm            = '';
     public ?int   $formTeacherId  = null;
+    public string $resultType     = 'scored';
 
     public bool  $showForm   = false;
     public ?int  $editingId  = null;
@@ -24,6 +26,7 @@ class ClassManager extends Component
             'level'         => 'required|string|min:2|max:100',
             'arm'           => 'nullable|string|max:50',
             'formTeacherId' => 'nullable|exists:users,id',
+            'resultType'    => 'required|in:scored,remark_only',
         ];
     }
 
@@ -42,6 +45,7 @@ class ClassManager extends Component
         $this->level          = $class->level;
         $this->arm            = $class->arm ?? '';
         $this->formTeacherId  = $class->form_teacher_id;
+        $this->resultType     = $class->result_type ?? 'scored';
         $this->showForm       = true;
     }
 
@@ -50,7 +54,8 @@ class ClassManager extends Component
         $data = $this->validate();
         $data['arm']             = $data['arm'] ?: null;
         $data['form_teacher_id'] = $data['formTeacherId'];
-        unset($data['formTeacherId']);
+        $data['result_type']     = $data['resultType'];
+        unset($data['formTeacherId'], $data['resultType']);
 
         if ($this->editingId) {
             SchoolClass::findOrFail($this->editingId)->update($data);
@@ -120,6 +125,7 @@ class ClassManager extends Component
         $this->level         = '';
         $this->arm           = '';
         $this->formTeacherId = null;
+        $this->resultType    = 'scored';
         $this->editingId     = null;
     }
 

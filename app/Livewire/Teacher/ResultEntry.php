@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Livewire/Teacher/ResultEntry.php
 
 namespace App\Livewire\Teacher;
 
@@ -17,7 +18,7 @@ class ResultEntry extends Component
     public ?int   $selectedTermId    = null;
     public array  $scores            = [];
     public bool   $saved             = false;
-    public bool   $isLocked          = false; // true once submitted — teacher cannot edit
+    public bool   $isLocked          = false;
 
     public function mount(): void
     {
@@ -37,19 +38,39 @@ class ResultEntry extends Component
 
     public function updatedSelectedSubjectId(): void
     {
-        $this->scores    = [];
-        $this->saved     = false;
-        $this->isLocked  = false;
+        $this->scores   = [];
+        $this->saved    = false;
+        $this->isLocked = false;
         $this->loadScores();
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    protected function getSelectedClass(): ?SchoolClass
+    {
+        return $this->selectedClassId
+            ? SchoolClass::find($this->selectedClassId)
+            : null;
+    }
+
+    protected function isRemarkOnly(): bool
+    {
+        return $this->getSelectedClass()?->isRemarkOnly() ?? false;
+    }
+
+    // ── Load ──────────────────────────────────────────────────────────────────
 
     protected function loadScores(): void
     {
         if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) return;
 
-        $students = $this->getStudents();
+        $students     = $this->getStudents();
+        $isRemarkOnly = $this->isRemarkOnly();
+
         foreach ($students as $student) {
-            $this->scores[$student->id] = ['ca' => '', 'exam' => ''];
+            $this->scores[$student->id] = $isRemarkOnly
+                ? ['remark' => '']
+                : ['ca' => '', 'exam' => ''];
         }
 
         $existing = Result::where('term_id', $this->selectedTermId)
@@ -58,15 +79,20 @@ class ResultEntry extends Component
             ->get()->keyBy('student_id');
 
         foreach ($existing as $sid => $result) {
-            $this->scores[$sid] = [
-                'ca'   => $result->ca_score > 0 ? (string) $result->ca_score : '',
-                'exam' => $result->exam_score > 0 ? (string) $result->exam_score : '',
-            ];
+            if ($isRemarkOnly) {
+                $this->scores[$sid] = ['remark' => $result->remark ?? ''];
+            } else {
+                $this->scores[$sid] = [
+                    'ca'   => $result->ca_score !== null ? (string) $result->ca_score : '',
+                    'exam' => $result->exam_score !== null ? (string) $result->exam_score : '',
+                ];
+            }
         }
 
-        // Lock if any result in this set has been submitted
         $this->isLocked = $existing->whereNotNull('submitted_at')->isNotEmpty();
     }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
 
     public function save(): void
     {
@@ -77,14 +103,13 @@ class ResultEntry extends Component
     public function submitForReview(): void
     {
         $this->persistScores(submit: true);
-        session()->flash('success', 'Results submitted for admin review. The admin will review and publish them.');
+        session()->flash('success', 'Results submitted for admin review.');
     }
 
     protected function persistScores(bool $submit): void
     {
         if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) return;
 
-        // Hard server-side block — prevents direct method invocations bypassing the UI lock
         if ($this->isLocked) {
             session()->flash('error', 'These results are submitted and locked. Contact the admin to make changes.');
             return;
@@ -92,22 +117,37 @@ class ResultEntry extends Component
 
         $this->validateScores();
 
+        $isRemarkOnly = $this->isRemarkOnly();
+
         foreach ($this->scores as $studentId => $entry) {
-            $ca   = max(0, min(40, (int) ($entry['ca']   ?? 0)));
-            $exam = max(0, min(60, (int) ($entry['exam'] ?? 0)));
+            if ($isRemarkOnly) {
+                $remark = trim($entry['remark'] ?? '');
+                if (empty($remark)) continue;
 
-            if ($ca === 0 && $exam === 0 && empty($entry['ca']) && empty($entry['exam'])) continue;
+                $data = [
+                    'ca_score'   => null,
+                    'exam_score' => null,
+                    'total'      => null,
+                    'grade'      => null,
+                    'remark'     => $remark,
+                ];
+            } else {
+                $ca   = max(0, min(40, (int) ($entry['ca']   ?? 0)));
+                $exam = max(0, min(60, (int) ($entry['exam'] ?? 0)));
 
-            $total   = $ca + $exam;
-            $grading = Subject::gradeFor($total);
+                if ($ca === 0 && $exam === 0 && empty($entry['ca']) && empty($entry['exam'])) continue;
 
-            $data = [
-                'ca_score'   => $ca,
-                'exam_score' => $exam,
-                'total'      => $total,
-                'grade'      => $grading['grade'],
-                'remark'     => $grading['remark'],
-            ];
+                $total   = $ca + $exam;
+                $grading = Subject::gradeFor($total);
+
+                $data = [
+                    'ca_score'   => $ca,
+                    'exam_score' => $exam,
+                    'total'      => $total,
+                    'grade'      => $grading['grade'],
+                    'remark'     => $grading['remark'],
+                ];
+            }
 
             if ($submit) {
                 $data['submitted_by'] = auth()->id();
@@ -130,10 +170,18 @@ class ResultEntry extends Component
     protected function validateScores(): void
     {
         $rules = [];
-        foreach ($this->scores as $id => $entry) {
-            $rules["scores.{$id}.ca"]   = 'nullable|integer|min:0|max:40';
-            $rules["scores.{$id}.exam"] = 'nullable|integer|min:0|max:60';
+
+        if ($this->isRemarkOnly()) {
+            foreach ($this->scores as $id => $entry) {
+                $rules["scores.{$id}.remark"] = 'nullable|string|max:200';
+            }
+        } else {
+            foreach ($this->scores as $id => $entry) {
+                $rules["scores.{$id}.ca"]   = 'nullable|integer|min:0|max:40';
+                $rules["scores.{$id}.exam"] = 'nullable|integer|min:0|max:60';
+            }
         }
+
         $this->validate($rules);
     }
 
@@ -150,11 +198,12 @@ class ResultEntry extends Component
             ->get()->pluck('student')->filter()->sortBy('last_name');
     }
 
+    // ── Render ────────────────────────────────────────────────────────────────
+
     public function render()
     {
         $user = auth()->user();
 
-        // Only classes where this teacher is form teacher
         $myClasses = SchoolClass::where('form_teacher_id', $user->id)->ordered()->get();
         $terms     = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
 
@@ -170,9 +219,10 @@ class ResultEntry extends Component
             }
         }
 
-        $students = $this->getStudents();
+        $students      = $this->getStudents();
+        $selectedClass = $this->getSelectedClass();
+        $isRemarkOnly  = $this->isRemarkOnly();
 
-        // Check if this class/subject/term has already been submitted
         $isSubmitted = false;
         if ($this->selectedTermId && $this->selectedClassId && $this->selectedSubjectId && $students->isNotEmpty()) {
             $isSubmitted = Result::where('term_id', $this->selectedTermId)
@@ -185,7 +235,7 @@ class ResultEntry extends Component
         $isLocked = $this->isLocked;
 
         return view('livewire.teacher.result-entry',
-            compact('myClasses', 'terms', 'subjects', 'students', 'isSubmitted', 'isLocked'))
+            compact('myClasses', 'terms', 'subjects', 'students', 'isSubmitted', 'isLocked', 'selectedClass', 'isRemarkOnly'))
             ->layout('layouts.teacher', ['title' => 'Results Entry']);
     }
 }

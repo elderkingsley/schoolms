@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Livewire/Admin/Results/ResultEntry.php
 
 namespace App\Livewire\Admin\Results;
 
@@ -18,12 +19,13 @@ class ResultEntry extends Component
     public ?int $selectedClassId   = null;
     public ?int $selectedSubjectId = null;
 
-    // scores[student_id] = ['ca' => '', 'exam' => '']
+    // For scored classes:  scores[student_id] = ['ca' => '', 'exam' => '']
+    // For remark-only:     scores[student_id] = ['remark' => '']
     public array $scores = [];
 
-    public bool $saved              = false;
-    public bool $isPublished        = false; // true if current selection has published results
-    public bool $confirmingOverwrite = false; // admin must confirm before editing published results
+    public bool $saved               = false;
+    public bool $isPublished         = false;
+    public bool $confirmingOverwrite = false;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -56,7 +58,21 @@ class ResultEntry extends Component
         $this->loadScores();
     }
 
-    // ── Load existing scores ──────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    protected function getSelectedClass(): ?SchoolClass
+    {
+        return $this->selectedClassId
+            ? SchoolClass::find($this->selectedClassId)
+            : null;
+    }
+
+    protected function isRemarkOnly(): bool
+    {
+        return $this->getSelectedClass()?->isRemarkOnly() ?? false;
+    }
+
+    // ── Load existing scores/remarks ──────────────────────────────────────────
 
     protected function loadScores(): void
     {
@@ -64,11 +80,14 @@ class ResultEntry extends Component
             return;
         }
 
-        $students = $this->getStudents();
+        $students      = $this->getStudents();
+        $isRemarkOnly  = $this->isRemarkOnly();
 
-        // Pre-fill with empty entries
+        // Pre-fill with empty entries matching the class format
         foreach ($students as $student) {
-            $this->scores[$student->id] = ['ca' => '', 'exam' => ''];
+            $this->scores[$student->id] = $isRemarkOnly
+                ? ['remark' => '']
+                : ['ca' => '', 'exam' => ''];
         }
 
         // Overwrite with any previously saved results
@@ -79,42 +98,35 @@ class ResultEntry extends Component
             ->keyBy('student_id');
 
         foreach ($existing as $studentId => $result) {
-            $this->scores[$studentId] = [
-                'ca'   => $result->ca_score > 0 ? (string) $result->ca_score : '',
-                'exam' => $result->exam_score > 0 ? (string) $result->exam_score : '',
-            ];
+            if ($isRemarkOnly) {
+                $this->scores[$studentId] = [
+                    'remark' => $result->remark ?? '',
+                ];
+            } else {
+                $this->scores[$studentId] = [
+                    'ca'   => $result->ca_score !== null ? (string) $result->ca_score : '',
+                    'exam' => $result->exam_score !== null ? (string) $result->exam_score : '',
+                ];
+            }
         }
 
-        // Track whether any results in this set are already published
         $this->isPublished = $existing->where('is_published', true)->isNotEmpty();
     }
 
-    // ── Save scores ───────────────────────────────────────────────────────────
+    // ── Save ──────────────────────────────────────────────────────────────────
 
-    /**
-     * Called when admin clicks Save/Publish on already-published results.
-     * Shows a confirmation step instead of immediately overwriting.
-     */
     public function requestEdit(): void
     {
         $this->confirmingOverwrite = true;
     }
 
-    /**
-     * Admin confirmed they want to edit published results.
-     * Clears the confirmation flag — the save/publish buttons become active.
-     */
     public function confirmOverwrite(): void
     {
         $this->confirmingOverwrite = false;
-        $this->isPublished         = false; // treat as unlocked for this session
+        $this->isPublished         = false;
         session()->flash('success', 'Results unlocked. Make your corrections then save or republish.');
     }
 
-    /**
-     * Unpublish all results for the current class/subject/term.
-     * Useful when corrections are needed — teacher can resubmit after.
-     */
     public function unpublish(): void
     {
         if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) return;
@@ -126,13 +138,13 @@ class ResultEntry extends Component
             ->whereIn('student_id', $students->pluck('id'))
             ->update([
                 'is_published' => false,
-                'submitted_at' => null, // also unlock for teacher
+                'submitted_at' => null,
                 'submitted_by' => null,
             ]);
 
         $this->isPublished         = false;
         $this->confirmingOverwrite = false;
-        $this->loadScores(); // reload so teacher lock is cleared
+        $this->loadScores();
 
         session()->flash('success', 'Results unpublished. The teacher can now resubmit after corrections.');
     }
@@ -145,33 +157,57 @@ class ResultEntry extends Component
 
         $this->validateScores();
 
+        $isRemarkOnly = $this->isRemarkOnly();
+
         foreach ($this->scores as $studentId => $entry) {
-            $ca   = max(0, min(40, (int) ($entry['ca']   ?? 0)));
-            $exam = max(0, min(60, (int) ($entry['exam'] ?? 0)));
+            if ($isRemarkOnly) {
+                // Remark-only mode — skip blank rows
+                $remark = trim($entry['remark'] ?? '');
+                if (empty($remark)) continue;
 
-            // Skip completely blank rows — don't create empty result records
-            if ($ca === 0 && $exam === 0 && empty($entry['ca']) && empty($entry['exam'])) {
-                continue;
+                Result::updateOrCreate(
+                    [
+                        'student_id' => $studentId,
+                        'subject_id' => $this->selectedSubjectId,
+                        'term_id'    => $this->selectedTermId,
+                    ],
+                    [
+                        'ca_score'     => null,
+                        'exam_score'   => null,
+                        'total'        => null,
+                        'grade'        => null,
+                        'remark'       => $remark,
+                        'is_published' => $publish,
+                    ]
+                );
+            } else {
+                // Scored mode — existing behaviour
+                $ca   = max(0, min(40, (int) ($entry['ca']   ?? 0)));
+                $exam = max(0, min(60, (int) ($entry['exam'] ?? 0)));
+
+                if ($ca === 0 && $exam === 0 && empty($entry['ca']) && empty($entry['exam'])) {
+                    continue;
+                }
+
+                $total   = $ca + $exam;
+                $grading = Subject::gradeFor($total);
+
+                Result::updateOrCreate(
+                    [
+                        'student_id' => $studentId,
+                        'subject_id' => $this->selectedSubjectId,
+                        'term_id'    => $this->selectedTermId,
+                    ],
+                    [
+                        'ca_score'     => $ca,
+                        'exam_score'   => $exam,
+                        'total'        => $total,
+                        'grade'        => $grading['grade'],
+                        'remark'       => $grading['remark'],
+                        'is_published' => $publish,
+                    ]
+                );
             }
-
-            $total   = $ca + $exam;
-            $grading = Subject::gradeFor($total);
-
-            Result::updateOrCreate(
-                [
-                    'student_id' => $studentId,
-                    'subject_id' => $this->selectedSubjectId,
-                    'term_id'    => $this->selectedTermId,
-                ],
-                [
-                    'ca_score'     => $ca,
-                    'exam_score'   => $exam,
-                    'total'        => $total,
-                    'grade'        => $grading['grade'],
-                    'remark'       => $grading['remark'],
-                    'is_published' => $publish,
-                ]
-            );
         }
 
         $this->saved = true;
@@ -187,10 +223,19 @@ class ResultEntry extends Component
     protected function validateScores(): void
     {
         $rules = [];
-        foreach ($this->scores as $id => $entry) {
-            $rules["scores.{$id}.ca"]   = 'nullable|integer|min:0|max:40';
-            $rules["scores.{$id}.exam"] = 'nullable|integer|min:0|max:60';
+
+        if ($this->isRemarkOnly()) {
+            foreach ($this->scores as $id => $entry) {
+                // Remark is optional (blank rows are skipped), but if filled it must be a string
+                $rules["scores.{$id}.remark"] = 'nullable|string|max:200';
+            }
+        } else {
+            foreach ($this->scores as $id => $entry) {
+                $rules["scores.{$id}.ca"]   = 'nullable|integer|min:0|max:40';
+                $rules["scores.{$id}.exam"] = 'nullable|integer|min:0|max:60';
+            }
         }
+
         $this->validate($rules);
     }
 
@@ -220,7 +265,6 @@ class ResultEntry extends Component
         $terms   = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
         $classes = SchoolClass::orderBy('order')->get();
 
-        // Subjects assigned to the selected class in the active session
         $subjects = collect();
         if ($this->selectedClassId && $this->selectedTermId) {
             $term = Term::find($this->selectedTermId);
@@ -235,12 +279,19 @@ class ResultEntry extends Component
             }
         }
 
-        $students = $this->getStudents();
+        $students     = $this->getStudents();
+        $selectedClass = $this->getSelectedClass();
+        $isRemarkOnly  = $this->isRemarkOnly();
 
         $isPublished         = $this->isPublished;
         $confirmingOverwrite = $this->confirmingOverwrite;
+
         return view('livewire.admin.results.result-entry',
-            compact('terms', 'classes', 'subjects', 'students', 'isPublished', 'confirmingOverwrite'))
+            compact(
+                'terms', 'classes', 'subjects', 'students',
+                'isPublished', 'confirmingOverwrite',
+                'selectedClass', 'isRemarkOnly'
+            ))
             ->layout('layouts.admin', ['title' => 'Results Entry']);
     }
 }

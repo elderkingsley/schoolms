@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Models/SchoolClass.php
 
 namespace App\Models;
 
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SchoolClass extends Model
 {
-    protected $fillable = ['name', 'level', 'arm', 'form_teacher_id', 'assistant_teacher_id', 'order'];
+    protected $fillable = ['name', 'level', 'arm', 'form_teacher_id', 'assistant_teacher_id', 'order', 'result_type'];
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
@@ -33,6 +34,18 @@ class SchoolClass extends Model
     public function enrolments(): HasMany
     {
         return $this->hasMany(Enrolment::class);
+    }
+
+
+    // ── Result type helpers ───────────────────────────────────────────────────
+
+    /**
+     * Returns true if this class uses remark-only results (e.g. Nursery).
+     * Use this everywhere instead of checking result_type === 'remark_only' directly.
+     */
+    public function isRemarkOnly(): bool
+    {
+        return $this->result_type === 'remark_only';
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────────
