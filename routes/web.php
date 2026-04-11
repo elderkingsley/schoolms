@@ -26,7 +26,8 @@ Route::post('/api/korapay/webhook', [App\Http\Controllers\KorapayWebhookControll
     ->name('webhooks.korapay');
 
 // ── Public routes ─────────────────────────────────────────────────────────────
-Route::get('/enrol', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
+Route::get('/enroll', \App\Livewire\Public\EnrolmentForm::class)->name('enrol');
+Route::get('/enrol', fn() => redirect('/enroll', 301)); // legacy redirect
 Route::get('/staff/register', \App\Livewire\Public\StaffRegistrationForm::class)->name('staff.register');
 
 // ── Auth routes (Breeze) ──────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+{{-- Deploy to: resources/views/livewire/public/enrolment-form.blade.php --}}
 <div>
 <style>
 .enrol-wrap { }
@@ -234,6 +235,25 @@
                 Our admin team will review the details and you will receive
                 a welcome email with your login credentials once the
                 application is approved. This usually takes 1–2 business days.
+            </p>
+        </div>
+    </div>
+
+@elseif($isDuplicate)
+    {{-- ── Duplicate detected ── --}}
+    <div class="form-card">
+        <div class="success-wrap">
+            <div class="success-icon" style="background:rgba(180,83,9,0.1);">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h2 class="success-title" style="color:#B45309;">Application Already Received</h2>
+            <p class="success-msg">
+                Our records show that an enrolment application for this child has already been submitted
+                using the same name, date of birth, and parent email address.<br><br>
+                If you believe this is an error, or need to check the status of your application,
+                please contact the school directly.
             </p>
         </div>
     </div>

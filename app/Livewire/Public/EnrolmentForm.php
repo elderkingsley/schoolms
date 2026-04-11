@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Livewire/Public/EnrolmentForm.php
 
 namespace App\Livewire\Public;
 
@@ -54,7 +55,8 @@ class EnrolmentForm extends Component
     public string $emergency_phone        = '';
     public string $emergency_relationship = '';
 
-    public bool $submitted = false;
+    public bool $submitted       = false;
+    public bool $isDuplicate     = false; // true if this child appears to already be enrolled
 
     protected function stepRules(): array
     {
@@ -126,6 +128,27 @@ class EnrolmentForm extends Component
 
         DB::transaction(function () use ($studentFirst, $studentLast, $parentEmail, $parentName, $photoPath) {
 
+            // ── Duplicate student check ───────────────────────────────────
+            // A student is considered a duplicate if another student record
+            // exists with the same first name, last name, and date of birth
+            // AND is linked to a parent with the same email.
+            // This catches both accidental double-submits and deliberate
+            // re-enrolments of an already-enrolled child.
+            $duplicateExists = Student::whereRaw('LOWER(first_name) = ?', [strtolower(trim($studentFirst))])
+                ->whereRaw('LOWER(last_name) = ?', [strtolower(trim($studentLast))])
+                ->where('date_of_birth', $this->student_dob)
+                ->whereHas('parents', fn($q) =>
+                    $q->whereHas('user', fn($u) =>
+                        $u->whereRaw('LOWER(email) = ?', [strtolower($parentEmail)])
+                    )->orWhereRaw('LOWER(_temp_email) = ?', [strtolower($parentEmail)])
+                )
+                ->exists();
+
+            if ($duplicateExists) {
+                $this->isDuplicate = true;
+                return; // abort the transaction cleanly — no records created
+            }
+
             $student = Student::create([
                 'admission_number'  => 'TEMP-' . strtoupper(Str::random(8)),
                 'first_name'        => trim($studentFirst),
@@ -188,6 +211,12 @@ class EnrolmentForm extends Component
                     $admin->notify(new AdminNewEnrolmentNotification($student));
                 });
         });
+
+        // If a duplicate was detected inside the transaction, stop here.
+        // The blade will show a friendly message instead of the success screen.
+        if ($this->isDuplicate) {
+            return;
+        }
 
         try {
             Mail::to($parentEmail)->send(
