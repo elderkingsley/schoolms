@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Livewire/Admin/TeacherManager.php
 
 namespace App\Livewire\Admin;
 
@@ -108,20 +109,34 @@ class TeacherManager extends Component
 
     public function save(): void
     {
-        $uniqueEmail = $this->editingId
+        // When editing, email must be unique excluding the current user.
+        // When creating, we allow a parent email — we promote instead of creating.
+        $uniqueEmailRule = $this->editingId
             ? "unique:users,email,{$this->editingId}"
-            : 'unique:users,email';
+            : [
+                'required', 'email',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    $existing = User::where('email', $value)->first();
+                    if ($existing && $existing->user_type !== 'parent') {
+                        $fail('A staff account already exists for this email address.');
+                    }
+                },
+              ];
 
         $this->validate([
             'name'             => 'required|string|min:2|max:100',
-            'email'            => "required|email|{$uniqueEmail}",
+            'email'            => $this->editingId ? "required|email|unique:users,email,{$this->editingId}" : ['required', 'email', function (string $attribute, mixed $value, \Closure $fail) {
+                    $existing = User::where('email', $value)->first();
+                    if ($existing && $existing->user_type !== 'parent') {
+                        $fail('A staff account already exists for this email address.');
+                    }
+                }],
             'phone'            => 'nullable|string|max:20',
             'staffRole'        => 'required|in:teacher,teaching_assistant',
             'formClassId'      => 'nullable|exists:school_classes,id',
             'assistantClassId' => 'nullable|exists:school_classes,id',
         ], [
-            'email.unique'    => 'A user with this email already exists.',
-            'staffRole.in'    => 'Role must be Teacher or Teaching Assistant.',
+            'staffRole.in' => 'Role must be Teacher or Teaching Assistant.',
         ]);
 
         if ($this->editingId) {
@@ -137,27 +152,43 @@ class TeacherManager extends Component
             $this->syncClassAssignments($user->id);
             session()->flash('success', "{$user->name}'s details updated.");
         } else {
-            $tempPassword = Str::upper(Str::random(4)) . rand(10, 99) . Str::lower(Str::random(4));
+            $spatieRole = $this->staffRole === 'teaching_assistant' ? 'teacher' : $this->staffRole;
+            $roleLabel  = $this->staffRole === 'teaching_assistant' ? 'Teaching Assistant' : 'Teacher';
 
-            $user = User::create([
-                'name'                  => $this->name,
-                'email'                 => $this->email,
-                'phone'                 => $this->phone ?: null,
-                'password'              => Hash::make($tempPassword),
-                'user_type'             => $this->staffRole,
-                'is_active'             => true,
-                'force_password_change' => true,
-            ]);
+            // Check if the email belongs to an existing parent — promote rather than create
+            $existingUser = User::where('email', $this->email)->first();
 
-            // Assign Spatie role so the role middleware grants portal access.
-            // teaching_assistant uses the 'teacher' Spatie role (same portal, same permissions).
-            $user->assignRole($this->staffRole === 'teaching_assistant' ? 'teacher' : $this->staffRole);
+            if ($existingUser && $existingUser->user_type === 'parent') {
+                // Promote existing parent account to teacher
+                $existingUser->syncRoles([$spatieRole]);
+                $existingUser->update([
+                    'name'      => $this->name,
+                    'phone'     => $this->phone ?: $existingUser->phone,
+                    'user_type' => $this->staffRole,
+                ]);
 
-            $this->syncClassAssignments($user->id);
-            $user->notify(new UserWelcomeNotification($user, $tempPassword));
+                $this->syncClassAssignments($existingUser->id);
+                session()->flash('success', "{$existingUser->name}'s existing parent account has been promoted to {$roleLabel}. They can log in with their current password.");
+            } else {
+                // No existing account — create fresh
+                $tempPassword = Str::upper(Str::random(4)) . rand(10, 99) . Str::lower(Str::random(4));
 
-            $roleLabel = $this->staffRole === 'teaching_assistant' ? 'Teaching Assistant' : 'Teacher';
-            session()->flash('success', "{$roleLabel} {$user->name} added. Credentials sent to {$user->email}.");
+                $user = User::create([
+                    'name'                  => $this->name,
+                    'email'                 => $this->email,
+                    'phone'                 => $this->phone ?: null,
+                    'password'              => Hash::make($tempPassword),
+                    'user_type'             => $this->staffRole,
+                    'is_active'             => true,
+                    'force_password_change' => true,
+                ]);
+
+                $user->assignRole($spatieRole);
+                $this->syncClassAssignments($user->id);
+                $user->notify(new UserWelcomeNotification($user, $tempPassword));
+
+                session()->flash('success', "{$roleLabel} {$user->name} added. Credentials sent to {$user->email}.");
+            }
         }
 
         $this->resetStaffForm();

@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Livewire/Public/StaffRegistrationForm.php
 
 namespace App\Livewire\Public;
 
@@ -44,10 +45,24 @@ class StaffRegistrationForm extends Component
             'email' => [
                 'required',
                 'email',
-                // Block duplicate teacher registrations
-                'unique:teacher_registrations,email',
-                // Custom rule — see validateEmail() below
+                    // Custom rule — blocks duplicates and non-parent existing users
                 function (string $attribute, mixed $value, \Closure $fail) {
+                    // Block if a pending or approved registration already exists.
+                    // A rejected application is allowed to be resubmitted.
+                    $existingRegistration = \App\Models\TeacherRegistration::where('email', $value)
+                        ->whereIn('status', ['pending', 'approved'])
+                        ->first();
+
+                    if ($existingRegistration) {
+                        $status = $existingRegistration->status;
+                        if ($status === 'approved') {
+                            $fail('This email address has already been approved as a staff account. Please contact the admin if you need help logging in.');
+                        } else {
+                            $fail('An application with this email address is already pending review.');
+                        }
+                        return;
+                    }
+
                     $existingUser = User::where('email', $value)->first();
 
                     if (! $existingUser) {
@@ -55,7 +70,7 @@ class StaffRegistrationForm extends Component
                         return;
                     }
 
-                    if ($existingUser->user_type === 'parent') {
+                    if ($existingUser->hasRole('parent') || $existingUser->user_type === 'parent') {
                         // Parent applying as teacher — allowed.
                         // TeacherManager::approveRegistration() will promote
                         // this existing account instead of creating a new one.
@@ -75,9 +90,7 @@ class StaffRegistrationForm extends Component
 
     protected function messages(): array
     {
-        return [
-            'email.unique' => 'An application with this email address has already been submitted.',
-        ];
+        return [];
     }
 
     public function submit(): void
