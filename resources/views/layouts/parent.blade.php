@@ -101,6 +101,7 @@
             background: #fff;
             border-top: 1px solid var(--c-border);
             display: flex; align-items: stretch;
+            will-change: transform;
         }
         .p-nav-item {
             flex: 1; display: flex; flex-direction: column;
@@ -215,6 +216,45 @@
         Messages
     </a>
 </nav>
+
+
+<script>
+(function () {
+    // Auto-hide bottom nav on activity, show after 5 seconds of inactivity.
+    // Only applies on mobile (screens narrower than 768px) — on desktop the
+    // save bar and nav don't overlap so hiding isn't needed.
+    var nav     = document.querySelector('.p-bottom-nav');
+    var timer   = null;
+    var DELAY   = 5000; // ms before nav reappears
+
+    if (! nav) return;
+
+    function hide() {
+        nav.style.transform  = 'translateY(100%)';
+        nav.style.transition = 'transform 250ms cubic-bezier(0.4,0,0.2,1)';
+    }
+
+    function show() {
+        nav.style.transform  = 'translateY(0)';
+        nav.style.transition = 'transform 250ms cubic-bezier(0.4,0,0.2,1)';
+    }
+
+    function onActivity() {
+        if (window.innerWidth >= 768) return; // desktop — leave nav visible
+        hide();
+        clearTimeout(timer);
+        timer = setTimeout(show, DELAY);
+    }
+
+    // Listen for all meaningful interaction events
+    ['touchstart', 'touchmove', 'mousedown', 'scroll', 'keydown', 'focus'].forEach(function (evt) {
+        document.addEventListener(evt, onActivity, { passive: true });
+    });
+
+    // Also hide when a Livewire request starts (e.g. typing in a score input)
+    document.addEventListener('livewire:request', onActivity);
+})();
+</script>
 
 @livewireScripts
 </body>
