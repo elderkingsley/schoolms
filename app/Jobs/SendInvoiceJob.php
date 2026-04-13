@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Jobs/SendInvoiceJob.php
 
 namespace App\Jobs;
 
@@ -74,8 +75,9 @@ class SendInvoiceJob implements ShouldQueue
         // parent pays. Dispatched on the 'payments' queue so it shares
         // priority with the polling job. Dispatched with a 5-second delay
         // to ensure sent_at has propagated before PayGrid reads any state.
+        // Dispatched to the default queue — no separate 'payments' queue worker needed.
+        // 5-second delay ensures sent_at has propagated before PayGrid reads any state.
         PushInvoiceToPayGridJob::dispatch($invoice->fresh())
-            ->onQueue('payments')
             ->delay(now()->addSeconds(5));
 
         Log::info("SendInvoiceJob: PushInvoiceToPayGridJob queued for invoice {$invoice->id}.");
