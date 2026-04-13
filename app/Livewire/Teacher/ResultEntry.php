@@ -18,7 +18,7 @@ class ResultEntry extends Component
     public ?int   $selectedTermId    = null;
     public array  $scores            = [];
     public bool   $saved             = false;
-    public bool   $isLocked          = false;
+    public bool   $isLocked          = false; // true only when admin has published — teacher cannot edit published results
 
     public function mount(): void
     {
@@ -89,7 +89,9 @@ class ResultEntry extends Component
             }
         }
 
-        $this->isLocked = $existing->whereNotNull('submitted_at')->isNotEmpty();
+        // Lock only when admin has published — teacher can always edit and
+        // resubmit as long as results have not been published to parents.
+        $this->isLocked = $existing->where('is_published', true)->isNotEmpty();
     }
 
     // ── Save ──────────────────────────────────────────────────────────────────
@@ -111,7 +113,7 @@ class ResultEntry extends Component
         if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) return;
 
         if ($this->isLocked) {
-            session()->flash('error', 'These results are submitted and locked. Contact the admin to make changes.');
+            session()->flash('error', 'These results have been published by the admin and are visible to parents. Contact the admin to make corrections.');
             return;
         }
 
@@ -150,8 +152,15 @@ class ResultEntry extends Component
             }
 
             if ($submit) {
+                // Always update submitted_at on resubmit so admin can see
+                // the results were revised after the initial submission.
                 $data['submitted_by'] = auth()->id();
                 $data['submitted_at'] = now();
+            } else {
+                // Saving as draft after a prior submission — clear submitted_at
+                // so admin knows this is a work-in-progress again.
+                $data['submitted_at'] = null;
+                $data['submitted_by'] = null;
             }
 
             Result::updateOrCreate(

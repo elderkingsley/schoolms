@@ -103,11 +103,11 @@
 
 @if($isLocked)
     <div class="submitted-banner" style="background:rgba(190,18,60,0.07);border-color:rgba(190,18,60,0.2);color:#BE123C;">
-        🔒 These results have been submitted and are now locked. Contact the admin if a correction is needed.
+        🔒 These results have been published by the admin and are visible to parents. Contact the admin if a correction is needed.
     </div>
 @elseif($isSubmitted)
     <div class="submitted-banner">
-        ⏳ These results are submitted for admin review. You can still update and resubmit before the admin publishes them.
+        ✅ Submitted for admin review. You can still edit and resubmit at any time before the admin publishes.
     </div>
 @endif
 
@@ -209,11 +209,11 @@
     <div class="save-bar">
         @if($isLocked)
             <span class="save-hint" style="color:#BE123C;font-weight:500;">
-                🔒 Submitted and locked — contact admin to make corrections
+                🔒 Published by admin — contact admin to make corrections
             </span>
             <div class="save-actions"></div>
         @else
-            <span class="save-hint">Drafts are not visible to parents. Submit for admin review when ready.</span>
+            <span class="save-hint">Drafts are not visible to parents. You can edit and resubmit at any time until the admin publishes.</span>
             <div class="save-actions">
                 <button class="btn-draft" wire:click="save"
                     wire:loading.attr="disabled" wire:loading.class="opacity-50">
@@ -221,7 +221,7 @@
                     <span wire:loading wire:target="save">Saving…</span>
                 </button>
                 <button class="btn-submit" wire:click="submitForReview"
-                    wire:confirm="Submit for admin review? You will not be able to make changes after submitting."
+                    wire:confirm="Submit for admin review? You can still edit and resubmit until the admin publishes the results."
                     wire:loading.attr="disabled" wire:loading.class="opacity-50">
                     <span wire:loading.remove wire:target="submitForReview">Submit for Review</span>
                     <span wire:loading wire:target="submitForReview">Submitting…</span>
