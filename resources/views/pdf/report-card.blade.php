@@ -59,11 +59,26 @@
 </head>
 <body>
 
+@php
+    $schoolName    = \App\Models\SchoolSetting::get('school_name', 'Nurtureville School');
+    $schoolTagline = \App\Models\SchoolSetting::get('school_tagline', 'Nurturing Minds, Building Futures');
+    $logoBase64    = \App\Models\SchoolSetting::logoBase64();
+@endphp
+
 <div class="header">
-    <div class="logo-cell"><div class="logo">N</div></div>
+    <div class="logo-cell">
+        @if($logoBase64)
+            {{-- Real school logo embedded as base64 — DomPDF requires inline images --}}
+            <img src="{{ $logoBase64 }}" alt="School Logo"
+                 style="width:48px;height:48px;border-radius:50%;object-fit:cover;display:block;">
+        @else
+            {{-- Fallback: initials badge if no logo uploaded --}}
+            <div class="logo">{{ strtoupper(substr($schoolName, 0, 1)) }}</div>
+        @endif
+    </div>
     <div class="school-cell">
-        <div class="school-name">Nurtureville School</div>
-        <div class="school-sub">Nurturing Minds, Building Futures</div>
+        <div class="school-name">{{ $schoolName }}</div>
+        <div class="school-sub">{{ $schoolTagline }}</div>
     </div>
     <div class="report-cell">
         <div class="report-label">REPORT CARD</div>
