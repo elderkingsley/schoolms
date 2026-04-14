@@ -97,15 +97,9 @@
 @php $hasAnyComment = $results->whereNotNull('admin_comment')->isNotEmpty(); @endphp
 
 @if($isRemarkOnly)
-{{-- Nursery / remark-only layout: Subject | Teacher's Remark --}}
+{{-- Nursery layout: Subject | Teacher's Remark --}}
 <table class="results-table">
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Subject</th>
-            <th>Teacher's Remark</th>
-        </tr>
-    </thead>
+    <thead><tr><th>#</th><th>Subject</th><th>Teacher's Remark</th></tr></thead>
     <tbody>
         @foreach($results as $i => $result)
         <tr>
@@ -117,7 +111,6 @@
     </tbody>
 </table>
 @else
-{{-- Standard scored layout: CA | Exam | Total | Grade | Remark --}}
 <table class="results-table">
     <thead>
         <tr>
@@ -159,6 +152,7 @@
         @endif
     </tbody>
 </table>
+
 @endif
 
 @if($results->isNotEmpty() && ! $isRemarkOnly)
@@ -192,14 +186,17 @@
 </div>
 @endif
 
-@php
-    // Use the first non-null admin_comment as the principal's remark
-    $principalRemark = $results->whereNotNull('admin_comment')->first()?->admin_comment;
-@endphp
-@if($principalRemark)
+@if($termComment?->teacher_comment)
+<div class="principal-remark" style="margin-bottom:10px;">
+    <div class="remark-title">Class Teacher's Comment</div>
+    <div class="remark-text">{{ $termComment->teacher_comment }}</div>
+</div>
+@endif
+
+@if($termComment?->head_teacher_comment)
 <div class="principal-remark">
-    <div class="remark-title">Principal's Remark</div>
-    <div class="remark-text">{{ $principalRemark }}</div>
+    <div class="remark-title">Head Teacher's Remark</div>
+    <div class="remark-text">{{ $termComment->head_teacher_comment }}</div>
 </div>
 @endif
 

@@ -3,11 +3,10 @@
 
 namespace App\Livewire\Admin\Results;
 
-use App\Models\AcademicSession;
-use App\Models\ClassSubject;
 use App\Models\Enrolment;
 use App\Models\Result;
 use App\Models\SchoolClass;
+use App\Models\StudentTermComment;
 use App\Models\Subject;
 use App\Models\Term;
 use Illuminate\Support\Collection;
@@ -22,6 +21,10 @@ class ResultEntry extends Component
     // For scored classes:  scores[student_id] = ['ca' => '', 'exam' => '']
     // For remark-only:     scores[student_id] = ['remark' => '']
     public array $scores = [];
+
+    // Head teacher general comments — keyed by student_id
+    // Available for ALL class types (nursery and primary)
+    public array $headComments = [];
 
     public bool $saved               = false;
     public bool $isPublished         = false;
@@ -38,22 +41,25 @@ class ResultEntry extends Component
     {
         $this->selectedClassId   = null;
         $this->selectedSubjectId = null;
-        $this->scores = [];
-        $this->saved  = false;
+        $this->scores       = [];
+        $this->headComments = [];
+        $this->saved        = false;
     }
 
     public function updatedSelectedClassId(): void
     {
         $this->selectedSubjectId = null;
-        $this->scores = [];
-        $this->saved  = false;
+        $this->scores       = [];
+        $this->headComments = [];
+        $this->saved        = false;
+        $this->loadHeadComments();
     }
 
     public function updatedSelectedSubjectId(): void
     {
-        $this->scores             = [];
-        $this->saved              = false;
-        $this->isPublished        = false;
+        $this->scores              = [];
+        $this->saved               = false;
+        $this->isPublished         = false;
         $this->confirmingOverwrite = false;
         $this->loadScores();
     }
@@ -72,7 +78,7 @@ class ResultEntry extends Component
         return $this->getSelectedClass()?->isRemarkOnly() ?? false;
     }
 
-    // ── Load existing scores/remarks ──────────────────────────────────────────
+    // ── Load scores/remarks ───────────────────────────────────────────────────
 
     protected function loadScores(): void
     {
@@ -80,17 +86,15 @@ class ResultEntry extends Component
             return;
         }
 
-        $students      = $this->getStudents();
-        $isRemarkOnly  = $this->isRemarkOnly();
+        $students     = $this->getStudents();
+        $isRemarkOnly = $this->isRemarkOnly();
 
-        // Pre-fill with empty entries matching the class format
         foreach ($students as $student) {
             $this->scores[$student->id] = $isRemarkOnly
                 ? ['remark' => '']
                 : ['ca' => '', 'exam' => ''];
         }
 
-        // Overwrite with any previously saved results
         $existing = Result::where('term_id', $this->selectedTermId)
             ->where('subject_id', $this->selectedSubjectId)
             ->whereIn('student_id', $students->pluck('id'))
@@ -99,9 +103,7 @@ class ResultEntry extends Component
 
         foreach ($existing as $studentId => $result) {
             if ($isRemarkOnly) {
-                $this->scores[$studentId] = [
-                    'remark' => $result->remark ?? '',
-                ];
+                $this->scores[$studentId] = ['remark' => $result->remark ?? ''];
             } else {
                 $this->scores[$studentId] = [
                     'ca'   => $result->ca_score !== null ? (string) $result->ca_score : '',
@@ -113,7 +115,27 @@ class ResultEntry extends Component
         $this->isPublished = $existing->where('is_published', true)->isNotEmpty();
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
+    // ── Load head teacher comments ────────────────────────────────────────────
+
+    protected function loadHeadComments(): void
+    {
+        if (! $this->selectedTermId || ! $this->selectedClassId) return;
+
+        $students = $this->getStudents();
+
+        foreach ($students as $student) {
+            $this->headComments[$student->id] = '';
+        }
+
+        StudentTermComment::where('term_id', $this->selectedTermId)
+            ->whereIn('student_id', $students->pluck('id'))
+            ->get()
+            ->each(function ($comment) {
+                $this->headComments[$comment->student_id] = $comment->head_teacher_comment ?? '';
+            });
+    }
+
+    // ── Save scores ───────────────────────────────────────────────────────────
 
     public function requestEdit(): void
     {
@@ -156,12 +178,10 @@ class ResultEntry extends Component
         }
 
         $this->validateScores();
-
         $isRemarkOnly = $this->isRemarkOnly();
 
         foreach ($this->scores as $studentId => $entry) {
             if ($isRemarkOnly) {
-                // Remark-only mode — skip blank rows
                 $remark = trim($entry['remark'] ?? '');
                 if (empty($remark)) continue;
 
@@ -181,7 +201,6 @@ class ResultEntry extends Component
                     ]
                 );
             } else {
-                // Scored mode — existing behaviour
                 $ca   = max(0, min(40, (int) ($entry['ca']   ?? 0)));
                 $exam = max(0, min(60, (int) ($entry['exam'] ?? 0)));
 
@@ -220,13 +239,39 @@ class ResultEntry extends Component
         $this->save(publish: true);
     }
 
+    // ── Save head teacher comments ────────────────────────────────────────────
+
+    public function saveHeadComments(): void
+    {
+        if (! $this->selectedTermId || ! $this->selectedClassId) return;
+
+        $rules = collect($this->headComments)
+            ->mapWithKeys(fn($v, $id) => ["headComments.{$id}" => 'nullable|string|max:500'])
+            ->toArray();
+
+        $this->validate($rules);
+
+        foreach ($this->headComments as $studentId => $comment) {
+            StudentTermComment::updateOrCreate(
+                ['student_id' => $studentId, 'term_id' => $this->selectedTermId],
+                [
+                    'head_teacher_comment' => trim($comment) ?: null,
+                    'reviewed_by'          => auth()->id(),
+                ]
+            );
+        }
+
+        session()->flash('success', 'Head teacher comments saved.');
+    }
+
+    // ── Validation ────────────────────────────────────────────────────────────
+
     protected function validateScores(): void
     {
         $rules = [];
 
         if ($this->isRemarkOnly()) {
             foreach ($this->scores as $id => $entry) {
-                // Remark is optional (blank rows are skipped), but if filled it must be a string
                 $rules["scores.{$id}.remark"] = 'nullable|string|max:200';
             }
         } else {
@@ -239,7 +284,7 @@ class ResultEntry extends Component
         $this->validate($rules);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Students ──────────────────────────────────────────────────────────────
 
     protected function getStudents(): Collection
     {
@@ -279,9 +324,13 @@ class ResultEntry extends Component
             }
         }
 
-        $students     = $this->getStudents();
+        $students      = $this->getStudents();
         $selectedClass = $this->getSelectedClass();
         $isRemarkOnly  = $this->isRemarkOnly();
+
+        if ($this->selectedClassId && $this->selectedTermId && empty($this->headComments) && $students->isNotEmpty()) {
+            $this->loadHeadComments();
+        }
 
         $isPublished         = $this->isPublished;
         $confirmingOverwrite = $this->confirmingOverwrite;

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Result;
 use App\Models\Student;
+use App\Models\StudentTermComment;
 use App\Models\Term;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -25,7 +26,6 @@ class ReportCardController extends Controller
             ->get()
             ->sortBy('subject.sort_order');
 
-        // Get the student's class for this term
         $enrolment = $student->enrolments()
             ->with('schoolClass')
             ->where('academic_session_id', $term->academic_session_id)
@@ -37,15 +37,22 @@ class ReportCardController extends Controller
 
         $isRemarkOnly = $enrolment?->schoolClass?->isRemarkOnly() ?? false;
 
+        // Load teacher and head teacher general comments for this student/term
+        $termComment = StudentTermComment::where('student_id', $student->id)
+            ->where('term_id', $termId)
+            ->first();
+
         $pdf = Pdf::loadView('pdf.report-card', compact(
-            'student', 'term', 'results', 'enrolment', 'average', 'subjectCount', 'isRemarkOnly'
+            'student', 'term', 'results', 'enrolment',
+            'average', 'subjectCount', 'isRemarkOnly', 'termComment'
         ))->setPaper('a4', 'portrait');
 
         $filename = 'ReportCard-'
-        . str_replace(['/', '\\', ' '], '-', $student->admission_number)
-        . '-' . str_replace(['/', '\\', ' '], '-', $term->name)
-        . '-' . str_replace(['/', '\\', ' '], '-', $term->session->name)
-        . '.pdf';
+            . str_replace(['/', '\\', ' '], '-', $student->admission_number)
+            . '-' . str_replace(['/', '\\', ' '], '-', $term->name)
+            . '-' . str_replace(['/', '\\', ' '], '-', $term->session->name)
+            . '.pdf';
+
         return $pdf->stream($filename);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Livewire\Teacher;
 use App\Models\Enrolment;
 use App\Models\Result;
 use App\Models\SchoolClass;
+use App\Models\StudentTermComment;
 use App\Models\Subject;
 use App\Models\Term;
 use Illuminate\Support\Collection;
@@ -18,7 +19,11 @@ class ResultEntry extends Component
     public ?int   $selectedTermId    = null;
     public array  $scores            = [];
     public bool   $saved             = false;
-    public bool   $isLocked          = false; // true only when admin has published — teacher cannot edit published results
+    public bool   $isLocked          = false;
+
+    // Teacher general comments — keyed by student_id
+    // Available for ALL class types (nursery and primary)
+    public array $teacherComments = [];
 
     public function mount(): void
     {
@@ -26,14 +31,17 @@ class ResultEntry extends Component
         $this->selectedClassId = request('class') ? (int) request('class') : null;
         if ($this->selectedClassId) {
             $this->loadScores();
+            $this->loadTeacherComments();
         }
     }
 
     public function updatedSelectedClassId(): void
     {
         $this->selectedSubjectId = null;
-        $this->scores = [];
-        $this->saved  = false;
+        $this->scores          = [];
+        $this->teacherComments = [];
+        $this->saved           = false;
+        $this->loadTeacherComments();
     }
 
     public function updatedSelectedSubjectId(): void
@@ -58,7 +66,7 @@ class ResultEntry extends Component
         return $this->getSelectedClass()?->isRemarkOnly() ?? false;
     }
 
-    // ── Load ──────────────────────────────────────────────────────────────────
+    // ── Load scores ───────────────────────────────────────────────────────────
 
     protected function loadScores(): void
     {
@@ -89,12 +97,31 @@ class ResultEntry extends Component
             }
         }
 
-        // Lock only when admin has published — teacher can always edit and
-        // resubmit as long as results have not been published to parents.
+        // Lock only when admin has published
         $this->isLocked = $existing->where('is_published', true)->isNotEmpty();
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
+    // ── Load teacher comments ─────────────────────────────────────────────────
+
+    protected function loadTeacherComments(): void
+    {
+        if (! $this->selectedTermId || ! $this->selectedClassId) return;
+
+        $students = $this->getStudents();
+
+        foreach ($students as $student) {
+            $this->teacherComments[$student->id] = '';
+        }
+
+        StudentTermComment::where('term_id', $this->selectedTermId)
+            ->whereIn('student_id', $students->pluck('id'))
+            ->get()
+            ->each(function ($comment) {
+                $this->teacherComments[$comment->student_id] = $comment->teacher_comment ?? '';
+            });
+    }
+
+    // ── Save scores ───────────────────────────────────────────────────────────
 
     public function save(): void
     {
@@ -118,7 +145,6 @@ class ResultEntry extends Component
         }
 
         $this->validateScores();
-
         $isRemarkOnly = $this->isRemarkOnly();
 
         foreach ($this->scores as $studentId => $entry) {
@@ -152,13 +178,9 @@ class ResultEntry extends Component
             }
 
             if ($submit) {
-                // Always update submitted_at on resubmit so admin can see
-                // the results were revised after the initial submission.
                 $data['submitted_by'] = auth()->id();
                 $data['submitted_at'] = now();
             } else {
-                // Saving as draft after a prior submission — clear submitted_at
-                // so admin knows this is a work-in-progress again.
                 $data['submitted_at'] = null;
                 $data['submitted_by'] = null;
             }
@@ -175,6 +197,45 @@ class ResultEntry extends Component
 
         $this->saved = true;
     }
+
+    // ── Save teacher comments ─────────────────────────────────────────────────
+
+    public function saveTeacherComments(bool $submit = false): void
+    {
+        if (! $this->selectedTermId || ! $this->selectedClassId) return;
+
+        if ($this->isLocked) {
+            session()->flash('error', 'Results are published. Contact the admin to make corrections.');
+            return;
+        }
+
+        $rules = collect($this->teacherComments)
+            ->mapWithKeys(fn($v, $id) => ["teacherComments.{$id}" => 'nullable|string|max:500'])
+            ->toArray();
+
+        $this->validate($rules);
+
+        foreach ($this->teacherComments as $studentId => $comment) {
+            StudentTermComment::updateOrCreate(
+                ['student_id' => $studentId, 'term_id' => $this->selectedTermId],
+                [
+                    'teacher_comment' => trim($comment) ?: null,
+                    'written_by'      => auth()->id(),
+                    'submitted_at'    => $submit ? now() : null,
+                ]
+            );
+        }
+
+        $verb = $submit ? 'submitted for review' : 'saved as draft';
+        session()->flash('success', "Teacher comments {$verb}.");
+    }
+
+    public function submitTeacherComments(): void
+    {
+        $this->saveTeacherComments(submit: true);
+    }
+
+    // ── Validation ────────────────────────────────────────────────────────────
 
     protected function validateScores(): void
     {
@@ -193,6 +254,8 @@ class ResultEntry extends Component
 
         $this->validate($rules);
     }
+
+    // ── Students ──────────────────────────────────────────────────────────────
 
     protected function getStudents(): Collection
     {
@@ -231,6 +294,10 @@ class ResultEntry extends Component
         $students      = $this->getStudents();
         $selectedClass = $this->getSelectedClass();
         $isRemarkOnly  = $this->isRemarkOnly();
+
+        if ($this->selectedClassId && $this->selectedTermId && empty($this->teacherComments) && $students->isNotEmpty()) {
+            $this->loadTeacherComments();
+        }
 
         $isSubmitted = false;
         if ($this->selectedTermId && $this->selectedClassId && $this->selectedSubjectId && $students->isNotEmpty()) {
