@@ -271,9 +271,10 @@ class ProcessBudPayWebhookJob implements ShouldQueue
 
             $response = Http::timeout(10)
                 ->withHeaders([
-                    'Content-Type'       => 'application/json',
-                    'X-SchoolMS-Sig'     => $signature,
-                    'payloadsignature'   => $signature,
+                    'Content-Type'        => 'application/json',
+                    // Match the header names PayGrid's BudPayWebhookController checks
+                    'X-Webhook-Signature' => $signature,
+                    'payloadsignature'    => $signature,
                 ])
                 ->post($url, $this->payload);
 
