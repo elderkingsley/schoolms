@@ -321,7 +321,7 @@
         </form>
 
         <div class="login-footer">
-            <a href="{{ route('enroll') }}">Enrol a new student</a>
+            <a href="{{ route('enrol') }}">Enrol a new student</a>
             &nbsp;·&nbsp;
             <a href="{{ route('staff.register') }}">Staff registration</a>
         </div>
