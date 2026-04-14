@@ -1,4 +1,5 @@
 <?php
+// Deploy to: config/services.php
 
 return [
 
@@ -59,6 +60,8 @@ return [
         // Set PAYGRID_API_KEY and PAYGRID_API_BASE_URL in .env.
         'api_key'      => env('PAYGRID_API_KEY', ''),
         'api_base_url' => env('PAYGRID_API_BASE_URL', ''),
+        // Raw BudPay webhook forward — SchoolMS posts to this URL after processing
+        'webhook_url'  => env('PAYGRID_WEBHOOK_URL', ''),
     ],
 
     'budpay' => [

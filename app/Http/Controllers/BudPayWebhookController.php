@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Http/Controllers/BudPayWebhookController.php
 
 namespace App\Http\Controllers;
 
@@ -60,10 +61,14 @@ class BudPayWebhookController extends Controller
             ->update(['signature_valid' => true, 'updated_at' => now()]);
 
         // ── Step 3: Only handle successful dedicated account payments ──────
-        // Real BudPay webhooks use type="dedicated_account" not "dedicated_nuban"
+        // Real BudPay webhooks sometimes put 'type' at the root level of the
+        // payload rather than inside 'data'. We check both locations to handle
+        // all observed payload shapes from live BudPay transactions.
+        $type = $data['type'] ?? $payload['type'] ?? '';
+
         $isDedicatedAccount = $notify === 'transaction'
             && $notifyType === 'successful'
-            && in_array($data['type'] ?? '', ['dedicated_account', 'dedicated_nuban']);
+            && in_array($type, ['dedicated_account', 'dedicated_nuban']);
 
         if (! $isDedicatedAccount) {
             Log::info("BudPay webhook: unhandled event '{$notify}.{$notifyType}' type='" . ($data['type'] ?? '') . "' — logged only.");

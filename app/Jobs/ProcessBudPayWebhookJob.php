@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Jobs/ProcessBudPayWebhookJob.php
 
 namespace App\Jobs;
 
@@ -91,6 +92,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             ]);
             // Still notify PayGrid so the inflow appears in the ledger
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+            $this->forwardToPayGrid();
             return;
         }
 
@@ -98,6 +100,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         if (! $student) {
             Log::warning("ProcessBudPayWebhookJob: parent {$parent->id} has no linked student");
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+            $this->forwardToPayGrid();
             return;
         }
 
@@ -114,6 +117,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                 'reference' => $reference,
             ]);
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+            $this->forwardToPayGrid();
             return;
         }
 
@@ -159,8 +163,13 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             }
         });
 
-        // ── Notify PayGrid ────────────────────────────────────────────────
+        // ── Notify PayGrid (inflow reconciliation) ───────────────────────
         $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+
+        // ── Forward raw BudPay payload to PayGrid webhook ─────────────────
+        // PayGrid needs the raw webhook for its own organisations that also
+        // use BudPay virtual accounts — completely independent of SchoolMS.
+        $this->forwardToPayGrid();
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
@@ -230,6 +239,52 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             }
         } catch (\Throwable $e) {
             Log::warning("ProcessBudPayWebhookJob: PayGrid notification exception: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Forward the raw BudPay webhook payload to PayGrid's own BudPay webhook endpoint.
+     *
+     * PayGrid has other organisations using BudPay virtual accounts that are
+     * completely independent of SchoolMS. By forwarding the raw payload, PayGrid
+     * can process those payments through its own webhook handler — exactly as if
+     * BudPay had posted directly to it.
+     *
+     * This is signed with an HMAC-SHA256 signature so PayGrid can verify the
+     * request came from SchoolMS and not an impostor.
+     */
+    private function forwardToPayGrid(): void
+    {
+        $url    = config('services.paygrid.webhook_url', '');
+        $secret = config('services.paygrid.webhook_secret', '');
+
+        if (empty($url)) {
+            Log::warning('ProcessBudPayWebhookJob: PAYGRID_WEBHOOK_URL not set — skipping raw forward');
+            return;
+        }
+
+        try {
+            $rawPayload = json_encode($this->payload);
+            $signature  = hash_hmac('sha256', $rawPayload, $secret);
+
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'Content-Type'       => 'application/json',
+                    'X-SchoolMS-Sig'     => $signature,
+                    'payloadsignature'   => $signature,
+                ])
+                ->post($url, $this->payload);
+
+            if ($response->successful()) {
+                Log::info('ProcessBudPayWebhookJob: raw payload forwarded to PayGrid webhook successfully');
+            } else {
+                Log::warning('ProcessBudPayWebhookJob: PayGrid webhook forward failed', [
+                    'status' => $response->status(),
+                    'body'   => substr($response->body(), 0, 300),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ProcessBudPayWebhookJob: PayGrid webhook forward exception: ' . $e->getMessage());
         }
     }
 }
