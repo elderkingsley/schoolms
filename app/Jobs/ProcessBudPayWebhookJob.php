@@ -51,7 +51,9 @@ class ProcessBudPayWebhookJob implements ShouldQueue
     {
         $data      = $this->payload['data']            ?? [];
         $reference = $data['reference']                ?? null;
-        $amountNgn = (float) ($data['amount']          ?? 0);
+        // Use gross amount from transferDetails — what the parent actually paid.
+        // data.amount is net after BudPay deducts its processing fee.
+        $amountNgn = (float) ($this->payload['transferDetails']['amount'] ?? $data['amount'] ?? 0);
 
         // Real BudPay webhook puts account number in transferDetails.craccount
         $transferDetails = $this->payload['transferDetails'] ?? [];
