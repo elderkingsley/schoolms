@@ -218,7 +218,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Authorization' => 'Bearer ' . config('services.paygrid.inflow_secret'),
                     'Accept'        => 'application/json',
                     'Content-Type'  => 'application/json',
                 ])
