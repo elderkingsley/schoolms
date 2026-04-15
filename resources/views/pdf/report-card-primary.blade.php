@@ -1,179 +1,140 @@
 {{-- Deploy to: resources/views/pdf/report-card-primary.blade.php --}}
-{{-- Primary (scored) classes — modern layout matching portal design system --}}
+{{-- Primary scored classes. DomPDF-safe: all layout via HTML <table> tags only. --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <style>
-/*
- * FONTS: DomPDF cannot load Google Fonts via @import.
- * Outfit and JetBrains Mono are not available in DomPDF's bundled font set.
- * DejaVu Sans is the best available match — clean, legible, professional.
- * We replicate the portal's spacing, colour, and weight conventions exactly.
- */
 * { margin:0; padding:0; box-sizing:border-box; }
-
 body {
-    font-family: 'DejaVu Sans', Arial, sans-serif;
-    font-size: 8px;
-    color: #111111;
-    background: #ffffff;
-    padding: 18px 20px 14px;
-    line-height: 1.4;
+    font-family:'DejaVu Sans', Arial, sans-serif;
+    font-size:8px;
+    color:#111111;
+    background:#ffffff;
+    padding:16px 18px 12px;
+    line-height:1.35;
 }
 
-/* ── ACCENT PALETTE (portal tokens) ────────────────────────────────────── */
-/* --c-accent:  #1A56FF  */
-/* --c-bg:      #F5F4F0  */
-/* --c-border:  #E8E6E1  */
-/* --c-success: #15803D  */
-/* --c-danger:  #BE123C  */
-/* --c-sidebar: #0E0E0E  */
-/* --c-text-2:  #555555  */
-/* --c-text-3:  #999999  */
+/* PORTAL TOKENS:
+   accent  #1A56FF | bg    #F5F4F0 | border #E8E6E1
+   success #15803D | danger#BE123C | text-3 #999999
+   header  #3D4A5C (slate) | sec-label #1A3A2A (deep green) */
 
-/* ── HEADER ──────────────────────────────────────────────────────────────── */
-.hdr { display:table; width:100%; margin-bottom:8px; }
-.hdr-l { display:table-cell; vertical-align:middle; width:46px; }
-.hdr-l img { width:42px; height:42px; object-fit:cover; border-radius:6px; }
-.hdr-l-fb {
-    width:42px; height:42px; background:#1A56FF; color:#fff;
-    font-size:18px; font-weight:700; text-align:center; line-height:42px;
-    border-radius:6px;
-}
-.hdr-m { display:table-cell; vertical-align:middle; padding-left:9px; }
-.hdr-school { font-size:15px; font-weight:700; color:#111111; letter-spacing:-0.01em; text-transform:uppercase; }
-.hdr-addr   { font-size:7px; color:#999999; margin-top:1px; }
-.hdr-sub    { font-size:7px; color:#1A3A2A; font-weight:600; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase; }
-.hdr-r { display:table-cell; vertical-align:middle; text-align:right; width:160px; }
-
-/* Meta table in header — portal card-style */
-.meta-tbl { border-collapse:collapse; margin-left:auto; border:1px solid #E8E6E1; border-radius:8px; overflow:hidden; }
-.meta-tbl td { font-size:7px; padding:2px 6px; border-bottom:1px solid #E8E6E1; }
-.meta-tbl tr:last-child td { border-bottom:none; }
-.meta-lbl { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; background:#F5F4F0; width:92px; }
-.meta-val { color:#111111; font-weight:600; min-width:68px; }
-.pill-pass { background:rgba(21,128,61,0.1); color:#15803D; font-weight:700; padding:0 5px; border-radius:3px; }
+/* ── HEADER ── */
+.hdr { width:100%; border-collapse:collapse; margin-bottom:6px; }
+.hdr td { vertical-align:middle; }
+.logo-img { width:42px; height:42px; object-fit:cover; border-radius:5px; }
+.logo-fb  { width:42px; height:42px; background:#1A56FF; color:#fff; font-size:18px;
+    font-weight:700; text-align:center; line-height:42px; border-radius:5px; }
+.school-name { font-size:15px; font-weight:700; color:#111111; text-transform:uppercase; letter-spacing:-0.01em; }
+.school-addr { font-size:7px; color:#999999; margin-top:1px; }
+.school-sub  { font-size:7px; color:#1A3A2A; font-weight:600; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase; }
+.meta { border-collapse:collapse; border:1px solid #E8E6E1; }
+.meta td { font-size:7px; padding:2px 6px; border-bottom:1px solid #E8E6E1; }
+.meta tr:last-child td { border-bottom:none; }
+.ml { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; background:#F5F4F0; width:94px; }
+.mv { color:#111111; font-weight:600; min-width:70px; }
+.pill-pass { background:rgba(21,128,61,0.1);  color:#15803D; font-weight:700; padding:0 5px; border-radius:3px; }
 .pill-fail { background:rgba(190,18,60,0.1); color:#BE123C; font-weight:700; padding:0 5px; border-radius:3px; }
 
-/* Thin accent rule under header */
-.hdr-rule { height:2px; background:linear-gradient(90deg,#1A56FF 0%,rgba(26,86,255,0.15) 100%); margin-bottom:8px; border-radius:1px; }
+/* Accent rule */
+.rule { height:2px; background:#1A56FF; margin-bottom:6px; border-radius:1px; }
 
-/* ── BIO STRIP ────────────────────────────────────────────────────────────── */
-.bio { display:table; width:100%; border:1px solid #E8E6E1; border-radius:8px; overflow:hidden; margin-bottom:7px; background:#fff; }
-.bio-photo { display:table-cell; width:58px; border-right:1px solid #E8E6E1; vertical-align:middle; text-align:center; padding:4px; background:#F5F4F0; }
-.bio-photo img { width:50px; height:58px; object-fit:cover; border-radius:4px; display:block; }
-.bio-photo-fb { width:50px; height:58px; background:#E8E6E1; border-radius:4px; display:inline-block; line-height:58px; text-align:center; font-size:7px; color:#999; }
-.bio-data { display:table-cell; vertical-align:middle; }
-.bio-data table { width:100%; border-collapse:collapse; }
-.bio-data td { font-size:7.5px; padding:2.5px 7px; border-bottom:1px solid #F5F4F0; }
-.bio-data tr:last-child td { border-bottom:none; }
-.bl { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:6.5px; width:88px; background:#F5F4F0; }
+/* ── BIO ── */
+.bio { width:100%; border-collapse:collapse; border:1px solid #E8E6E1; margin-bottom:6px; }
+.bio-photo-cell { width:56px; background:#F5F4F0; text-align:center; padding:3px; border-right:1px solid #E8E6E1; vertical-align:middle; }
+.bio-photo-img  { width:50px; height:58px; object-fit:cover; display:block; }
+.bio-photo-fb   { width:50px; height:58px; background:#E8E6E1; display:inline-block; line-height:58px; text-align:center; font-size:7px; color:#999; }
+.bio-inner { width:100%; border-collapse:collapse; }
+.bio-inner td { font-size:7.5px; padding:2.5px 6px; border-bottom:1px solid #F5F4F0; }
+.bio-inner tr:last-child td { border-bottom:none; }
+.bl { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:6.5px; width:82px; background:#F5F4F0; }
 .bv { color:#111111; font-weight:600; }
 
-/* ── MAIN TWO-COLUMN BODY ─────────────────────────────────────────────────── */
-/* 64% results | 36% traits — mirrors reference layout */
-.body { display:table; width:100%; border-collapse:collapse; margin-bottom:6px; }
-.col-l { display:table-cell; vertical-align:top; width:64%; padding-right:6px; }
-.col-r { display:table-cell; vertical-align:top; width:36%; }
+/* ── SECTION LABEL ── */
+.sec { font-size:6.5px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em;
+    padding:3px 5px; background:#EEF3EE; border-left:3px solid #1A3A2A; display:block; margin-bottom:0; }
 
-/* ── SECTION LABEL ──────────────────────────────────────────────────────── */
-.sec-label {
-    font-size:6.5px; font-weight:700; color:#1A3A2A;
-    text-transform:uppercase; letter-spacing:0.1em;
-    padding:0 0 3px; border-bottom:1.5px solid #1A3A2A;
-    margin-bottom:0; display:block;
-}
+/* ── MAIN BODY TABLE: left 64% | right 36% ── */
+.body-tbl { width:100%; border-collapse:collapse; }
+.body-tbl > tbody > tr > td { vertical-align:top; }
+.left-col  { padding-right:5px; width:64%; }
+.right-col { width:36%; }
 
-/* ── RESULTS TABLE ──────────────────────────────────────────────────────── */
+/* ── RESULTS TABLE ── */
 .rt { width:100%; border-collapse:collapse; }
-.rt thead tr { background:#3D4A5C; }
-.rt th {
-    font-size:6.5px; font-weight:600; color:rgba(255,255,255,0.75);
-    text-transform:uppercase; letter-spacing:0.07em;
-    padding:4px 4px; text-align:center; border:none;
-}
-.rt th.lft { text-align:left; padding-left:7px; }
-.rt td {
-    padding:3px 4px; font-size:7.5px;
-    border-bottom:1px solid #F5F4F0;
-    text-align:center; color:#111111;
-}
+.rt-head { background:#3D4A5C; }
+.rt-head td { font-size:6.5px; font-weight:700; color:rgba(255,255,255,0.85); text-transform:uppercase;
+    letter-spacing:0.07em; padding:4px 4px; text-align:center; }
+.rt-head td.lft { text-align:left; padding-left:7px; }
+.rt td { padding:2.5px 4px; font-size:7.5px; border:1px solid #F0EEE9; text-align:center; color:#111111; }
 .rt td.lft { text-align:left; font-weight:600; padding-left:7px; }
-.rt tbody tr:nth-child(even) td { background:#FAFAF8; }
-.rt tbody tr:last-child td { border-bottom:none; }
+.rt tr:nth-child(even) td { background:#FAFAF8; }
 
-/* Remark chips — portal colour palette */
-.chip { font-size:6.5px; font-weight:700; padding:1px 5px; border-radius:20px; display:inline-block; }
-.chip-d { background:rgba(26,86,255,0.10); color:#1A56FF; }       /* Distinction  */
-.chip-e { background:rgba(21,128,61,0.10); color:#15803D; }        /* Excellent    */
-.chip-v { background:rgba(21,128,61,0.07); color:#166534; }        /* Very Good    */
-.chip-g { background:rgba(180,83,9,0.08);  color:#B45309; }        /* Good         */
-.chip-a { background:rgba(190,18,60,0.07); color:#BE123C; }        /* Average      */
-.chip-b { background:rgba(190,18,60,0.12); color:#9F1239; }        /* Below Avg    */
+/* Chips */
+.chip  { font-size:6.5px; font-weight:700; padding:1px 4px; border-radius:20px; display:inline-block; }
+.chip-d { background:rgba(26,86,255,0.10);  color:#1A56FF; }
+.chip-e { background:rgba(21,128,61,0.10);  color:#15803D; }
+.chip-v { background:rgba(21,128,61,0.07);  color:#166534; }
+.chip-g { background:rgba(180,83,9,0.08);   color:#B45309; }
+.chip-a { background:rgba(190,18,60,0.07);  color:#BE123C; }
+.chip-b { background:rgba(190,18,60,0.12);  color:#9F1239; }
 
-/* ── SUMMARY STRIP ──────────────────────────────────────────────────────── */
-.sum { display:table; width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; border-radius:6px; overflow:hidden; }
-.sum-cell { display:table-cell; text-align:center; padding:4px 3px; border-right:1px solid #E8E6E1; }
-.sum-cell:last-child { border-right:none; }
-.sum-lbl { font-size:6px; font-weight:700; color:#999999; text-transform:uppercase; letter-spacing:0.06em; display:block; }
-.sum-num { font-size:12px; font-weight:700; color:#0E0E0E; display:block; margin-top:1px; line-height:1; }
-/* Highlight the student's total */
-.sum-cell.accent { background:rgba(26,86,255,0.05); }
-.sum-cell.accent .sum-num { color:#1A56FF; }
+/* ── SUMMARY STRIP ── */
+.sum { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
+.sum td { text-align:center; padding:3px 3px; border-right:1px solid #E8E6E1; }
+.sum td:last-child { border-right:none; }
+.sum-lbl { font-size:6px; font-weight:700; color:#999999; text-transform:uppercase; letter-spacing:0.04em; display:block; }
+.sum-num { font-size:12px; font-weight:700; color:#111111; display:block; margin-top:1px; line-height:1; }
+.sum-accent { background:rgba(26,86,255,0.05); }
+.sum-accent .sum-num { color:#1A56FF; }
 
-/* ── GRADE KEY ──────────────────────────────────────────────────────────── */
-.gkey { display:table; width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; border-radius:6px; overflow:hidden; }
-.gkey-hd { display:table-cell; background:#3D4A5C; color:rgba(255,255,255,0.6); font-size:6px; font-weight:700;
-    text-transform:uppercase; letter-spacing:0.08em; padding:3px 5px; vertical-align:middle; width:40px; }
-.gkey-body { display:table-cell; }
-.gkey-body table { width:100%; border-collapse:collapse; }
-.gkey-body td { font-size:6.5px; padding:2.5px 4px; border-left:1px solid #F5F4F0; text-align:center; line-height:1.3; }
+/* ── GRADE KEY ── */
+.gkey { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
+.gkey-hd { background:#3D4A5C; color:rgba(255,255,255,0.75); font-size:6px; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.08em; padding:3px 5px; vertical-align:middle; width:38px; text-align:center; }
+.gkey-items { width:100%; border-collapse:collapse; }
+.gkey-items td { font-size:6.5px; padding:3px 4px; border-left:1px solid #F5F4F0; text-align:center; line-height:1.4; }
 
-/* ── TRAITS PANEL (right column) ────────────────────────────────────────── */
+/* ── TRAITS ── */
 .tt { width:100%; border-collapse:collapse; margin-bottom:4px; }
-.tt thead tr { background:#3D4A5C; }
-.tt th { font-size:6.5px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase;
-    letter-spacing:0.06em; padding:4px 5px; text-align:left; border:none; }
-.tt th.sc { text-align:center; width:16px; }
-.tt td { padding:2.5px 5px; font-size:7.5px; border-bottom:1px solid #F5F4F0; }
-.tt td.sc { text-align:center; font-weight:700; width:16px; }
-.tt tbody tr:nth-child(even) td { background:#FAFAF8; }
-.tt tbody tr:last-child td { border-bottom:none; }
+.tt-head { background:#3D4A5C; }
+.tt-head td { font-size:6.5px; font-weight:700; color:rgba(255,255,255,0.85); text-transform:uppercase;
+    letter-spacing:0.06em; padding:4px 5px; }
+.tt-head td.sc { text-align:center; width:16px; }
+.tt td.tn { font-size:7.5px; padding:2px 5px; border:1px solid #F0EEE9; }
+.tt td.sc { text-align:center; font-weight:700; font-size:7.5px; width:16px; padding:2px 4px; border:1px solid #F0EEE9; }
+.tt tr:nth-child(even) td { background:#FAFAF8; }
+.s0 { color:#E8E6E1; } .s1 { color:#BE123C; } .s2 { color:#B45309; }
+.s3 { color:#1A56FF; } .s4 { color:#15803D; } .s5 { color:#111111; font-weight:700; }
 
-/* Score dot colours */
-.s0 { color:#E8E6E1; }
-.s1 { color:#BE123C; } .s2 { color:#B45309; } .s3 { color:#1A56FF; }
-.s4 { color:#15803D; } .s5 { color:#0E0E0E; font-weight:700; }
-
-/* Key rating compact table */
-.krt { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; border-radius:4px; overflow:hidden; }
-.krt th { background:#3D4A5C; color:rgba(255,255,255,0.6); font-size:6px; font-weight:700;
-    text-transform:uppercase; letter-spacing:0.08em; padding:3px 5px; text-align:left; }
-.krt td { font-size:7px; padding:2px 5px; border-bottom:1px solid #F5F4F0; }
+/* Key rating */
+.krt { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
+.krt-head { background:#3D4A5C; }
+.krt-head td { font-size:6px; font-weight:700; color:rgba(255,255,255,0.75); text-transform:uppercase;
+    letter-spacing:0.08em; padding:3px 5px; }
+.krt td.tn { font-size:7px; padding:2px 5px; border-bottom:1px solid #F5F4F0; }
 .krt tr:last-child td { border-bottom:none; }
-.krt td.kv { font-weight:700; text-align:center; background:#F5F4F0; width:16px; color:#1A56FF; }
+.kv { font-weight:700; text-align:center; background:#F5F4F0; width:16px; color:#1A56FF; padding:2px 4px; border-bottom:1px solid #F5F4F0; }
 
-/* ── COMMENTS BAND ──────────────────────────────────────────────────────── */
-.cmt { display:table; width:100%; border-collapse:collapse; margin-bottom:6px; }
-.cmt-cell { display:table-cell; vertical-align:top; padding-right:5px; width:50%; }
-.cmt-cell:last-child { padding-right:0; padding-left:5px; }
-.cmt-box { border:1px solid #E8E6E1; border-radius:6px; padding:5px 7px; background:#FAFAF8; }
+/* ── COMMENTS ── */
+.cmt-tbl { width:100%; border-collapse:collapse; margin-top:5px; margin-bottom:5px; }
+.cmt-tbl td { vertical-align:top; width:50%; }
+.cmt-tbl td:first-child { padding-right:4px; }
+.cmt-tbl td:last-child  { padding-left:4px;  }
+.cmt-box { border:1px solid #E8E6E1; border-radius:5px; padding:4px 6px; background:#FAFAF8; }
 .cmt-lbl { font-size:6px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em; margin-bottom:2px; }
-.cmt-txt { font-size:7.5px; color:#111111; line-height:1.55; font-style:italic; }
+.cmt-txt { font-size:7.5px; color:#111111; line-height:1.5; font-style:italic; }
 
-/* ── SIGNATURES ──────────────────────────────────────────────────────────── */
-.sigs { display:table; width:100%; margin-top:6px; }
-.sig  { display:table-cell; text-align:center; width:33%; padding:0 10px; }
-.sig-ln { border-top:1px solid #E8E6E1; margin-bottom:2px; }
-.sig-lb { font-size:6.5px; color:#999999; }
+/* ── SIGNATURES ── */
+.sig-tbl { width:100%; border-collapse:collapse; margin-top:5px; }
+.sig-tbl td { text-align:center; width:33%; padding:0 8px; }
+.sig-ln  { border-top:1px solid #E8E6E1; margin-bottom:2px; }
+.sig-lb  { font-size:6.5px; color:#999999; }
 
-/* ── FOOTER ──────────────────────────────────────────────────────────────── */
-.footer {
-    margin-top:5px; padding-top:4px; border-top:1px solid #F5F4F0;
-    font-size:6px; color:#999999; text-align:center; letter-spacing:0.04em;
-}
-.footer span { color:#1A3A2A; font-weight:600; }
+/* ── FOOTER ── */
+.footer { margin-top:4px; padding-top:3px; border-top:1px solid #F5F4F0; font-size:6px; color:#999999; text-align:center; }
+.footer-name { color:#1A3A2A; font-weight:600; }
 </style>
 </head>
 <body>
@@ -191,107 +152,109 @@ body {
     }
 @endphp
 
-{{-- ══ HEADER ══ --}}
-<div class="hdr">
-    <div class="hdr-l">
-        @if($logoBase64)
-            <img src="{{ $logoBase64 }}" alt="Logo">
-        @else
-            <div class="hdr-l-fb">{{ strtoupper(substr($schoolName,0,1)) }}</div>
-        @endif
-    </div>
-    <div class="hdr-m">
-        <div class="hdr-school">{{ $schoolName }}</div>
-        <div class="hdr-addr">{{ $schoolAddress }}</div>
-        <div class="hdr-sub">Student Report Card</div>
-    </div>
-    <div class="hdr-r">
-        <table class="meta-tbl">
-            <tr>
-                <td class="meta-lbl">Next Term Begins</td>
-                <td class="meta-val">{{ $term->next_term_begins?->format('d M Y') ?? '—' }}</td>
-            </tr>
-            <tr>
-                <td class="meta-lbl">Session</td>
-                <td class="meta-val">{{ $term->session->name }}</td>
-            </tr>
-            <tr>
-                <td class="meta-lbl">Term</td>
-                <td class="meta-val">{{ strtoupper($term->name) }} TERM</td>
-            </tr>
-            <tr>
-                <td class="meta-lbl">Class</td>
-                <td class="meta-val">{{ strtoupper($enrolment?->schoolClass?->display_name ?? '—') }}</td>
-            </tr>
-            <tr>
-                <td class="meta-lbl">Status</td>
-                <td class="meta-val">
-                    @if($passStatus === 'PASS') <span class="pill-pass">PASS</span>
-                    @elseif($passStatus === 'FAIL') <span class="pill-fail">FAIL</span>
-                    @else —
-                    @endif
-                </td>
-            </tr>
-        </table>
-    </div>
-</div>
-<div class="hdr-rule"></div>
-
-{{-- ══ BIO STRIP ══ --}}
-<div class="bio">
-    <div class="bio-photo">
-        @if($photoBase64)
-            <img src="{{ $photoBase64 }}" alt="Photo">
-        @else
-            <div class="bio-photo-fb">No Photo</div>
-        @endif
-    </div>
-    <div class="bio-data">
-        <table>
-            <tr>
-                <td class="bl">Name</td>
-                <td class="bv" style="font-size:8.5px;font-weight:700;" colspan="5">{{ strtoupper($student->full_name) }}</td>
-                <td class="bl">Adm. No.</td>
-                <td class="bv" style="font-family:'Courier New',monospace;">{{ $student->admission_number }}</td>
-            </tr>
-            <tr>
-                <td class="bl">Sex</td>
-                <td class="bv">{{ $student->gender }}</td>
-                <td class="bl">Date of Birth</td>
-                <td class="bv">{{ $student->date_of_birth?->format('d/m/Y') ?? '—' }}</td>
-                <td class="bl">School Opened</td>
-                <td class="bv">{{ $term->school_days_count ?? '—' }}</td>
-                <td class="bl">Times Present</td>
-                <td class="bv">{{ $enrolment?->times_present ?? '—' }}</td>
-            </tr>
-            <tr>
-                <td class="bl">Times Absent</td>
-                <td class="bv">{{ $enrolment?->times_absent ?? '—' }}</td>
-                <td class="bl" colspan="2">Extra Curricular</td>
-                <td class="bv" colspan="5"> </td>
-            </tr>
-        </table>
-    </div>
-</div>
-
-{{-- ══ MAIN BODY ══ --}}
-<div class="body">
-
-    {{-- Left column: results --}}
-    <div class="col-l">
-        <span class="sec-label">Academic Performance &nbsp;—&nbsp; Max Mark: CA (40) + Exam (60) = 100</span>
-        <table class="rt">
-            <thead>
+{{-- ═══ HEADER ═══ --}}
+<table class="hdr">
+    <tr>
+        <td style="width:46px;">
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" class="logo-img" alt="Logo">
+            @else
+                <div class="logo-fb">{{ strtoupper(substr($schoolName,0,1)) }}</div>
+            @endif
+        </td>
+        <td style="padding-left:9px;">
+            <div class="school-name">{{ $schoolName }}</div>
+            <div class="school-addr">{{ $schoolAddress }}</div>
+            <div class="school-sub">Student Report Card</div>
+        </td>
+        <td style="text-align:right; width:168px; vertical-align:top;">
+            <table class="meta" style="margin-left:auto;">
                 <tr>
-                    <th class="lft">Subject</th>
-                    <th>CA<br><span style="font-weight:400;font-size:5.5px;opacity:0.6;">/40</span></th>
-                    <th>Exam<br><span style="font-weight:400;font-size:5.5px;opacity:0.6;">/60</span></th>
-                    <th>Total<br><span style="font-weight:400;font-size:5.5px;opacity:0.6;">/100</span></th>
-                    <th>Class<br><span style="font-weight:400;font-size:5.5px;opacity:0.6;">Ave</span></th>
-                    <th>Remark</th>
+                    <td class="ml">Next Term Begins</td>
+                    <td class="mv">{{ $term->next_term_begins?->format('d M Y') ?? '—' }}</td>
                 </tr>
-            </thead>
-            <tbody>
+                <tr>
+                    <td class="ml">Session</td>
+                    <td class="mv">{{ $term->session->name }}</td>
+                </tr>
+                <tr>
+                    <td class="ml">Term</td>
+                    <td class="mv">{{ strtoupper($term->name) }} TERM</td>
+                </tr>
+                <tr>
+                    <td class="ml">Class</td>
+                    <td class="mv">{{ strtoupper($enrolment?->schoolClass?->display_name ?? '—') }}</td>
+                </tr>
+                <tr>
+                    <td class="ml">Status</td>
+                    <td class="mv">
+                        @if($passStatus === 'PASS') <span class="pill-pass">PASS</span>
+                        @elseif($passStatus === 'FAIL') <span class="pill-fail">FAIL</span>
+                        @else —
+                        @endif
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+<div class="rule"></div>
+
+{{-- ═══ BIO ═══ --}}
+<table class="bio">
+    <tr>
+        <td class="bio-photo-cell">
+            @if($photoBase64)
+                <img src="{{ $photoBase64 }}" class="bio-photo-img" alt="Photo">
+            @else
+                <div class="bio-photo-fb">No Photo</div>
+            @endif
+        </td>
+        <td style="padding:0; vertical-align:middle;">
+            <table class="bio-inner">
+                <tr>
+                    <td class="bl">Name</td>
+                    <td class="bv" style="font-size:8px;font-weight:700;" colspan="5">{{ strtoupper($student->full_name) }}</td>
+                    <td class="bl">Adm. No.</td>
+                    <td class="bv" style="font-family:'Courier New',monospace;">{{ $student->admission_number }}</td>
+                </tr>
+                <tr>
+                    <td class="bl">Sex</td>
+                    <td class="bv">{{ $student->gender }}</td>
+                    <td class="bl">Date of Birth</td>
+                    <td class="bv">{{ $student->date_of_birth?->format('d/m/Y') ?? '—' }}</td>
+                    <td class="bl">School Opened</td>
+                    <td class="bv">{{ $term->school_days_count ?? '—' }}</td>
+                    <td class="bl">Times Present</td>
+                    <td class="bv">{{ $enrolment?->times_present ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="bl">Times Absent</td>
+                    <td class="bv">{{ $enrolment?->times_absent ?? '—' }}</td>
+                    <td class="bl" colspan="2">Extra Curricular</td>
+                    <td class="bv" colspan="5">&nbsp;</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+{{-- ═══ MAIN BODY ═══ --}}
+<table class="body-tbl">
+    <tr>
+
+        {{-- LEFT: Academic results --}}
+        <td class="left-col">
+            <div class="sec">Academic Performance &nbsp;—&nbsp; CA (40) + Exam (60) = 100</div>
+            <table class="rt">
+                <tr class="rt-head">
+                    <td class="lft">Subject</td>
+                    <td>CA<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">/40</span></td>
+                    <td>Exam<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">/60</span></td>
+                    <td>Total<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">/100</span></td>
+                    <td>Class<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">Ave</span></td>
+                    <td>Remark</td>
+                </tr>
                 @foreach($results as $result)
                 <tr>
                     <td class="lft">{{ $result->subject->name }}</td>
@@ -308,117 +271,127 @@ body {
                     </td>
                 </tr>
                 @endforeach
-            </tbody>
-        </table>
+            </table>
 
-        {{-- Summary strip --}}
-        @if($results->isNotEmpty())
-        <div class="sum">
-            <div class="sum-cell accent">
-                <span class="sum-lbl">Total Mark</span>
-                <span class="sum-num">{{ $results->sum('total') }}</span>
-            </div>
-            <div class="sum-cell">
-                <span class="sum-lbl">Class Lowest (LS)</span>
-                <span class="sum-num">{{ $classLowest ?? '—' }}</span>
-            </div>
-            <div class="sum-cell">
-                <span class="sum-lbl">Class Highest (HS)</span>
-                <span class="sum-num">{{ $classHighest ?? '—' }}</span>
-            </div>
-            <div class="sum-cell">
-                <span class="sum-lbl">Average Score</span>
-                <span class="sum-num">{{ $average }}%</span>
-            </div>
-        </div>
-        @endif
+            {{-- Summary strip --}}
+            @if($results->isNotEmpty())
+            <table class="sum">
+                <tr>
+                    <td class="sum-accent">
+                        <span class="sum-lbl">Total Mark</span>
+                        <span class="sum-num">{{ $results->sum('total') }}</span>
+                    </td>
+                    <td>
+                        <span class="sum-lbl">Class Lowest (LS)</span>
+                        <span class="sum-num">{{ $classLowest ?? '—' }}</span>
+                    </td>
+                    <td>
+                        <span class="sum-lbl">Class Highest (HS)</span>
+                        <span class="sum-num">{{ $classHighest ?? '—' }}</span>
+                    </td>
+                    <td>
+                        <span class="sum-lbl">Average Score</span>
+                        <span class="sum-num">{{ $average }}%</span>
+                    </td>
+                </tr>
+            </table>
+            @endif
 
-        {{-- Grade key --}}
-        <div class="gkey">
-            <div class="gkey-hd">Grade<br>Scale</div>
-            <div class="gkey-body">
-                <table>
-                    <tr>
-                        <td><strong>A+</strong> 90–100<br>Distinction</td>
-                        <td><strong>A</strong> 70–89<br>Excellent</td>
-                        <td><strong>B</strong> 60–69<br>Very Good</td>
-                        <td><strong>C</strong> 50–59<br>Good</td>
-                        <td><strong>D</strong> 40–49<br>Average</td>
-                        <td><strong>E</strong> 0–39<br>Below Avg</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-    </div>
+            {{-- Grade key --}}
+            <table class="gkey">
+                <tr>
+                    <td class="gkey-hd">Grade<br>Scale</td>
+                    <td style="padding:0;">
+                        <table class="gkey-items">
+                            <tr>
+                                <td><strong>A+</strong> 90–100<br>Distinction</td>
+                                <td><strong>A</strong> 70–89<br>Excellent</td>
+                                <td><strong>B</strong> 60–69<br>Very Good</td>
+                                <td><strong>C</strong> 50–59<br>Good</td>
+                                <td><strong>D</strong> 40–49<br>Average</td>
+                                <td><strong>E</strong> 0–39<br>Below Avg</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </td>
 
-    {{-- Right column: traits --}}
-    <div class="col-r">
-
-        <span class="sec-label">Psychomotor Skills</span>
-        <table class="tt" style="margin-bottom:4px;">
-            <thead><tr><th>Skill</th><th class="sc">&#9679;</th></tr></thead>
-            <tbody>
+        {{-- RIGHT: Traits --}}
+        <td class="right-col">
+            <div class="sec">Psychomotor Skills</div>
+            <table class="tt" style="margin-bottom:4px;">
+                <tr class="tt-head">
+                    <td>Skill</td>
+                    <td class="sc">&#9679;</td>
+                </tr>
                 @foreach($psychomotorDef as $key => $label)
                 @php $sc = $traitScores[$key] ?? null; @endphp
                 <tr>
-                    <td>{{ $label }}</td>
+                    <td class="tn">{{ $label }}</td>
                     <td class="sc s{{ $sc ?? 0 }}">{{ $sc ?? '—' }}</td>
                 </tr>
                 @endforeach
-            </tbody>
-        </table>
+            </table>
 
-        <span class="sec-label">Affective Areas</span>
-        <table class="tt" style="margin-bottom:4px;">
-            <thead><tr><th>Trait</th><th class="sc">&#9679;</th></tr></thead>
-            <tbody>
+            <div class="sec">Affective Areas</div>
+            <table class="tt" style="margin-bottom:4px;">
+                <tr class="tt-head">
+                    <td>Trait</td>
+                    <td class="sc">&#9679;</td>
+                </tr>
                 @foreach($affectiveDef as $key => $label)
                 @php $sc = $traitScores[$key] ?? null; @endphp
                 <tr>
-                    <td>{{ $label }}</td>
+                    <td class="tn">{{ $label }}</td>
                     <td class="sc s{{ $sc ?? 0 }}">{{ $sc ?? '—' }}</td>
                 </tr>
                 @endforeach
-            </tbody>
-        </table>
+            </table>
 
-        <table class="krt">
-            <tr><th colspan="2">Key Rating</th></tr>
-            <tr><td>Very Good</td><td class="kv">5</td></tr>
-            <tr><td>Good</td>     <td class="kv">4</td></tr>
-            <tr><td>Fair</td>     <td class="kv">3</td></tr>
-            <tr><td>Poor</td>     <td class="kv">2</td></tr>
-            <tr><td>N/A</td>      <td class="kv" style="color:#999;">1</td></tr>
-        </table>
+            <table class="krt">
+                <tr class="krt-head"><td colspan="2">Key Rating</td></tr>
+                <tr><td class="tn">Very Good</td> <td class="kv">5</td></tr>
+                <tr><td class="tn">Good</td>      <td class="kv">4</td></tr>
+                <tr><td class="tn">Fair</td>       <td class="kv">3</td></tr>
+                <tr><td class="tn">Poor</td>       <td class="kv">2</td></tr>
+                <tr><td class="tn">N/A</td>        <td class="kv" style="color:#999;">1</td></tr>
+            </table>
+        </td>
 
-    </div>
-</div>
+    </tr>
+</table>
 
-{{-- ══ COMMENTS ══ --}}
-<div class="cmt">
-    <div class="cmt-cell">
-        <div class="cmt-box">
-            <div class="cmt-lbl">Class Teacher's Comment</div>
-            <div class="cmt-txt">{{ $termComment?->teacher_comment ?? '—' }}</div>
-        </div>
-    </div>
-    <div class="cmt-cell">
-        <div class="cmt-box">
-            <div class="cmt-lbl">Head Teacher's Comment</div>
-            <div class="cmt-txt">{{ $termComment?->head_teacher_comment ?? '—' }}</div>
-        </div>
-    </div>
-</div>
+{{-- ═══ COMMENTS ═══ --}}
+<table class="cmt-tbl">
+    <tr>
+        <td>
+            <div class="cmt-box">
+                <div class="cmt-lbl">Class Teacher's Comment</div>
+                <div class="cmt-txt">{{ $termComment?->teacher_comment ?? '—' }}</div>
+            </div>
+        </td>
+        <td>
+            <div class="cmt-box">
+                <div class="cmt-lbl">Head Teacher's Comment</div>
+                <div class="cmt-txt">{{ $termComment?->head_teacher_comment ?? '—' }}</div>
+            </div>
+        </td>
+    </tr>
+</table>
 
-{{-- ══ SIGNATURES ══ --}}
-<div class="sigs">
-    <div class="sig"><div class="sig-ln"></div><div class="sig-lb">Class Teacher</div></div>
-    <div class="sig"><div class="sig-ln"></div><div class="sig-lb">Head Teacher / Principal</div></div>
-    <div class="sig"><div class="sig-ln"></div><div class="sig-lb">Date</div></div>
-</div>
+{{-- ═══ SIGNATURES ═══ --}}
+<table class="sig-tbl">
+    <tr>
+        <td><div class="sig-ln"></div><div class="sig-lb">Class Teacher</div></td>
+        <td><div class="sig-ln"></div><div class="sig-lb">Head Teacher / Principal</div></td>
+        <td><div class="sig-ln"></div><div class="sig-lb">Date</div></td>
+    </tr>
+</table>
 
 <div class="footer">
-    <span>{{ $schoolName }}</span> &nbsp;&middot;&nbsp; Generated {{ now()->format('d M Y') }}
+    <span class="footer-name">{{ $schoolName }}</span>
+    &nbsp;&middot;&nbsp; Generated {{ now()->format('d M Y') }}
     &nbsp;&middot;&nbsp; connect.nurturevilleschool.org
 </div>
 
