@@ -1,4 +1,6 @@
 <?php
+// Deploy to: app/Livewire/Admin/Academics/SessionTermManager.php
+// REPLACES existing file — adds school_days_count and next_term_begins to term form.
 
 namespace App\Livewire\Admin\Academics;
 
@@ -6,20 +8,6 @@ use App\Models\AcademicSession;
 use App\Models\Term;
 use Livewire\Component;
 
-/**
- * SessionTermManager
- *
- * Manages academic sessions and their terms.
- *
- * Rules:
- * - Only one session can be active at a time.
- * - Only one term can be active at a time (across all sessions).
- * - Activating a term automatically deactivates all other terms.
- * - Activating a session automatically deactivates all other sessions.
- * - Sessions can be created with 3 terms pre-generated (First, Second, Third).
- * - Terms cannot be deleted if they have invoices attached.
- * - Sessions cannot be deleted if they have any terms with invoices.
- */
 class SessionTermManager extends Component
 {
     // ── Session form ──────────────────────────────────────────────────────────
@@ -28,16 +16,18 @@ class SessionTermManager extends Component
     public ?int   $editingSessionId = null;
 
     // ── Term form ─────────────────────────────────────────────────────────────
-    public bool   $showTermForm     = false;
-    public ?int   $termSessionId    = null; // which session we're adding a term to
-    public string $termName         = '';
-    public string $termStartDate    = '';
-    public string $termEndDate      = '';
-    public ?int   $editingTermId    = null;
+    public bool   $showTermForm       = false;
+    public ?int   $termSessionId      = null;
+    public string $termName           = '';
+    public string $termStartDate      = '';
+    public string $termEndDate        = '';
+    public string $termSchoolDays     = '';   // NEW: how many days school is open
+    public string $termNextTermBegins = '';   // NEW: date printed on report cards
+    public ?int   $editingTermId      = null;
 
     // ── Confirmation ──────────────────────────────────────────────────────────
-    public ?int    $confirmingDeleteSessionId = null;
-    public ?int    $confirmingDeleteTermId    = null;
+    public ?int $confirmingDeleteSessionId = null;
+    public ?int $confirmingDeleteTermId    = null;
 
     // ── Session CRUD ──────────────────────────────────────────────────────────
 
@@ -75,7 +65,6 @@ class SessionTermManager extends Component
                 'is_active' => false,
             ]);
 
-            // Auto-create the 3 terms
             foreach (['First', 'Second', 'Third'] as $termName) {
                 Term::create([
                     'academic_session_id' => $session->id,
@@ -92,13 +81,9 @@ class SessionTermManager extends Component
 
     public function activateSession(int $id): void
     {
-        // Deactivate all sessions then activate the chosen one
         AcademicSession::query()->update(['is_active' => false]);
         AcademicSession::findOrFail($id)->update(['is_active' => true]);
-
-        // Also deactivate all terms — admin must explicitly activate a term
         Term::query()->update(['is_active' => false]);
-
         session()->flash('success', 'Session activated. Please activate the current term below.');
     }
 
@@ -111,7 +96,6 @@ class SessionTermManager extends Component
     {
         $session = AcademicSession::with('terms.invoices')->findOrFail($this->confirmingDeleteSessionId);
 
-        // Block if any term has invoices
         foreach ($session->terms as $term) {
             if ($term->invoices()->exists()) {
                 session()->flash('error', "Cannot delete session — {$term->name} Term has invoices attached.");
@@ -145,36 +129,45 @@ class SessionTermManager extends Component
     public function openEditTerm(int $id): void
     {
         $term = Term::findOrFail($id);
-        $this->termSessionId  = $term->academic_session_id;
-        $this->termName       = $term->name;
-        $this->termStartDate  = $term->start_date?->format('Y-m-d') ?? '';
-        $this->termEndDate    = $term->end_date?->format('Y-m-d') ?? '';
-        $this->editingTermId  = $id;
-        $this->showTermForm   = true;
+        $this->termSessionId      = $term->academic_session_id;
+        $this->termName           = $term->name;
+        $this->termStartDate      = $term->start_date?->format('Y-m-d') ?? '';
+        $this->termEndDate        = $term->end_date?->format('Y-m-d') ?? '';
+        $this->termSchoolDays     = $term->school_days_count !== null ? (string) $term->school_days_count : '';
+        $this->termNextTermBegins = $term->next_term_begins?->format('Y-m-d') ?? '';
+        $this->editingTermId      = $id;
+        $this->showTermForm       = true;
     }
 
     public function saveTerm(): void
     {
         $this->validate([
-            'termName'      => 'required|in:First,Second,Third',
-            'termStartDate' => 'nullable|date',
-            'termEndDate'   => 'nullable|date|after_or_equal:termStartDate',
+            'termName'           => 'required|in:First,Second,Third',
+            'termStartDate'      => 'nullable|date',
+            'termEndDate'        => 'nullable|date|after_or_equal:termStartDate',
+            'termSchoolDays'     => 'nullable|integer|min:1|max:366',
+            'termNextTermBegins' => 'nullable|date',
         ], [
-            'termName.required' => 'Term name is required.',
-            'termName.in'       => 'Term must be First, Second, or Third.',
-            'termEndDate.after_or_equal' => 'End date must be on or after start date.',
+            'termName.required'              => 'Term name is required.',
+            'termName.in'                    => 'Term must be First, Second, or Third.',
+            'termEndDate.after_or_equal'     => 'End date must be on or after start date.',
+            'termSchoolDays.integer'         => 'School days must be a whole number.',
+            'termSchoolDays.min'             => 'School days must be at least 1.',
+            'termSchoolDays.max'             => 'School days cannot exceed 366.',
         ]);
 
+        $payload = [
+            'name'              => $this->termName,
+            'start_date'        => $this->termStartDate        ?: null,
+            'end_date'          => $this->termEndDate          ?: null,
+            'school_days_count' => $this->termSchoolDays       !== '' ? (int) $this->termSchoolDays : null,
+            'next_term_begins'  => $this->termNextTermBegins   ?: null,
+        ];
+
         if ($this->editingTermId) {
-            $term = Term::findOrFail($this->editingTermId);
-            $term->update([
-                'name'       => $this->termName,
-                'start_date' => $this->termStartDate ?: null,
-                'end_date'   => $this->termEndDate ?: null,
-            ]);
+            Term::findOrFail($this->editingTermId)->update($payload);
             session()->flash('success', "{$this->termName} Term updated.");
         } else {
-            // Check for duplicate term name in this session
             $exists = Term::where('academic_session_id', $this->termSessionId)
                 ->where('name', $this->termName)
                 ->exists();
@@ -184,13 +177,10 @@ class SessionTermManager extends Component
                 return;
             }
 
-            Term::create([
+            Term::create(array_merge($payload, [
                 'academic_session_id' => $this->termSessionId,
-                'name'                => $this->termName,
                 'is_active'           => false,
-                'start_date'          => $this->termStartDate ?: null,
-                'end_date'            => $this->termEndDate ?: null,
-            ]);
+            ]));
             session()->flash('success', "{$this->termName} Term added.");
         }
 
@@ -201,16 +191,13 @@ class SessionTermManager extends Component
     {
         $term = Term::with('session')->findOrFail($id);
 
-        // The term's session must be active
         if (! $term->session->is_active) {
             session()->flash('error', "Activate the {$term->session->name} session first.");
             return;
         }
 
-        // Deactivate all terms, activate this one
         Term::query()->update(['is_active' => false]);
         $term->update(['is_active' => true]);
-
         session()->flash('success', "{$term->name} Term ({$term->session->name}) is now active.");
     }
 
@@ -230,7 +217,7 @@ class SessionTermManager extends Component
         }
 
         if ($term->invoices()->exists()) {
-            session()->flash('error', "Cannot delete — this term has invoices attached.");
+            session()->flash('error', 'Cannot delete — this term has invoices attached.');
             $this->confirmingDeleteTermId = null;
             return;
         }
@@ -252,12 +239,14 @@ class SessionTermManager extends Component
 
     private function resetTermForm(): void
     {
-        $this->showTermForm   = false;
-        $this->termSessionId  = null;
-        $this->termName       = '';
-        $this->termStartDate  = '';
-        $this->termEndDate    = '';
-        $this->editingTermId  = null;
+        $this->showTermForm       = false;
+        $this->termSessionId      = null;
+        $this->termName           = '';
+        $this->termStartDate      = '';
+        $this->termEndDate        = '';
+        $this->termSchoolDays     = '';
+        $this->termNextTermBegins = '';
+        $this->editingTermId      = null;
         $this->resetErrorBag();
     }
 
