@@ -48,6 +48,45 @@ class ReportCardController extends Controller
             $passStatus = $average >= 40 ? 'PASS' : 'FAIL';
         }
 
+        // ── Class LS / HS (lowest and highest TOTAL MARK across all students) ──
+        //
+        // LS and HS on the report card are NOT per-subject figures.
+        // They are the lowest and highest SUM-OF-ALL-SUBJECTS total mark
+        // earned by any student in the same class this term.
+        // Every student's report card shows the same two numbers.
+        //
+        // How it works:
+        //   1. Find all student IDs enrolled in the same class this term.
+        //   2. For each of those students, sum their subject totals.
+        //   3. classLowest  = the smallest such sum in the class.
+        //   4. classHighest = the largest such sum in the class.
+        //
+        // We query live at PDF generation time — no pre-storage needed,
+        // always accurate even if results are updated after publishing.
+        $classLowest  = null;
+        $classHighest = null;
+
+        if (! $isRemarkOnly && $enrolment?->schoolClass) {
+            // All student IDs in the same class/session
+            $classStudentIds = Enrolment::where('school_class_id', $enrolment->school_class_id)
+                ->where('academic_session_id', $term->academic_session_id)
+                ->where('status', 'active')
+                ->pluck('student_id');
+
+            // Sum of all subject totals per student for this term
+            $classTotals = Result::whereIn('student_id', $classStudentIds)
+                ->where('term_id', $termId)
+                ->whereNotNull('total')
+                ->selectRaw('student_id, SUM(total) as grand_total')
+                ->groupBy('student_id')
+                ->pluck('grand_total');
+
+            if ($classTotals->isNotEmpty()) {
+                $classLowest  = $classTotals->min();
+                $classHighest = $classTotals->max();
+            }
+        }
+
         // ── Traits (psychomotor + affective) ──────────────────────────────────
         $traitScores    = StudentTraitScore::forStudentTerm($student->id, $termId);
         $psychomotorDef = StudentTraitScore::PSYCHOMOTOR;
@@ -87,7 +126,8 @@ class ReportCardController extends Controller
             'average', 'subjectCount', 'isRemarkOnly',
             'termComment', 'passStatus',
             'traitScores', 'psychomotorDef', 'affectiveDef',
-            'photoBase64', 'schoolName', 'schoolAddress', 'logoBase64'
+            'photoBase64', 'schoolName', 'schoolAddress', 'logoBase64',
+            'classLowest', 'classHighest'
         ))->setPaper('a4', 'portrait');
 
         $filename = 'ReportCard-'

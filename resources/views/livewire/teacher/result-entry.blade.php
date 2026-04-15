@@ -204,6 +204,17 @@
                                 </tr>
                             @else
                                 {{-- Primary: CA + Exam + live grade display + remark dropdown --}}
+                                {{--
+                                    Remark auto-fill logic:
+                                    - autoRemark computes the correct remark from the live total.
+                                    - On x-init we always seed the remark from the score, UNLESS
+                                      the teacher has already saved a remark (non-empty wire value).
+                                    - The $watch fires whenever ca or exam changes and always
+                                      overwrites the remark — the teacher can still manually
+                                      override using the dropdown after entry.
+                                    - Selecting the blank "Auto" option (value="") re-enables
+                                      auto-fill on the next score change.
+                                --}}
                                 <tr x-data="{
                                     get ca()    { return parseInt($wire.scores['{{ $student->id }}']?.ca   || 0) },
                                     get exam()  { return parseInt($wire.scores['{{ $student->id }}']?.exam || 0) },
@@ -219,19 +230,29 @@
                                         if(g==='—') return'';
                                         return 'grade-'+g;
                                     },
-                                    get autoRemark() {
-                                        const t = this.total;
+                                    remarkFor(t) {
                                         if(t>=90)return'Distinction'; if(t>=70)return'Excellent';
                                         if(t>=60)return'Very Good';   if(t>=50)return'Good';
-                                        if(t>=40)return'Average';     if(t>0)return'Below Average';
+                                        if(t>=40)return'Average';     if(t>0) return'Below Average';
                                         return'';
                                     }
                                 }" x-init="
-                                    $watch('autoRemark', val => {
-                                        if($wire.scores['{{ $student->id }}']?.remark === '' || $wire.scores['{{ $student->id }}']?.remark === undefined) {
-                                            $wire.scores['{{ $student->id }}'].remark = val;
+                                    // Seed remark on first load if not already saved
+                                    $nextTick(() => {
+                                        const existing = $wire.scores['{{ $student->id }}']?.remark;
+                                        if (!existing && this.total > 0) {
+                                            $wire.scores['{{ $student->id }}'].remark = this.remarkFor(this.total);
                                         }
-                                    })
+                                    });
+                                    // Re-compute remark whenever total changes
+                                    $watch('total', t => {
+                                        const manual = $wire.scores['{{ $student->id }}']?.remark;
+                                        // Always sync when total changes — teacher can
+                                        // still override via the dropdown after the fact.
+                                        if (t > 0) {
+                                            $wire.scores['{{ $student->id }}'].remark = this.remarkFor(t);
+                                        }
+                                    });
                                 ">
                                     <td style="color:var(--c-text-3);width:28px;font-size:12px;">{{ $i + 1 }}</td>
                                     <td>

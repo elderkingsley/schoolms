@@ -226,8 +226,6 @@ body {
                     <th>Exam<br><span style="font-weight:400;font-size:6px;">(60)</span></th>
                     <th>Total<br><span style="font-weight:400;font-size:6px;">(100)</span></th>
                     <th>Class<br>Ave</th>
-                    <th>LS</th>
-                    <th>HS</th>
                     <th>Teacher's Remark</th>
                 </tr>
             </thead>
@@ -239,8 +237,6 @@ body {
                     <td>{{ $result->exam_score ?? '—' }}</td>
                     <td style="font-weight:700;">{{ $result->total ?? '—' }}</td>
                     <td>{{ $result->class_average ? number_format($result->class_average,1) : '—' }}</td>
-                    <td>{{ $result->class_lowest  ?? '—' }}</td>
-                    <td>{{ $result->class_highest ?? '—' }}</td>
                     <td class="{{ $result->remark ? rmClass($result->remark) : '' }}">
                         {{ $result->remark ? rmShort($result->remark) : '—' }}
                     </td>
@@ -257,11 +253,11 @@ body {
             </div>
             <div class="sum-cell">
                 <span class="sum-lbl">Lowest Score (LS)</span>
-                <span class="sum-val">{{ $results->min('total') ?? '—' }}</span>
+                <span class="sum-val">{{ $classLowest ?? '—' }}</span>
             </div>
             <div class="sum-cell">
                 <span class="sum-lbl">Highest Score (HS)</span>
-                <span class="sum-val">{{ $results->max('total') ?? '—' }}</span>
+                <span class="sum-val">{{ $classHighest ?? '—' }}</span>
             </div>
             <div class="sum-cell">
                 <span class="sum-lbl">Average % Score</span>

@@ -162,7 +162,7 @@
                 <div class="panel-head">
                     <span class="panel-title">{{ $students->count() }} {{ Str::plural('student', $students->count()) }}</span>
                     @if(! $isRemarkOnly)
-                        <span class="panel-hint">CA max: 40 &nbsp;|&nbsp; Exam max: 60 &nbsp;|&nbsp; Total: 100</span>
+                        <span class="panel-hint">CA max: 40 &nbsp;|&nbsp; Exam max: 60 &nbsp;|&nbsp; Remark auto-fills from score — override if needed.</span>
                     @else
                         <span class="panel-hint">Type a remark for each student. Leave blank to skip.</span>
                     @endif
@@ -206,21 +206,38 @@
                                     </tr>
                                 @else
                                     <tr x-data="{
-                                        get ca()   { return parseInt($wire.scores['{{ $student->id }}']?.ca   || 0) },
-                                        get exam() { return parseInt($wire.scores['{{ $student->id }}']?.exam || 0) },
+                                        get ca()    { return parseInt($wire.scores['{{ $student->id }}']?.ca   || 0) },
+                                        get exam()  { return parseInt($wire.scores['{{ $student->id }}']?.exam || 0) },
                                         get total() { return Math.min(100, this.ca + this.exam) },
                                         get grade() {
                                             const t = this.total;
-                                            if (t >= 75) return 'A'; if (t >= 65) return 'B'; if (t >= 55) return 'C';
-                                            if (t >= 45) return 'D'; if (t >= 35) return 'E'; if (t > 0) return 'F'; return '—';
+                                            if(t>=90)return'A+'; if(t>=70)return'A'; if(t>=60)return'B';
+                                            if(t>=50)return'C';  if(t>=40)return'D'; if(t>0)return'E'; return'—';
                                         },
-                                        get remark() {
-                                            const t = this.total;
-                                            if (t >= 75) return 'Excellent'; if (t >= 65) return 'Very Good'; if (t >= 55) return 'Good';
-                                            if (t >= 45) return 'Fair'; if (t >= 35) return 'Pass'; if (t > 0) return 'Fail'; return '—';
+                                        get gc() {
+                                            const g = this.grade;
+                                            if(g==='A+')return'grade-A'; if(g==='—')return'';
+                                            return 'grade-'+g;
                                         },
-                                        get gradeClass() { return 'grade-' + (this.grade === '—' ? '' : this.grade) }
-                                    }">
+                                        remarkFor(t) {
+                                            if(t>=90)return'Distinction'; if(t>=70)return'Excellent';
+                                            if(t>=60)return'Very Good';   if(t>=50)return'Good';
+                                            if(t>=40)return'Average';     if(t>0) return'Below Average';
+                                            return'';
+                                        }
+                                    }" x-init="
+                                        $nextTick(() => {
+                                            const existing = $wire.scores['{{ $student->id }}']?.remark;
+                                            if (!existing && this.total > 0) {
+                                                $wire.scores['{{ $student->id }}'].remark = this.remarkFor(this.total);
+                                            }
+                                        });
+                                        $watch('total', t => {
+                                            if (t > 0) {
+                                                $wire.scores['{{ $student->id }}'].remark = this.remarkFor(t);
+                                            }
+                                        });
+                                    ">
                                         <td style="color:var(--c-text-3);font-size:12px;width:36px;">{{ $i + 1 }}</td>
                                         <td>
                                             <div class="student-name">{{ $student->full_name }}</div>
@@ -235,13 +252,22 @@
                                                 wire:model.lazy="scores.{{ $student->id }}.exam" placeholder="—">
                                         </td>
                                         <td style="text-align:center">
-                                            <span class="score-total" :style="total > 0 ? 'color:var(--c-text-1)' : 'color:var(--c-text-3)'" x-text="total > 0 ? total : '—'"></span>
+                                            <span class="score-total" :style="total>0?'color:var(--c-text-1)':'color:var(--c-text-3)'" x-text="total>0?total:'—'"></span>
                                         </td>
                                         <td style="text-align:center">
-                                            <span class="grade-badge" :class="gradeClass" x-text="grade"></span>
+                                            <span class="grade-badge" :class="gc" x-text="grade"></span>
                                         </td>
-                                        <td style="text-align:center;font-size:12px;color:var(--c-text-3);">
-                                            <span x-text="remark"></span>
+                                        <td>
+                                            <select class="sel" style="min-width:120px;font-size:12px;"
+                                                wire:model.lazy="scores.{{ $student->id }}.remark">
+                                                <option value="">— Auto —</option>
+                                                @foreach($remarkOptions as $opt)
+                                                    <option value="{{ $opt }}">{{ $opt }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error("scores.{$student->id}.remark")
+                                                <div style="font-size:10px;color:var(--c-danger);margin-top:2px;">{{ $message }}</div>
+                                            @enderror
                                         </td>
                                     </tr>
                                 @endif
