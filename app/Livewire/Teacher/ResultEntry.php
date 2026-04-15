@@ -479,11 +479,17 @@ class ResultEntry extends Component
 
         $remarkOptions = Subject::remarkOptions();
 
+        // Pass term school_days_count so blade never calls model classes directly.
+        $termSchoolDays = $this->selectedTermId
+            ? Term::find($this->selectedTermId)?->school_days_count
+            : null;
+
         return view('livewire.teacher.result-entry', compact(
             'myClasses', 'terms', 'subjects', 'students',
             'enrolmentsWithStudents',
             'isSubmitted', 'isLocked', 'selectedClass', 'isRemarkOnly',
-            'psychomotorDef', 'affectiveDef', 'remarkOptions'
+            'psychomotorDef', 'affectiveDef', 'remarkOptions',
+            'termSchoolDays'
         ))->layout('layouts.teacher', ['title' => 'Results Entry']);
     }
 }

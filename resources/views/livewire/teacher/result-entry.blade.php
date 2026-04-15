@@ -309,7 +309,7 @@
                 <span class="panel-title" style="color:var(--c-accent);">Attendance</span>
                 <div style="font-size:11px;color:var(--c-text-3);margin-top:2px;">
                     Enter times present and times absent for each student this term.
-                    School opened: <strong>{{ Term::find($selectedTermId)?->school_days_count ?? '—' }}</strong> days.
+                    School opened: <strong>{{ $termSchoolDays ?? '—' }}</strong> days.
                 </div>
             </div>
             @if(! $isLocked)
