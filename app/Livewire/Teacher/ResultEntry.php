@@ -459,6 +459,9 @@ class ResultEntry extends Component
             if (empty($this->attendance))      $this->loadAttendance();
         }
 
+        // Extract component state properties as local variables for compact()
+        $isLocked = $this->isLocked;
+
         $isSubmitted = false;
         if ($this->selectedTermId && $this->selectedClassId && $this->selectedSubjectId && $students->isNotEmpty()) {
             $isSubmitted = Result::where('term_id', $this->selectedTermId)
