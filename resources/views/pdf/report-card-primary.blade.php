@@ -42,9 +42,9 @@ body {
     border-radius:6px;
 }
 .hdr-m { display:table-cell; vertical-align:middle; padding-left:9px; }
-.hdr-school { font-size:15px; font-weight:700; color:#0E0E0E; letter-spacing:-0.01em; text-transform:uppercase; }
+.hdr-school { font-size:15px; font-weight:700; color:#111111; letter-spacing:-0.01em; text-transform:uppercase; }
 .hdr-addr   { font-size:7px; color:#999999; margin-top:1px; }
-.hdr-sub    { font-size:7px; color:#1A56FF; font-weight:600; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase; }
+.hdr-sub    { font-size:7px; color:#1A3A2A; font-weight:600; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase; }
 .hdr-r { display:table-cell; vertical-align:middle; text-align:right; width:160px; }
 
 /* Meta table in header — portal card-style */
@@ -79,15 +79,15 @@ body {
 
 /* ── SECTION LABEL ──────────────────────────────────────────────────────── */
 .sec-label {
-    font-size:6.5px; font-weight:700; color:#1A56FF;
+    font-size:6.5px; font-weight:700; color:#1A3A2A;
     text-transform:uppercase; letter-spacing:0.1em;
-    padding:0 0 3px; border-bottom:1.5px solid #1A56FF;
+    padding:0 0 3px; border-bottom:1.5px solid #1A3A2A;
     margin-bottom:0; display:block;
 }
 
 /* ── RESULTS TABLE ──────────────────────────────────────────────────────── */
 .rt { width:100%; border-collapse:collapse; }
-.rt thead tr { background:#0E0E0E; }
+.rt thead tr { background:#3D4A5C; }
 .rt th {
     font-size:6.5px; font-weight:600; color:rgba(255,255,255,0.75);
     text-transform:uppercase; letter-spacing:0.07em;
@@ -124,7 +124,7 @@ body {
 
 /* ── GRADE KEY ──────────────────────────────────────────────────────────── */
 .gkey { display:table; width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; border-radius:6px; overflow:hidden; }
-.gkey-hd { display:table-cell; background:#0E0E0E; color:rgba(255,255,255,0.6); font-size:6px; font-weight:700;
+.gkey-hd { display:table-cell; background:#3D4A5C; color:rgba(255,255,255,0.6); font-size:6px; font-weight:700;
     text-transform:uppercase; letter-spacing:0.08em; padding:3px 5px; vertical-align:middle; width:40px; }
 .gkey-body { display:table-cell; }
 .gkey-body table { width:100%; border-collapse:collapse; }
@@ -132,7 +132,7 @@ body {
 
 /* ── TRAITS PANEL (right column) ────────────────────────────────────────── */
 .tt { width:100%; border-collapse:collapse; margin-bottom:4px; }
-.tt thead tr { background:#0E0E0E; }
+.tt thead tr { background:#3D4A5C; }
 .tt th { font-size:6.5px; font-weight:600; color:rgba(255,255,255,0.75); text-transform:uppercase;
     letter-spacing:0.06em; padding:4px 5px; text-align:left; border:none; }
 .tt th.sc { text-align:center; width:16px; }
@@ -148,7 +148,7 @@ body {
 
 /* Key rating compact table */
 .krt { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; border-radius:4px; overflow:hidden; }
-.krt th { background:#0E0E0E; color:rgba(255,255,255,0.6); font-size:6px; font-weight:700;
+.krt th { background:#3D4A5C; color:rgba(255,255,255,0.6); font-size:6px; font-weight:700;
     text-transform:uppercase; letter-spacing:0.08em; padding:3px 5px; text-align:left; }
 .krt td { font-size:7px; padding:2px 5px; border-bottom:1px solid #F5F4F0; }
 .krt tr:last-child td { border-bottom:none; }
@@ -159,7 +159,7 @@ body {
 .cmt-cell { display:table-cell; vertical-align:top; padding-right:5px; width:50%; }
 .cmt-cell:last-child { padding-right:0; padding-left:5px; }
 .cmt-box { border:1px solid #E8E6E1; border-radius:6px; padding:5px 7px; background:#FAFAF8; }
-.cmt-lbl { font-size:6px; font-weight:700; color:#1A56FF; text-transform:uppercase; letter-spacing:0.09em; margin-bottom:2px; }
+.cmt-lbl { font-size:6px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em; margin-bottom:2px; }
 .cmt-txt { font-size:7.5px; color:#111111; line-height:1.55; font-style:italic; }
 
 /* ── SIGNATURES ──────────────────────────────────────────────────────────── */
@@ -173,7 +173,7 @@ body {
     margin-top:5px; padding-top:4px; border-top:1px solid #F5F4F0;
     font-size:6px; color:#999999; text-align:center; letter-spacing:0.04em;
 }
-.footer span { color:#1A56FF; font-weight:600; }
+.footer span { color:#1A3A2A; font-weight:600; }
 </style>
 </head>
 <body>
