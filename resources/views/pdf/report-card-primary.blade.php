@@ -1,5 +1,4 @@
 {{-- Deploy to: resources/views/pdf/report-card-primary.blade.php --}}
-{{-- Primary scored classes. DomPDF-safe: all layout via HTML <table> tags only. --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,11 +13,6 @@ body {
     padding:16px 18px 12px;
     line-height:1.35;
 }
-
-/* PORTAL TOKENS:
-   accent  #1A56FF | bg    #F5F4F0 | border #E8E6E1
-   success #15803D | danger#BE123C | text-3 #999999
-   header  #3D4A5C (slate) | sec-label #1A3A2A (deep green) */
 
 /* ── HEADER ── */
 .hdr { width:100%; border-collapse:collapse; margin-bottom:6px; }
@@ -37,7 +31,6 @@ body {
 .pill-pass { background:rgba(21,128,61,0.1);  color:#15803D; font-weight:700; padding:0 5px; border-radius:3px; }
 .pill-fail { background:rgba(190,18,60,0.1); color:#BE123C; font-weight:700; padding:0 5px; border-radius:3px; }
 
-/* Accent rule */
 .rule { height:2px; background:#1A56FF; margin-bottom:6px; border-radius:1px; }
 
 /* ── BIO ── */
@@ -51,21 +44,29 @@ body {
 .bl { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:7px; width:82px; background:#F5F4F0; }
 .bv { color:#111111; font-weight:600; }
 
-/* ── SECTION LABEL ── */
 .sec { font-size:7px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em;
     padding:3px 5px; background:#EEF3EE; border-left:3px solid #1A3A2A; display:block; margin-bottom:0; }
 
-/* ── MAIN BODY TABLE: left 64% | right 36% ── */
+/* ── MAIN BODY TABLE ── */
 .body-tbl { width:100%; border-collapse:collapse; }
 .body-tbl > tbody > tr > td { vertical-align:top; }
 .left-col  { padding-right:5px; width:64%; }
 .right-col { width:36%; }
 
-/* ── RESULTS TABLE ── */
+/* ── RESULTS TABLE FIX ── */
 .rt { width:100%; border-collapse:collapse; }
-.rt-head { background:#3D4A5C; }
-.rt-head td { font-size:6.5px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
-    letter-spacing:0.07em; padding:4px 4px; text-align:center; }
+.rt-head { background: transparent !important; } /* FIXED: Removed background from TR */
+.rt-head td {
+    font-size:7.5px; /* Increased for better rendering */
+    font-weight:700;
+    color:#FFFFFF;
+    background:#3D4A5C; /* FIXED: Keep background only on TD */
+    text-transform:uppercase;
+    letter-spacing:0.07em;
+    padding:5px 4px;
+    text-align:center;
+    border:none;
+}
 .rt-head td.lft { text-align:left; padding-left:7px; }
 .rt td { padding:2.5px 4px; font-size:8.5px; border:1px solid #F0EEE9; text-align:center; color:#111111; }
 .rt td.lft { text-align:left; font-weight:600; padding-left:7px; }
@@ -98,7 +99,7 @@ body {
 
 /* ── TRAITS ── */
 .tt { width:100%; border-collapse:collapse; margin-bottom:4px; }
-.tt-head { background:#3D4A5C; }
+.tt-head { background: transparent !important; }
 .tt-head td { font-size:6.5px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
     letter-spacing:0.06em; padding:4px 5px; }
 .tt-head td.sc { text-align:center; width:16px; }
@@ -108,9 +109,8 @@ body {
 .s0 { color:#E8E6E1; } .s1 { color:#BE123C; } .s2 { color:#B45309; }
 .s3 { color:#1A56FF; } .s4 { color:#15803D; } .s5 { color:#111111; font-weight:700; }
 
-/* Key rating */
 .krt { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
-.krt-head { background:#3D4A5C; }
+.krt-head { background: transparent !important; }
 .krt-head td { font-size:6px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
     letter-spacing:0.08em; padding:3px 5px; }
 .krt td.tn { font-size:8px; padding:2px 5px; border-bottom:1px solid #F5F4F0; }
@@ -142,12 +142,13 @@ body {
 @php
     function chipClass(string $r): string {
         return match($r) {
-            'Distinction'   => 'chip chip-d',
-            'Excellent'     => 'chip chip-e',
-            'Very Good'     => 'chip chip-v',
-            'Good'          => 'chip chip-g',
-            'Average'       => 'chip chip-a',
-            default         => 'chip chip-b',
+            'Distinction'      => 'chip chip-d',
+            'Excellent'        => 'chip chip-e',
+            'Very Good'        => 'chip chip-v',
+            'Good'             => 'chip chip-g',
+            'Average'          => 'chip chip-a',
+            'Below Average'    => 'chip chip-b',
+            default            => 'chip chip-b',
         };
     }
 @endphp
@@ -169,31 +170,15 @@ body {
         </td>
         <td style="text-align:right; width:168px; vertical-align:top;">
             <table class="meta" style="margin-left:auto;">
-                <tr>
-                    <td class="ml">Next Term Begins</td>
-                    <td class="mv">{{ $term->next_term_begins?->format('d M Y') ?? '—' }}</td>
-                </tr>
-                <tr>
-                    <td class="ml">Session</td>
-                    <td class="mv">{{ $term->session->name }}</td>
-                </tr>
-                <tr>
-                    <td class="ml">Term</td>
-                    <td class="mv">{{ strtoupper($term->name) }} TERM</td>
-                </tr>
-                <tr>
-                    <td class="ml">Class</td>
-                    <td class="mv">{{ strtoupper($enrolment?->schoolClass?->display_name ?? '—') }}</td>
-                </tr>
-                <tr>
-                    <td class="ml">Status</td>
-                    <td class="mv">
-                        @if($passStatus === 'PASS') <span class="pill-pass">PASS</span>
-                        @elseif($passStatus === 'FAIL') <span class="pill-fail">FAIL</span>
-                        @else —
-                        @endif
-                    </td>
-                </tr>
+                <tr><td class="ml">Next Term Begins</td><td class="mv">{{ $term->next_term_begins?->format('d M Y') ?? '—' }}</td></tr>
+                <tr><td class="ml">Session</td><td class="mv">{{ $term->session->name }}</td></tr>
+                <tr><td class="ml">Term</td><td class="mv">{{ strtoupper($term->name) }} TERM</td></tr>
+                <tr><td class="ml">Class</td><td class="mv">{{ strtoupper($enrolment?->schoolClass?->display_name ?? '—') }}</td></tr>
+                <tr><td class="ml">Status</td><td class="mv">
+                    @if($passStatus === 'PASS') <span class="pill-pass">PASS</span>
+                    @elseif($passStatus === 'FAIL') <span class="pill-fail">FAIL</span>
+                    @else — @endif
+                </td></tr>
             </table>
         </td>
     </tr>
@@ -219,20 +204,14 @@ body {
                     <td class="bv" style="font-family:'Courier New',monospace;">{{ $student->admission_number }}</td>
                 </tr>
                 <tr>
-                    <td class="bl">Sex</td>
-                    <td class="bv">{{ $student->gender }}</td>
-                    <td class="bl">Date of Birth</td>
-                    <td class="bv">{{ $student->date_of_birth?->format('d/m/Y') ?? '—' }}</td>
-                    <td class="bl">School Opened</td>
-                    <td class="bv">{{ $term->school_days_count ?? '—' }}</td>
-                    <td class="bl">Times Present</td>
-                    <td class="bv">{{ $enrolment?->times_present ?? '—' }}</td>
+                    <td class="bl">Sex</td><td class="bv">{{ $student->gender }}</td>
+                    <td class="bl">Date of Birth</td><td class="bv">{{ $student->date_of_birth?->format('d/m/Y') ?? '—' }}</td>
+                    <td class="bl">School Opened</td><td class="bv">{{ $term->school_days_count ?? '—' }}</td>
+                    <td class="bl">Times Present</td><td class="bv">{{ $enrolment?->times_present ?? '—' }}</td>
                 </tr>
                 <tr>
-                    <td class="bl">Times Absent</td>
-                    <td class="bv">{{ $enrolment?->times_absent ?? '—' }}</td>
-                    <td class="bl" colspan="2">Extra Curricular</td>
-                    <td class="bv" colspan="5">&nbsp;</td>
+                    <td class="bl">Times Absent</td><td class="bv">{{ $enrolment?->times_absent ?? '—' }}</td>
+                    <td class="bl" colspan="2">Extra Curricular</td><td class="bv" colspan="5">&nbsp;</td>
                 </tr>
             </table>
         </td>
@@ -242,7 +221,6 @@ body {
 {{-- ═══ MAIN BODY ═══ --}}
 <table class="body-tbl">
     <tr>
-
         {{-- LEFT: Academic results --}}
         <td class="left-col">
             <div class="sec">Academic Performance &nbsp;—&nbsp; CA (40) + Exam (60) = 100</div>
@@ -281,18 +259,9 @@ body {
                         <span class="sum-lbl">Total Mark</span>
                         <span class="sum-num">{{ $results->sum('total') }}</span>
                     </td>
-                    <td>
-                        <span class="sum-lbl">Class Lowest (LS)</span>
-                        <span class="sum-num">{{ $classLowest ?? '—' }}</span>
-                    </td>
-                    <td>
-                        <span class="sum-lbl">Class Highest (HS)</span>
-                        <span class="sum-num">{{ $classHighest ?? '—' }}</span>
-                    </td>
-                    <td>
-                        <span class="sum-lbl">Average Score</span>
-                        <span class="sum-num">{{ $average }}%</span>
-                    </td>
+                    <td><span class="sum-lbl">Class Lowest</span><span class="sum-num">{{ $classLowest ?? '—' }}</span></td>
+                    <td><span class="sum-lbl">Class Highest</span><span class="sum-num">{{ $classHighest ?? '—' }}</span></td>
+                    <td><span class="sum-lbl">Average Score</span><span class="sum-num">{{ $average }}%</span></td>
                 </tr>
             </table>
             @endif
@@ -309,7 +278,7 @@ body {
                                 <td><strong>B</strong> 60–69<br>Very Good</td>
                                 <td><strong>C</strong> 50–59<br>Good</td>
                                 <td><strong>D</strong> 40–49<br>Average</td>
-                                <td><strong>E</strong> 0–39<br>Below Avg</td>
+                                <td><strong>E</strong> 0–39<br>Below Average</td>
                             </tr>
                         </table>
                     </td>
@@ -320,45 +289,32 @@ body {
         {{-- RIGHT: Traits --}}
         <td class="right-col">
             <div class="sec">Psychomotor Skills</div>
-            <table class="tt" style="margin-bottom:4px;">
-                <tr class="tt-head">
-                    <td>Skill</td>
-                    <td class="sc">&#9679;</td>
-                </tr>
+            <table class="tt">
+                <tr class="tt-head"><td>Skill</td><td class="sc">&#9679;</td></tr>
                 @foreach($psychomotorDef as $key => $label)
                 @php $sc = $traitScores[$key] ?? null; @endphp
-                <tr>
-                    <td class="tn">{{ $label }}</td>
-                    <td class="sc s{{ $sc ?? 0 }}">{{ $sc ?? '—' }}</td>
-                </tr>
+                <tr><td class="tn">{{ $label }}</td><td class="sc s{{ $sc ?? 0 }}">{{ $sc ?? '—' }}</td></tr>
                 @endforeach
             </table>
 
             <div class="sec">Affective Areas</div>
-            <table class="tt" style="margin-bottom:4px;">
-                <tr class="tt-head">
-                    <td>Trait</td>
-                    <td class="sc">&#9679;</td>
-                </tr>
+            <table class="tt">
+                <tr class="tt-head"><td>Trait</td><td class="sc">&#9679;</td></tr>
                 @foreach($affectiveDef as $key => $label)
                 @php $sc = $traitScores[$key] ?? null; @endphp
-                <tr>
-                    <td class="tn">{{ $label }}</td>
-                    <td class="sc s{{ $sc ?? 0 }}">{{ $sc ?? '—' }}</td>
-                </tr>
+                <tr><td class="tn">{{ $label }}</td><td class="sc s{{ $sc ?? 0 }}">{{ $sc ?? '—' }}</td></tr>
                 @endforeach
             </table>
 
             <table class="krt">
                 <tr class="krt-head"><td colspan="2">Key Rating</td></tr>
-                <tr><td class="tn">Very Good</td> <td class="kv">5</td></tr>
-                <tr><td class="tn">Good</td>      <td class="kv">4</td></tr>
-                <tr><td class="tn">Fair</td>       <td class="kv">3</td></tr>
-                <tr><td class="tn">Poor</td>       <td class="kv">2</td></tr>
-                <tr><td class="tn">N/A</td>        <td class="kv" style="color:#999;">1</td></tr>
+                <tr><td class="tn">Very Good</td><td class="kv">5</td></tr>
+                <tr><td class="tn">Good</td><td class="kv">4</td></tr>
+                <tr><td class="tn">Fair</td><td class="kv">3</td></tr>
+                <tr><td class="tn">Poor</td><td class="kv">2</td></tr>
+                <tr><td class="tn">N/A</td><td class="kv" style="color:#999;">1</td></tr>
             </table>
         </td>
-
     </tr>
 </table>
 
@@ -392,7 +348,7 @@ body {
 <div class="footer">
     <span class="footer-name">{{ $schoolName }}</span>
     &nbsp;&middot;&nbsp; Generated {{ now()->format('d M Y') }}
-    &nbsp;&middot;&nbsp; connect.nurturevilleschool.org
+    &nbsp;&middot;&nbsp; schoolms portal
 </div>
 
 </body>
