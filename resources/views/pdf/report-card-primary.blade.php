@@ -250,11 +250,11 @@ body {
             <table class="rt">
                 <tr class="rt-head">
                     <td class="lft">Subject</td>
-                    <td>CA<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">/40</span></td>
-                    <td>Exam<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">/60</span></td>
-                    <td>Total<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">/100</span></td>
-                    <td>Class<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;">Ave</span></td>
-                    <td>Remark</td>
+                    <td>CA<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">/40</span></td>
+                    <td>Exam<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">/60</span></td>
+                    <td>Total<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">/100</span></td>
+                    <td>Class<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">Ave</span></td>
+                    <td>Remark<br><style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;"></span></td>
                 </tr>
                 @foreach($results as $result)
                 <tr>
