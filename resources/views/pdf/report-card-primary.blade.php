@@ -8,7 +8,7 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
     font-family:'DejaVu Sans', Arial, sans-serif;
-    font-size:8px;
+    font-size:9px;
     color:#111111;
     background:#ffffff;
     padding:16px 18px 12px;
@@ -27,10 +27,10 @@ body {
 .logo-fb  { width:42px; height:42px; background:#1A56FF; color:#fff; font-size:18px;
     font-weight:700; text-align:center; line-height:42px; border-radius:5px; }
 .school-name { font-size:15px; font-weight:700; color:#111111; text-transform:uppercase; letter-spacing:-0.01em; }
-.school-addr { font-size:7px; color:#999999; margin-top:1px; }
-.school-sub  { font-size:7px; color:#1A3A2A; font-weight:600; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase; }
+.school-addr { font-size:8px; color:#999999; margin-top:1px; }
+.school-sub  { font-size:8px; color:#1A3A2A; font-weight:600; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase; }
 .meta { border-collapse:collapse; border:1px solid #E8E6E1; }
-.meta td { font-size:7px; padding:2px 6px; border-bottom:1px solid #E8E6E1; }
+.meta td { font-size:8px; padding:2px 6px; border-bottom:1px solid #E8E6E1; }
 .meta tr:last-child td { border-bottom:none; }
 .ml { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; background:#F5F4F0; width:94px; }
 .mv { color:#111111; font-weight:600; min-width:70px; }
@@ -46,13 +46,13 @@ body {
 .bio-photo-img  { width:50px; height:58px; object-fit:cover; display:block; }
 .bio-photo-fb   { width:50px; height:58px; background:#E8E6E1; display:inline-block; line-height:58px; text-align:center; font-size:7px; color:#999; }
 .bio-inner { width:100%; border-collapse:collapse; }
-.bio-inner td { font-size:7.5px; padding:2.5px 6px; border-bottom:1px solid #F5F4F0; }
+.bio-inner td { font-size:8.5px; padding:2.5px 6px; border-bottom:1px solid #F5F4F0; }
 .bio-inner tr:last-child td { border-bottom:none; }
-.bl { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:6.5px; width:82px; background:#F5F4F0; }
+.bl { color:#999999; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:7px; width:82px; background:#F5F4F0; }
 .bv { color:#111111; font-weight:600; }
 
 /* ── SECTION LABEL ── */
-.sec { font-size:6.5px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em;
+.sec { font-size:7px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em;
     padding:3px 5px; background:#EEF3EE; border-left:3px solid #1A3A2A; display:block; margin-bottom:0; }
 
 /* ── MAIN BODY TABLE: left 64% | right 36% ── */
@@ -64,15 +64,15 @@ body {
 /* ── RESULTS TABLE ── */
 .rt { width:100%; border-collapse:collapse; }
 .rt-head { background:#3D4A5C; }
-.rt-head td { font-size:6.5px; font-weight:700; color:rgba(255,255,255,0.85); text-transform:uppercase;
+.rt-head td { font-size:6.5px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
     letter-spacing:0.07em; padding:4px 4px; text-align:center; }
 .rt-head td.lft { text-align:left; padding-left:7px; }
-.rt td { padding:2.5px 4px; font-size:7.5px; border:1px solid #F0EEE9; text-align:center; color:#111111; }
+.rt td { padding:2.5px 4px; font-size:8.5px; border:1px solid #F0EEE9; text-align:center; color:#111111; }
 .rt td.lft { text-align:left; font-weight:600; padding-left:7px; }
 .rt tr:nth-child(even) td { background:#FAFAF8; }
 
 /* Chips */
-.chip  { font-size:6.5px; font-weight:700; padding:1px 4px; border-radius:20px; display:inline-block; }
+.chip  { font-size:7px; font-weight:700; padding:1px 4px; border-radius:20px; display:inline-block; }
 .chip-d { background:rgba(26,86,255,0.10);  color:#1A56FF; }
 .chip-e { background:rgba(21,128,61,0.10);  color:#15803D; }
 .chip-v { background:rgba(21,128,61,0.07);  color:#166534; }
@@ -84,26 +84,26 @@ body {
 .sum { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
 .sum td { text-align:center; padding:3px 3px; border-right:1px solid #E8E6E1; }
 .sum td:last-child { border-right:none; }
-.sum-lbl { font-size:6px; font-weight:700; color:#999999; text-transform:uppercase; letter-spacing:0.04em; display:block; }
-.sum-num { font-size:12px; font-weight:700; color:#111111; display:block; margin-top:1px; line-height:1; }
+.sum-lbl { font-size:7px; font-weight:700; color:#999999; text-transform:uppercase; letter-spacing:0.04em; display:block; }
+.sum-num { font-size:13px; font-weight:700; color:#111111; display:block; margin-top:1px; line-height:1; }
 .sum-accent { background:rgba(26,86,255,0.05); }
 .sum-accent .sum-num { color:#1A56FF; }
 
 /* ── GRADE KEY ── */
 .gkey { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
-.gkey-hd { background:#3D4A5C; color:rgba(255,255,255,0.75); font-size:6px; font-weight:700;
+.gkey-hd { background:#3D4A5C; color:#FFFFFF; font-size:6px; font-weight:700;
     text-transform:uppercase; letter-spacing:0.08em; padding:3px 5px; vertical-align:middle; width:38px; text-align:center; }
 .gkey-items { width:100%; border-collapse:collapse; }
-.gkey-items td { font-size:6.5px; padding:3px 4px; border-left:1px solid #F5F4F0; text-align:center; line-height:1.4; }
+.gkey-items td { font-size:7.5px; padding:3px 4px; border-left:1px solid #F5F4F0; text-align:center; line-height:1.4; }
 
 /* ── TRAITS ── */
 .tt { width:100%; border-collapse:collapse; margin-bottom:4px; }
 .tt-head { background:#3D4A5C; }
-.tt-head td { font-size:6.5px; font-weight:700; color:rgba(255,255,255,0.85); text-transform:uppercase;
+.tt-head td { font-size:6.5px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
     letter-spacing:0.06em; padding:4px 5px; }
 .tt-head td.sc { text-align:center; width:16px; }
-.tt td.tn { font-size:7.5px; padding:2px 5px; border:1px solid #F0EEE9; }
-.tt td.sc { text-align:center; font-weight:700; font-size:7.5px; width:16px; padding:2px 4px; border:1px solid #F0EEE9; }
+.tt td.tn { font-size:8.5px; padding:2px 5px; border:1px solid #F0EEE9; }
+.tt td.sc { text-align:center; font-weight:700; font-size:8.5px; width:16px; padding:2px 4px; border:1px solid #F0EEE9; }
 .tt tr:nth-child(even) td { background:#FAFAF8; }
 .s0 { color:#E8E6E1; } .s1 { color:#BE123C; } .s2 { color:#B45309; }
 .s3 { color:#1A56FF; } .s4 { color:#15803D; } .s5 { color:#111111; font-weight:700; }
@@ -111,9 +111,9 @@ body {
 /* Key rating */
 .krt { width:100%; border-collapse:collapse; margin-top:4px; border:1px solid #E8E6E1; }
 .krt-head { background:#3D4A5C; }
-.krt-head td { font-size:6px; font-weight:700; color:rgba(255,255,255,0.75); text-transform:uppercase;
+.krt-head td { font-size:6px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
     letter-spacing:0.08em; padding:3px 5px; }
-.krt td.tn { font-size:7px; padding:2px 5px; border-bottom:1px solid #F5F4F0; }
+.krt td.tn { font-size:8px; padding:2px 5px; border-bottom:1px solid #F5F4F0; }
 .krt tr:last-child td { border-bottom:none; }
 .kv { font-weight:700; text-align:center; background:#F5F4F0; width:16px; color:#1A56FF; padding:2px 4px; border-bottom:1px solid #F5F4F0; }
 
@@ -123,17 +123,17 @@ body {
 .cmt-tbl td:first-child { padding-right:4px; }
 .cmt-tbl td:last-child  { padding-left:4px;  }
 .cmt-box { border:1px solid #E8E6E1; border-radius:5px; padding:4px 6px; background:#FAFAF8; }
-.cmt-lbl { font-size:6px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em; margin-bottom:2px; }
-.cmt-txt { font-size:7.5px; color:#111111; line-height:1.5; font-style:italic; }
+.cmt-lbl { font-size:7px; font-weight:700; color:#1A3A2A; text-transform:uppercase; letter-spacing:0.09em; margin-bottom:2px; }
+.cmt-txt { font-size:8.5px; color:#111111; line-height:1.5; font-style:italic; }
 
 /* ── SIGNATURES ── */
 .sig-tbl { width:100%; border-collapse:collapse; margin-top:5px; }
 .sig-tbl td { text-align:center; width:33%; padding:0 8px; }
 .sig-ln  { border-top:1px solid #E8E6E1; margin-bottom:2px; }
-.sig-lb  { font-size:6.5px; color:#999999; }
+.sig-lb  { font-size:7.5px; color:#999999; }
 
 /* ── FOOTER ── */
-.footer { margin-top:4px; padding-top:3px; border-top:1px solid #F5F4F0; font-size:6px; color:#999999; text-align:center; }
+.footer { margin-top:4px; padding-top:3px; border-top:1px solid #F5F4F0; font-size:7px; color:#999999; text-align:center; }
 .footer-name { color:#1A3A2A; font-weight:600; }
 </style>
 </head>
