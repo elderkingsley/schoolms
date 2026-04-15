@@ -254,7 +254,7 @@ body {
                     <td>Exam<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">/60</span></td>
                     <td>Total<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">/100</span></td>
                     <td>Class<br><span style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;">Ave</span></td>
-                    <td>Remark<br><style="font-weight:400;font-size:5.5px;opacity:0.7;color:#FFFFFF;"></span></td>
+                    <td style="color: white;">Remark</td>
                 </tr>
                 @foreach($results as $result)
                 <tr>
