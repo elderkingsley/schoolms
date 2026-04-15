@@ -63,8 +63,8 @@ body {
 
 /* ── RESULTS TABLE ── */
 .rt { width:100%; border-collapse:collapse; }
-.rt-head { background:#3D4A5C; }
-.rt-head td { font-size:6.5px; font-weight:700; color:#FFFFFF; background:#3D4A5C; text-transform:uppercase;
+
+.rt-head td { font-size:6.5px; font-weight:700; color:#FFFFFF; background:#8e96a1; text-transform:uppercase;
     letter-spacing:0.06em; padding:4px 5px; }
 .rt-head td.lft { text-align:left; padding-left:7px; }
 .rt td { padding:2.5px 4px; font-size:8.5px; border:1px solid #F0EEE9; text-align:center; color:#111111; }
