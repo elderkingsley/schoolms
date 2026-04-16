@@ -65,6 +65,8 @@
 .btn-sm-danger:hover { background:rgba(190,18,60,0.06); }
 .btn-sm-green  { color:#15803D; border-color:rgba(21,128,61,0.3); }
 .btn-sm-green:hover { background:rgba(21,128,61,0.06); }
+.btn-sm-impersonate { background:#1A56FF; color:#fff; border:none; }
+.btn-sm-impersonate:hover { background:#1E40AF; opacity:1; }
 
 .empty-state { padding:40px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
 .pag-wrap { padding:14px 18px; border-top:1px solid var(--c-border); }
@@ -239,6 +241,17 @@
                             </td>
                             <td>
                                 <div class="row-actions">
+                                    {{-- IMPERSONATE BUTTON --}}
+                                    <form method="POST" action="{{ route('admin.impersonate.start', $member) }}" style="display:inline;">
+                                        @csrf
+                                        <button type="submit"
+                                                class="btn-sm btn-sm-impersonate"
+                                                onclick="return confirm('Login as {{ $member->name }}?\n\nYou will be able to view and edit all their classes and student data. Click OK to continue.')"
+                                                title="Login as this teacher">
+                                            👤 Login As
+                                        </button>
+                                    </form>
+
                                     <button class="btn-sm" wire:click="openEdit({{ $member->id }})">Edit</button>
                                     @if(auth()->user()->isSuperAdmin())
                                         <button class="btn-sm"

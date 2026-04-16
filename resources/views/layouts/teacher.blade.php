@@ -1,3 +1,4 @@
+{{-- Deploy to: resources/views/layouts/teacher.blade.php --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,6 +46,22 @@
         @media(min-width:480px) { .t-username { display:block; } }
         .t-logout { font-size:12px; color:rgba(255,255,255,0.4); background:none; border:none; cursor:pointer; font-family:var(--f-sans); padding:4px 8px; border-radius:6px; transition:color 150ms; }
         .t-logout:hover { color:rgba(255,255,255,0.8); }
+
+        /* Impersonation Banner */
+        .t-impersonation-banner {
+            position:fixed; top:var(--topbar-h); left:0; right:0; z-index:39;
+            background:#1A56FF; color:#fff; padding:8px 16px;
+            display:flex; align-items:center; justify-content:space-between;
+            font-size:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+        }
+        .t-impersonation-banner button {
+            background:#fff; color:#1A56FF; border:none;
+            padding:4px 12px; border-radius:4px; font-size:11px;
+            font-weight:600; cursor:pointer; transition:all 150ms;
+        }
+        .t-impersonation-banner button:hover { opacity:0.9; transform:translateY(-1px); }
+        body.has-impersonation-banner { padding-top:calc(var(--topbar-h) + 40px); }
+
         /* Main */
         .t-main { max-width:900px; margin:0 auto; padding:20px 16px; }
         /* Bottom nav */
@@ -68,7 +85,24 @@
         .t-nav-item:hover { color:var(--c-text-1); }
     </style>
 </head>
-<body>
+<body class="{{ session()->has('impersonate_admin_id') ? 'has-impersonation-banner' : '' }}">
+{{-- IMPERSONATION BANNER --}}
+@if(session()->has('impersonate_admin_id'))
+<div class="t-impersonation-banner">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7v10l10 5 10-5V7l-10-5z"/>
+            <path d="M2 7l10 5 10-5M12 22V12"/>
+        </svg>
+        <span><strong>⚠️ Admin Impersonation Mode</strong> — Viewing as {{ auth()->user()->name }}</span>
+    </div>
+    <form method="POST" action="{{ route('impersonate.stop') }}" style="margin:0;">
+        @csrf
+        <button type="submit">← Stop Impersonating</button>
+    </form>
+</div>
+@endif
+
 <header class="t-topbar">
     <div class="t-brand">
         <div class="t-logo">T</div>
@@ -116,15 +150,11 @@
     </a>
 </nav>
 
-
 <script>
 (function () {
-    // Auto-hide bottom nav on activity, show after 5 seconds of inactivity.
-    // Only applies on mobile (screens narrower than 768px) — on desktop the
-    // save bar and nav don't overlap so hiding isn't needed.
     var nav     = document.querySelector('.t-bottom-nav');
     var timer   = null;
-    var DELAY   = 5000; // ms before nav reappears
+    var DELAY   = 5000;
 
     if (! nav) return;
 
@@ -139,18 +169,16 @@
     }
 
     function onActivity() {
-        if (window.innerWidth >= 768) return; // desktop — leave nav visible
+        if (window.innerWidth >= 768) return;
         hide();
         clearTimeout(timer);
         timer = setTimeout(show, DELAY);
     }
 
-    // Listen for all meaningful interaction events
     ['touchstart', 'touchmove', 'mousedown', 'scroll', 'keydown', 'focus'].forEach(function (evt) {
         document.addEventListener(evt, onActivity, { passive: true });
     });
 
-    // Also hide when a Livewire request starts (e.g. typing in a score input)
     document.addEventListener('livewire:request', onActivity);
 })();
 </script>

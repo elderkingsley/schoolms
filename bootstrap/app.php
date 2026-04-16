@@ -44,6 +44,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\ForcePasswordChange::class,
         ]);
+
+        $middleware->alias([
+            'impersonate' => \App\Http\Middleware\Impersonate::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
