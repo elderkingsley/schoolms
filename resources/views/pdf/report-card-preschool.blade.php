@@ -40,7 +40,7 @@ body {
 .bv { color:#111111; font-weight:700; }
 
 /* ── LAYOUT ── */
-.sec { font-size:7px; font-weight:800; color:#FFFFFF; text-transform:uppercase; padding:3px 8px; background:#3D4A5C; margin-bottom:0; }
+.sec { font-size:10px; font-weight:800; color:#FFFFFF; text-transform:uppercase; padding:3px 8px; background:#3D4A5C; margin-bottom:0; }
 .body-tbl { width:100%; border-collapse:collapse; table-layout: fixed; }
 .et { width:100%; border-collapse:collapse; page-break-inside: auto; }
 .et tr { page-break-inside: avoid; }
@@ -52,8 +52,8 @@ body {
 
 /* ── REMARKS ── */
 .cmt-box { border:1px solid #E8E6E1; padding:6px; background:#F5F4F0; margin-top:5px; min-height:45px; }
-.cmt-lbl { font-size:7px; font-weight:800; color:#3D4A5C; border-bottom:1px solid #E8E6E1; margin-bottom:3px; padding-bottom:2px; }
-.cmt-txt { font-size:8px; font-style:italic; line-height:1.3; }
+.cmt-lbl { font-size:12px; font-weight:800; color:#3D4A5C; border-bottom:1px solid #E8E6E1; margin-bottom:3px; padding-bottom:2px; }
+.cmt-txt { font-size:10px; font-style:italic; line-height:1.3; }
 
 .sig-tbl { width:100%; margin-top:20px; }
 .sig-ln { border-top:1px solid #333; margin-bottom:2px; }
@@ -152,8 +152,10 @@ body {
             </table>
             <div class="sec">Rating Key</div>
             <table class="tt">
-                <tr><td>Excellent / Very Good</td><td class="sc">5-4</td></tr>
-                <tr><td>Good / Fair</td><td class="sc">3-2</td></tr>
+                <tr><td>Excellent</td><td class="sc">5</td></tr>
+                <tr><td>Very Good</td><td class="sc">4</td></tr>
+                <tr><td>Good</td><td class="sc">3</td></tr>
+                <tr><td>Fair</td><td class="sc">2</td></tr>
                 <tr><td>Needs Improvement</td><td class="sc">1</td></tr>
             </table>
         </td>
@@ -175,14 +177,6 @@ body {
                 <div class="cmt-txt">{{ $termComment?->head_teacher_comment }}</div>
             </div>
         </td>
-    </tr>
-</table>
-
-<table class="sig-tbl">
-    <tr>
-        <td style="width:33%; padding:0 10px;"><div class="sig-ln"></div><div class="sig-lb">Class Teacher</div></td>
-        <td style="width:33%; padding:0 10px;"><div class="sig-ln"></div><div class="sig-lb">Head Teacher</div></td>
-        <td style="width:33%; padding:0 10px;"><div class="sig-lb" style="border-top:1px solid #333;">Parent Signature</div></td>
     </tr>
 </table>
 
