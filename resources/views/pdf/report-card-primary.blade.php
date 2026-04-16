@@ -381,15 +381,6 @@ body {
     </tr>
 </table>
 
-{{-- ═══ SIGNATURES ═══ --}}
-<table class="sig-tbl">
-    <tr>
-        <td><div class="sig-ln"></div><div class="sig-lb">Class Teacher</div></td>
-        <td><div class="sig-ln"></div><div class="sig-lb">Head Teacher / Principal</div></td>
-        <td><div class="sig-ln"></div><div class="sig-lb">Date</div></td>
-    </tr>
-</table>
-
 <div class="footer">
     <span class="footer-name">{{ $schoolName }}</span>
     &nbsp;&middot;&nbsp; Generated {{ now()->format('d M Y') }}
