@@ -12,6 +12,7 @@ use App\Models\Subject;
 use App\Models\Term;
 use Illuminate\Support\Collection;
 use Livewire\Component;
+use Illuminate\Support\Facades\Log;
 
 class ResultEntry extends Component
 {
@@ -177,6 +178,13 @@ class ResultEntry extends Component
         if (! $this->selectedTermId || ! $this->selectedClassId || ! $this->selectedSubjectId) {
             return;
         }
+
+        // Log what we're trying to save for debugging
+        Log::info('Saving results', [
+            'isRemarkOnly' => $this->isRemarkOnly(),
+            'scores_count' => count($this->scores),
+            'sample_score' => array_slice($this->scores, 0, 2, true)
+        ]);
 
         $this->validateScores();
         $isRemarkOnly = $this->isRemarkOnly();

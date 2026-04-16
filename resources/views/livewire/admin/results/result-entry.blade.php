@@ -198,7 +198,7 @@ Nursery — Remarks Only
 </td>
 <td>
 <textarea class="remark-input" rows="2"
-wire:model.lazy="scores.{{ $student->id }}.admin_comment"
+wire:model.blur="scores.{{ $student->id }}.admin_comment"
 placeholder="e.g. Shows good understanding of numbers and can count to 20..."
 maxlength="500"></textarea>
 @error("scores.{$student->id}.admin_comment")
@@ -207,7 +207,7 @@ maxlength="500"></textarea>
 </td>
 <td>
 <select class="sel" style="min-width:140px;font-size:12px;"
-wire:model.lazy="scores.{{ $student->id }}.remark">
+wire:model.blur="scores.{{ $student->id }}.remark">
 <option value="">— Select —</option>
 <option value="Excellent">Excellent</option>
 <option value="Very Good">Very Good</option>
@@ -261,11 +261,11 @@ $wire.scores['{{ $student->id }}'].remark = this.remarkFor(t);
 </td>
 <td style="text-align:center">
 <input type="number" min="0" max="40" class="score-input"
-wire:model.lazy="scores.{{ $student->id }}.ca" placeholder="—">
+wire:model.blur="scores.{{ $student->id }}.ca" placeholder="—">
 </td>
 <td style="text-align:center">
 <input type="number" min="0" max="60" class="score-input"
-wire:model.lazy="scores.{{ $student->id }}.exam" placeholder="—">
+wire:model.blur="scores.{{ $student->id }}.exam" placeholder="—">
 </td>
 <td style="text-align:center">
 <span class="score-total" :style="total>0?'color:var(--c-text-1)':'color:var(--c-text-3)'" x-text="total>0?total:'—'"></span>
@@ -275,7 +275,7 @@ wire:model.lazy="scores.{{ $student->id }}.exam" placeholder="—">
 </td>
 <td>
 <select class="sel" style="min-width:120px;font-size:12px;"
-wire:model.lazy="scores.{{ $student->id }}.remark">
+wire:model.blur="scores.{{ $student->id }}.remark">
 <option value="">— Auto —</option>
 @foreach($remarkOptions as $opt)
 <option value="{{ $opt }}">{{ $opt }}</option>
@@ -382,7 +382,7 @@ wire:loading.class="opacity-50">
 </td>
 <td>
 <textarea class="comment-input" rows="2"
-wire:model.lazy="headComments.{{ $student->id }}"
+wire:model.blur="headComments.{{ $student->id }}"
 placeholder="e.g. A focused and determined learner. Keep it up!"
 maxlength="500"></textarea>
 @error("headComments.{$student->id}")
