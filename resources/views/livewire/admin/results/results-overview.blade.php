@@ -44,16 +44,6 @@
 .no-content { padding:40px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
 .avg-bar { display:inline-block; height:4px; border-radius:2px; background:var(--c-accent); min-width:4px; vertical-align:middle; margin-left:6px; }
 .submitted-info { font-size:10px; color:var(--c-text-3); margin-top:3px; }
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
-.modal-box { background:var(--c-surface); border-radius:16px; width:100%; max-width:440px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
-.modal-title { font-size:16px; font-weight:700; color:var(--c-text-1); margin-bottom:6px; }
-.modal-sub   { font-size:13px; color:var(--c-text-3); margin-bottom:16px; }
-.form-field textarea { width:100%; padding:10px 12px; border:1px solid var(--c-border); border-radius:8px; font-family:var(--f-sans); font-size:14px; color:var(--c-text-1); background:var(--c-bg); outline:none; resize:vertical; min-height:100px; transition:border-color 150ms; }
-.form-field textarea:focus { border-color:var(--c-accent); background:#fff; box-shadow:0 0 0 3px rgba(26,86,255,0.08); }
-.field-error { font-size:11px; color:var(--c-danger); margin-top:4px; }
-.modal-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
-.btn-cancel  { padding:9px 16px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; background:none; cursor:pointer; font-family:var(--f-sans); }
-.btn-confirm { padding:9px 20px; background:var(--c-accent); color:#fff; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:var(--f-sans); }
 </style>
 
 @if(session('success'))
@@ -63,7 +53,7 @@
 <div class="pg-header">
     <div>
         <div class="pg-title">Results Overview</div>
-        <div class="pg-sub">Review, comment, publish, and send report cards to parents.</div>
+        <div class="pg-sub">Review, publish, and send report cards to parents.</div>
     </div>
     <a href="{{ route('admin.results.entry') }}"
        style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid var(--c-border);border-radius:8px;font-size:13px;font-weight:500;color:var(--c-text-2);text-decoration:none;background:var(--c-surface);">
@@ -159,11 +149,6 @@
                                     <button class="btn-sm" wire:click="toggleStudentPublish({{ $row['student']->id }})">
                                         {{ $row['published'] ? 'Unpublish' : 'Publish' }}
                                     </button>
-                                    <button class="btn-sm"
-                                        wire:click="openComment({{ $row['student']->id }})"
-                                        style="{{ $row['has_comment'] ? 'border-color:var(--c-accent);color:var(--c-accent)' : '' }}">
-                                        {{ $row['has_comment'] ? '✎ Edit Comment' : '+ Comment' }}
-                                    </button>
                                     <button class="btn-send"
                                         wire:click="sendReportCard({{ $row['student']->id }})"
                                         wire:loading.attr="disabled"
@@ -181,22 +166,5 @@
             </tbody>
         </table>
     </div>
-@endif
-
-@if($showCommentModal)
-<div class="modal-overlay">
-    <div class="modal-box">
-        <div class="modal-title">Admin Comment</div>
-        <div class="modal-sub">This comment appears on the student's report card under "Principal's Remark".</div>
-        <div class="form-field">
-            <textarea wire:model="commentText" placeholder="e.g. A hardworking student. Keep it up!"></textarea>
-            @error('commentText') <div class="field-error">{{ $message }}</div> @enderror
-        </div>
-        <div class="modal-actions">
-            <button class="btn-cancel" wire:click="$set('showCommentModal', false)">Cancel</button>
-            <button class="btn-confirm" wire:click="saveComment">Save Comment</button>
-        </div>
-    </div>
-</div>
 @endif
 </div>

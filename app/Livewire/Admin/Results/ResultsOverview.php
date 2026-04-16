@@ -15,17 +15,15 @@ class ResultsOverview extends Component
     public ?int    $selectedTermId   = null;
     public ?int    $selectedClassId  = null;
 
-    // Comment modal
-    public ?int    $commentStudentId = null;
-    public string  $commentText      = '';
-    public bool    $showCommentModal = false;
-
     public function mount(): void
     {
         $this->selectedTermId = Term::current()?->id;
     }
 
-    public function updatedSelectedTermId(): void { $this->selectedClassId = null; }
+    public function updatedSelectedTermId(): void
+    {
+        $this->selectedClassId = null;
+    }
 
     // ── Publish / Unpublish ───────────────────────────────────────────────────
 
@@ -51,30 +49,6 @@ class ResultsOverview extends Component
         $hasUnpublished = $results->where('is_published', false)->isNotEmpty();
         Result::where('term_id', $this->selectedTermId)->where('student_id', $studentId)
             ->update(['is_published' => $hasUnpublished]);
-    }
-
-    // ── Admin comment ─────────────────────────────────────────────────────────
-
-    public function openComment(int $studentId): void
-    {
-        $this->commentStudentId = $studentId;
-        // Load existing comment (from any result row for this student/term — same value on all)
-        $existing = Result::where('term_id', $this->selectedTermId)
-            ->where('student_id', $studentId)->value('admin_comment');
-        $this->commentText     = $existing ?? '';
-        $this->showCommentModal = true;
-    }
-
-    public function saveComment(): void
-    {
-        $this->validate(['commentText' => 'nullable|string|max:500']);
-
-        Result::where('term_id', $this->selectedTermId)
-            ->where('student_id', $this->commentStudentId)
-            ->update(['admin_comment' => $this->commentText ?: null]);
-
-        $this->showCommentModal = false;
-        session()->flash('success', 'Comment saved.');
     }
 
     // ── Send report cards ─────────────────────────────────────────────────────
@@ -145,7 +119,6 @@ class ResultsOverview extends Component
                 $submitted      = $studentResults->isNotEmpty() && $studentResults->whereNotNull('submitted_at')->isNotEmpty();
                 $submittedBy    = $studentResults->whereNotNull('submitted_at')->first()?->submittedBy?->name;
                 $submittedAt    = $studentResults->whereNotNull('submitted_at')->first()?->submitted_at;
-                $hasComment     = $studentResults->whereNotNull('admin_comment')->isNotEmpty();
 
                 $rows->push([
                     'student'      => $enrolment->student,
@@ -156,7 +129,6 @@ class ResultsOverview extends Component
                     'submitted_by' => $submittedBy,
                     'submitted_at' => $submittedAt,
                     'has_results'  => $subjectCount > 0,
-                    'has_comment'  => $hasComment,
                 ]);
             }
         }
