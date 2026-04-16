@@ -33,20 +33,18 @@ return Application::configure(basePath: dirname(__DIR__))
             default                => route('admin.dashboard'),
         });
 
+        // All middleware aliases in one place
         $middleware->alias([
             'role'               => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission'         => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'force.password'     => \App\Http\Middleware\ForcePasswordChange::class,
+            'impersonate'        => \App\Http\Middleware\Impersonate::class,
         ]);
 
         // Apply ForcePasswordChange globally to authenticated web routes
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\ForcePasswordChange::class,
-        ]);
-
-        $middleware->alias([
-            'impersonate' => \App\Http\Middleware\Impersonate::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
