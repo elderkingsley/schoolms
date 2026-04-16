@@ -397,22 +397,24 @@
         </div>
 
         {{-- ── Virtual Account Status ── --}}
+        {{-- ── Virtual Account Status ── --}}
         @php
-            // Find the primary parent with a portal account for this student
             $primaryParent = $invoice->student->parents
                 ->filter(fn($p) => $p->user !== null)
                 ->first();
+            // Check if there's ANY virtual account available (any provider)
+            $hasAnyAccount = $primaryParent && !empty($primaryParent->active_account_number);
         @endphp
         <div class="panel">
             <div class="panel-head">
                 <span class="panel-title">Virtual Account</span>
-                @if($primaryParent?->hasVirtualAccount())
+                @if($hasAnyAccount)
                     <span class="badge badge-sent" style="font-size:10px;">
                         <span class="badge-dot"></span>Active
                     </span>
                 @elseif($primaryParent?->isWalletProvisioning())
                     <span style="font-size:11px;color:#B45309;">Provisioning…</span>
-                @elseif($primaryParent?->isWalletFailed())
+                @elseif($primaryParent?->isWalletFailed() && !$hasAnyAccount)
                     <span class="badge badge-unpaid" style="font-size:10px;">
                         <span class="badge-dot"></span>Failed
                     </span>
@@ -424,13 +426,13 @@
             </div>
 
             <div class="pay-link-box">
-                @if($primaryParent?->hasVirtualAccount())
+                @if($hasAnyAccount)
                     <p style="font-size:12px;color:var(--c-text-2);line-height:1.5;">
                         Parent has a dedicated virtual bank account. Payments sent to
                         this account are automatically matched to their invoices.
                     </p>
                     <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;padding:12px 14px;margin-top:10px;" x-data>
-                                                <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--c-border);font-size:13px;">
+                        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--c-border);font-size:13px;">
                             <span style="color:var(--c-text-3);font-size:12px;">Bank</span>
                             <span style="font-weight:600;">{{ $primaryParent->active_bank_name }}</span>
                         </div>
@@ -449,6 +451,11 @@
                             <span style="font-weight:600;">{{ $invoice->student->full_name }}</span>
                         </div>
                     </div>
+                    @if($primaryParent?->isWalletFailed())
+                        <p style="font-size:11px;color:#B45309;margin-top:8px;line-height:1.4;">
+                            Note: The preferred provider ({{ ucfirst(App\Models\ParentGuardian::getActiveWalletProvider()) }}) provisioning failed. Using fallback account.
+                        </p>
+                    @endif
                     <p style="font-size:11px;color:var(--c-text-3);margin-top:8px;line-height:1.4;">
                         This is a permanent account — the parent can reuse it for all future payments.
                     </p>
@@ -456,7 +463,7 @@
                 @elseif($primaryParent?->isWalletFailed())
                     <div class="pay-link-error">
                         <strong>Virtual account provisioning failed.</strong><br>
-                        Check the queue logs for ProvisionParentWalletJob errors.
+                        No fallback account available. Check the queue logs.
                     </div>
                     <button class="btn-ghost" style="margin-top:10px;width:100%;justify-content:center;"
                         wire:click="retryProvisionWallet"
@@ -464,6 +471,29 @@
                         <span wire:loading.remove>↺ Retry Provisioning</span>
                         <span wire:loading>Queuing…</span>
                     </button>
+                @elseif($primaryParent?->isWalletProvisioning())
+                    <div class="pay-link-pending">
+                        Virtual account is being provisioned in the background.
+                        This typically takes 30–60 seconds. Refresh to check.
+                    </div>
+                @elseif($invoice->isSent())
+                    <div class="pay-link-pending">
+                        Invoice sent. Virtual account provisioning has been queued
+                        and will complete shortly.
+                    </div>
+                @elseif(! $primaryParent)
+                    <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
+                        No parent portal account found for this student. Approve the
+                        enrolment first so the parent receives their portal login.
+                    </p>
+                @else
+                    <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
+                        A virtual bank account will be provisioned automatically when this
+                        invoice is sent to the parent.
+                    </p>
+                @endif
+            </div>
+        </div>
 
                 @elseif($primaryParent?->isWalletProvisioning())
                     <div class="pay-link-pending">
