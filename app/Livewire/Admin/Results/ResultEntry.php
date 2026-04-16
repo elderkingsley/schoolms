@@ -1,11 +1,6 @@
 <?php
+
 // Deploy to: app/Livewire/Admin/Results/ResultEntry.php
-// REPLACES existing file.
-// Changes:
-//   1. scores array for primary now includes 'remark' key alongside ca/exam.
-//   2. saveAndPublish() calls Result::computeClassStats() so LS/HS are stored correctly.
-//   3. validateScores() validates remark against the official remark options.
-//   4. render() passes remarkOptions to blade.
 
 namespace App\Livewire\Admin\Results;
 
@@ -20,19 +15,19 @@ use Livewire\Component;
 
 class ResultEntry extends Component
 {
-    public ?int $selectedTermId    = null;
-    public ?int $selectedClassId   = null;
+    public ?int $selectedTermId = null;
+    public ?int $selectedClassId = null;
     public ?int $selectedSubjectId = null;
 
-    // For primary classes:   scores[student_id] = ['ca' => '', 'exam' => '', 'remark' => '']
-    // For remark-only:       scores[student_id] = ['remark' => '']
+    // For primary classes: scores[student_id] = ['ca' => '', 'exam' => '', 'remark' => '']
+    // For remark-only: scores[student_id] = ['remark' => '', 'admin_comment' => '']
     public array $scores = [];
 
     // Head teacher general comments — keyed by student_id
     public array $headComments = [];
 
-    public bool $saved               = false;
-    public bool $isPublished         = false;
+    public bool $saved = false;
+    public bool $isPublished = false;
     public bool $confirmingOverwrite = false;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -44,27 +39,27 @@ class ResultEntry extends Component
 
     public function updatedSelectedTermId(): void
     {
-        $this->selectedClassId   = null;
+        $this->selectedClassId = null;
         $this->selectedSubjectId = null;
-        $this->scores            = [];
-        $this->headComments      = [];
-        $this->saved             = false;
+        $this->scores = [];
+        $this->headComments = [];
+        $this->saved = false;
     }
 
     public function updatedSelectedClassId(): void
     {
         $this->selectedSubjectId = null;
-        $this->scores            = [];
-        $this->headComments      = [];
-        $this->saved             = false;
+        $this->scores = [];
+        $this->headComments = [];
+        $this->saved = false;
         $this->loadHeadComments();
     }
 
     public function updatedSelectedSubjectId(): void
     {
-        $this->scores              = [];
-        $this->saved               = false;
-        $this->isPublished         = false;
+        $this->scores = [];
+        $this->saved = false;
+        $this->isPublished = false;
         $this->confirmingOverwrite = false;
         $this->loadScores();
     }
@@ -89,12 +84,12 @@ class ResultEntry extends Component
             return;
         }
 
-        $students     = $this->getStudents();
+        $students = $this->getStudents();
         $isRemarkOnly = $this->isRemarkOnly();
 
         foreach ($students as $student) {
             $this->scores[$student->id] = $isRemarkOnly
-                ? ['remark' => '']
+                ? ['remark' => '', 'admin_comment' => '']
                 : ['ca' => '', 'exam' => '', 'remark' => ''];
         }
 
@@ -106,11 +101,14 @@ class ResultEntry extends Component
 
         foreach ($existing as $studentId => $result) {
             if ($isRemarkOnly) {
-                $this->scores[$studentId] = ['remark' => $result->remark ?? ''];
+                $this->scores[$studentId] = [
+                    'remark' => $result->remark ?? '',
+                    'admin_comment' => $result->admin_comment ?? '',
+                ];
             } else {
                 $this->scores[$studentId] = [
-                    'ca'     => $result->ca_score !== null ? (string) $result->ca_score : '',
-                    'exam'   => $result->exam_score !== null ? (string) $result->exam_score : '',
+                    'ca' => $result->ca_score !== null ? (string) $result->ca_score : '',
+                    'exam' => $result->exam_score !== null ? (string) $result->exam_score : '',
                     'remark' => $result->remark ?? '',
                 ];
             }
@@ -148,7 +146,7 @@ class ResultEntry extends Component
     public function confirmOverwrite(): void
     {
         $this->confirmingOverwrite = false;
-        $this->isPublished         = false;
+        $this->isPublished = false;
         session()->flash('success', 'Results unlocked. Make your corrections then save or republish.');
     }
 
@@ -167,7 +165,7 @@ class ResultEntry extends Component
                 'submitted_by' => null,
             ]);
 
-        $this->isPublished         = false;
+        $this->isPublished = false;
         $this->confirmingOverwrite = false;
         $this->loadScores();
 
@@ -186,32 +184,37 @@ class ResultEntry extends Component
         foreach ($this->scores as $studentId => $entry) {
             if ($isRemarkOnly) {
                 $remark = trim($entry['remark'] ?? '');
-                if (empty($remark)) continue;
+                $adminComment = trim($entry['admin_comment'] ?? '');
+
+                if (empty($remark) && empty($adminComment)) {
+                    continue;
+                }
 
                 Result::updateOrCreate(
                     [
                         'student_id' => $studentId,
                         'subject_id' => $this->selectedSubjectId,
-                        'term_id'    => $this->selectedTermId,
+                        'term_id' => $this->selectedTermId,
                     ],
                     [
-                        'ca_score'     => null,
-                        'exam_score'   => null,
-                        'total'        => null,
-                        'grade'        => null,
-                        'remark'       => $remark,
+                        'ca_score' => null,
+                        'exam_score' => null,
+                        'total' => null,
+                        'grade' => null,
+                        'remark' => $remark ?: null,
+                        'admin_comment' => $adminComment ?: null,
                         'is_published' => $publish,
                     ]
                 );
             } else {
-                $ca   = max(0, min(40, (int) ($entry['ca']   ?? 0)));
+                $ca = max(0, min(40, (int) ($entry['ca'] ?? 0)));
                 $exam = max(0, min(60, (int) ($entry['exam'] ?? 0)));
 
                 if ($ca === 0 && $exam === 0 && empty($entry['ca']) && empty($entry['exam'])) {
                     continue;
                 }
 
-                $total   = $ca + $exam;
+                $total = $ca + $exam;
                 $grading = Subject::gradeFor($total);
 
                 // Teacher-chosen remark takes priority; fall back to computed remark.
@@ -224,14 +227,14 @@ class ResultEntry extends Component
                     [
                         'student_id' => $studentId,
                         'subject_id' => $this->selectedSubjectId,
-                        'term_id'    => $this->selectedTermId,
+                        'term_id' => $this->selectedTermId,
                     ],
                     [
-                        'ca_score'     => $ca,
-                        'exam_score'   => $exam,
-                        'total'        => $total,
-                        'grade'        => $grading['grade'],
-                        'remark'       => $remark,
+                        'ca_score' => $ca,
+                        'exam_score' => $exam,
+                        'total' => $total,
+                        'grade' => $grading['grade'],
+                        'remark' => $remark,
                         'is_published' => $publish,
                     ]
                 );
@@ -276,7 +279,7 @@ class ResultEntry extends Component
                 ['student_id' => $studentId, 'term_id' => $this->selectedTermId],
                 [
                     'head_teacher_comment' => trim($comment) ?: null,
-                    'reviewed_by'          => auth()->id(),
+                    'reviewed_by' => auth()->id(),
                 ]
             );
         }
@@ -288,18 +291,19 @@ class ResultEntry extends Component
 
     protected function validateScores(): void
     {
-        $rules         = [];
-        $validRemarks  = Subject::remarkOptions();
-        $remarkRule    = 'nullable|string|in:' . implode(',', $validRemarks);
+        $rules = [];
+        $validRemarks = Subject::remarkOptions();
+        $remarkRule = 'nullable|string|in:' . implode(',', $validRemarks);
 
         if ($this->isRemarkOnly()) {
             foreach ($this->scores as $id => $entry) {
-                $rules["scores.{$id}.remark"] = 'nullable|string|max:500';
+                $rules["scores.{$id}.remark"] = 'nullable|string|in:Excellent,Very Good,Good,Fair,Needs Improvement';
+                $rules["scores.{$id}.admin_comment"] = 'nullable|string|max:500';
             }
         } else {
             foreach ($this->scores as $id => $entry) {
-                $rules["scores.{$id}.ca"]     = 'nullable|integer|min:0|max:40';
-                $rules["scores.{$id}.exam"]   = 'nullable|integer|min:0|max:60';
+                $rules["scores.{$id}.ca"] = 'nullable|integer|min:0|max:40';
+                $rules["scores.{$id}.exam"] = 'nullable|integer|min:0|max:60';
                 $rules["scores.{$id}.remark"] = $remarkRule;
             }
         }
@@ -330,7 +334,7 @@ class ResultEntry extends Component
 
     public function render()
     {
-        $terms   = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
+        $terms = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
         $classes = SchoolClass::orderBy('order')->get();
 
         $subjects = collect();
@@ -341,18 +345,18 @@ class ResultEntry extends Component
                     ->ordered()
                     ->whereHas('classes', fn($q) =>
                         $q->where('school_classes.id', $this->selectedClassId)
-                          ->where('class_subjects.academic_session_id', $term->academic_session_id)
+                            ->where('class_subjects.academic_session_id', $term->academic_session_id)
                     )
                     ->get();
             }
         }
 
-        $students            = $this->getStudents();
-        $selectedClass       = $this->getSelectedClass();
-        $isRemarkOnly        = $this->isRemarkOnly();
-        $isPublished         = $this->isPublished;
+        $students = $this->getStudents();
+        $selectedClass = $this->getSelectedClass();
+        $isRemarkOnly = $this->isRemarkOnly();
+        $isPublished = $this->isPublished;
         $confirmingOverwrite = $this->confirmingOverwrite;
-        $remarkOptions       = Subject::remarkOptions();
+        $remarkOptions = Subject::remarkOptions();
 
         if ($this->selectedClassId && $this->selectedTermId && empty($this->headComments) && $students->isNotEmpty()) {
             $this->loadHeadComments();
