@@ -46,6 +46,10 @@ Route::middleware('auth')->group(function () {
     // Voluntary change from within any portal (Livewire component)
     Route::get('/account/password', \App\Livewire\ChangePassword::class)
         ->name('account.password');
+
+    // ── Impersonation stop route (accessible from teacher portal) ─────────────
+    Route::post('/impersonate/stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])
+        ->name('impersonate.stop');
 });
 
 // ── Admin routes (admin + super_admin) ────────────────────────────────────────
@@ -86,16 +90,20 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         Route::get('/results/overview',              \App\Livewire\Admin\Results\ResultsOverview::class)->name('results.overview');
         Route::get('/results/{student}/report-card', \App\Http\Controllers\Admin\ReportCardController::class)->name('results.report-card');
 
-
         // Users — super_admin only (enforced inside the component too)
         Route::get('/users',    \App\Livewire\Admin\UserManager::class)->name('users');
         Route::get('/teachers', \App\Livewire\Admin\TeacherManager::class)->name('teachers');
         Route::get('/sessions', \App\Livewire\Admin\Academics\SessionTermManager::class)->name('sessions');
         Route::get('/parents',  \App\Livewire\Admin\ParentList::class)->name('parents');
+
+        // ── Impersonation routes ─────────────────────────────────────────────
+        Route::post('/impersonate/{user}/start', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])
+            ->name('impersonate.start');
     });
 
 // ── Teacher routes ─────────────────────────────────────────────────────────────
-Route::middleware(['auth', 'role:teacher'])
+// Apply impersonate middleware to ALL teacher routes
+Route::middleware(['auth', 'role:teacher', 'impersonate'])
     ->prefix('teacher')
     ->name('teacher.')
     ->group(function () {
