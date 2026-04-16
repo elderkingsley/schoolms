@@ -33,6 +33,9 @@ use Illuminate\Support\Facades\Log;
  * time. If it is genuinely missing, the inflow will fall through to
  * the existing 2199 unreconciled flow on the PayGrid side, which is
  * safe and correct.
+ *
+ * NEW: Sends all virtual account numbers for this parent as an array,
+ * allowing PayGrid to match payments from any provider (JuicyWay, BudPay, etc.).
  */
 class PushInvoiceToPayGridJob implements ShouldQueue
 {
@@ -82,6 +85,13 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             return;
         }
 
+        // Collect ALL virtual account numbers for this parent
+        $allAccountNumbers = array_values(array_filter([
+            $parent->juicyway_account_number,
+            $parent->budpay_account_number,
+            $parent->korapay_account_number,
+        ]));
+
         $termLabel = optional($invoice->term)->name . ' — ' . optional($invoice->term?->session)->name;
 
         $payload = [
@@ -91,6 +101,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             'amount'              => (float) $invoice->total_amount,
             'term_label'          => $termLabel,
             'account_number'      => $parent->active_account_number,
+            'account_numbers'     => $allAccountNumbers,   // NEW: array of all NUBANs
             'due_date'            => now()->addDays(30)->toDateString(),
             'items'               => $invoice->items->map(fn ($item) => [
                 'name'   => $item->item_name,
@@ -117,6 +128,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
                     'student'            => $student->full_name,
                     'amount'             => $payload['amount'],
                     'account_number'     => $payload['account_number'],
+                    'all_accounts'       => $allAccountNumbers,
                 ]);
                 return;
             }

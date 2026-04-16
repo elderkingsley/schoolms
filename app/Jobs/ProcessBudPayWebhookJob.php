@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Log;
  *   1. Extracts the account number from the webhook payload
  *   2. Finds the matching parent by budpay_account_number
  *   3. Records payment against the student's invoice(s) via FeeService (FIFO)
- *   4. Notifies PayGrid via POST /api/inflows
+ *   4. Notifies PayGrid via POST /api/inflows (with invoice_id(s) for strong matching)
  *   5. Emails the parent a payment confirmation
  */
 class ProcessBudPayWebhookJob implements ShouldQueue
@@ -93,7 +93,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                 'reference' => $reference,
             ]);
             // Still notify PayGrid so the inflow appears in the ledger
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, null, []);
             $this->forwardToPayGrid();
             return;
         }
@@ -101,7 +101,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         $student = $parent->students->first();
         if (! $student) {
             Log::warning("ProcessBudPayWebhookJob: parent {$parent->id} has no linked student");
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, null, []);
             $this->forwardToPayGrid();
             return;
         }
@@ -113,12 +113,15 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             ->orderBy('id', 'asc')
             ->get();
 
+        // Store the invoice IDs that will be settled, for later notification
+        $settledInvoiceIds = [];
+
         if ($invoices->isEmpty()) {
             Log::info("ProcessBudPayWebhookJob: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices", [
                 'account'   => $accountNumber,
                 'reference' => $reference,
             ]);
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, null, []);
             $this->forwardToPayGrid();
             return;
         }
@@ -134,7 +137,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         $settledInvoices = [];
 
         DB::transaction(function () use (
-            $invoices, &$remaining, &$settledInvoices,
+            $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
             $reference, $feeService, $systemActorId, $student
         ) {
             foreach ($invoices as $invoice) {
@@ -157,6 +160,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
 
                 $remaining -= $toApply;
                 $settledInvoices[] = $invoice->fresh();
+                $settledInvoiceIds[] = (string) $invoice->id; // SchoolMS invoice ID
 
                 Log::info("ProcessBudPayWebhookJob: ₦{$toApply} applied to invoice {$invoice->id}", [
                     'student'   => $student->id,
@@ -165,8 +169,9 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             }
         });
 
-        // ── Notify PayGrid (inflow reconciliation) ───────────────────────
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName);
+        // ── Notify PayGrid (inflow reconciliation) with invoice IDs ──────
+        $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
+        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $primaryInvoiceId, $settledInvoiceIds);
 
         // ── Forward raw BudPay payload to PayGrid webhook ─────────────────
         // PayGrid needs the raw webhook for its own organisations that also
@@ -198,14 +203,31 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             'account'          => $accountNumber,
             'reference'        => $reference,
             'invoices_settled' => count($settledInvoices),
+            'invoice_ids'      => $settledInvoiceIds,
         ]);
     }
 
+    /**
+     * Notify PayGrid that a student fee payment has been received.
+     * PayGrid will post a journal entry to Nurtureville's ledger (DR 1110 / CR 2199).
+     *
+     * Fire-and-forget: failure is logged but never affects SchoolMS payment recording.
+     * PayGrid uses the same `reference` as its idempotency key, so safe to retry.
+     *
+     * @param float       $amountNgn
+     * @param string      $reference
+     * @param string      $accountNumber
+     * @param string      $senderName
+     * @param string|null $invoiceId      Primary SchoolMS invoice ID that was settled
+     * @param array       $invoiceIds     All SchoolMS invoice IDs that were settled
+     */
     private function notifyPayGrid(
         float   $amountNgn,
         string  $reference,
         string  $accountNumber,
         string  $senderName,
+        ?string $invoiceId = null,
+        array   $invoiceIds = []
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
@@ -215,24 +237,36 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             return;
         }
 
+        $payload = [
+            'reference'      => $reference,
+            'amount_ngn'     => $amountNgn,
+            'account_number' => $accountNumber,
+            'sender_name'    => $senderName,
+            'deposited_at'   => now()->toISOString(),
+            'source'         => 'schoolms',
+        ];
+
+        // Add invoice ID(s) for stronger matching in PayGrid
+        if ($invoiceId) {
+            $payload['invoice_id'] = $invoiceId;
+        }
+        if (! empty($invoiceIds)) {
+            $payload['invoice_ids'] = $invoiceIds;
+        }
+
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . config('services.paygrid.inflow_secret'),
+                    'Authorization' => 'Bearer ' . $apiKey,
                     'Accept'        => 'application/json',
                     'Content-Type'  => 'application/json',
                 ])
-                ->post(rtrim($url, '/') . '/api/inflows', [
-                    'reference'      => $reference,
-                    'amount_ngn'     => $amountNgn,
-                    'account_number' => $accountNumber,
-                    'sender_name'    => $senderName,
-                    'deposited_at'   => now()->toISOString(),
-                    'source'         => 'schoolms',
-                ]);
+                ->post(rtrim($url, '/') . '/api/inflows', $payload);
 
             if ($response->successful()) {
-                Log::info("ProcessBudPayWebhookJob: PayGrid notified for ref {$reference}");
+                Log::info("ProcessBudPayWebhookJob: PayGrid notified for ref {$reference}", [
+                    'invoice_id' => $invoiceId,
+                ]);
             } else {
                 Log::warning("ProcessBudPayWebhookJob: PayGrid notification failed", [
                     'status' => $response->status(),

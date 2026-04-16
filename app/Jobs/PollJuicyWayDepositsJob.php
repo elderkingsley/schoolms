@@ -169,13 +169,17 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             ->orderBy('id', 'asc')
             ->get();
 
+        // Store the invoice IDs that will be settled, for later notification
+        $settledInvoiceIds = [];
+
         if ($invoices->isEmpty()) {
             Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices", [
                 'account' => $accountNumber,
                 'ref'     => $reference,
             ]);
             // Still notify PayGrid so the inflow appears in Nurtureville's ledger
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt);
+            // No invoice ID to send, so pass null.
+            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
             return true;
         }
 
@@ -193,7 +197,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         $settledInvoices = [];
 
         DB::transaction(function () use (
-            $invoices, &$remaining, &$settledInvoices,
+            $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
             $reference, $feeService, $systemActorId, $student
         ) {
             foreach ($invoices as $invoice) {
@@ -216,6 +220,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
                 $remaining -= $toApply;
                 $settledInvoices[] = $invoice->fresh();
+                $settledInvoiceIds[] = (string) $invoice->id; // SchoolMS invoice ID
 
                 Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$toApply} applied to invoice {$invoice->id}", [
                     'student'   => $student->id,
@@ -226,7 +231,9 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         });
 
         // ── Notify PayGrid — post to Nurtureville's ledger ─────────────────
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt);
+        // Send the first settled invoice ID as the primary, and the full list as well.
+        $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
+        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, $primaryInvoiceId, $settledInvoiceIds);
 
         // ── Email the parent ───────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
@@ -247,6 +254,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             'account'          => $accountNumber,
             'reference'        => $reference,
             'invoices_settled' => count($settledInvoices),
+            'invoice_ids'      => $settledInvoiceIds,
             'sender'           => $senderName,
         ]);
 
@@ -259,6 +267,15 @@ class PollJuicyWayDepositsJob implements ShouldQueue
      *
      * Fire-and-forget: failure is logged but never affects SchoolMS payment recording.
      * PayGrid uses the same `reference` as its idempotency key, so safe to retry.
+     *
+     * @param float       $amountNgn
+     * @param string      $reference
+     * @param string      $accountNumber
+     * @param string      $senderName
+     * @param string|null $depositId
+     * @param string      $depositedAt
+     * @param string|null $invoiceId      Primary SchoolMS invoice ID that was settled
+     * @param array       $invoiceIds     All SchoolMS invoice IDs that were settled
      */
     private function notifyPayGrid(
         float   $amountNgn,
@@ -267,6 +284,8 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         string  $senderName,
         ?string $depositId,
         string  $depositedAt,
+        ?string $invoiceId = null,
+        array   $invoiceIds = []
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
@@ -276,6 +295,25 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             return;
         }
 
+        $payload = [
+            'reference'      => $reference,
+            'amount_ngn'     => $amountNgn,
+            'account_number' => $accountNumber,
+            'account_label'  => $senderName,
+            'sender_name'    => $senderName,
+            'deposit_id'     => $depositId,
+            'deposited_at'   => $depositedAt,
+            'source'         => 'schoolms',
+        ];
+
+        // Add invoice ID(s) for stronger matching in PayGrid
+        if ($invoiceId) {
+            $payload['invoice_id'] = $invoiceId;
+        }
+        if (! empty($invoiceIds)) {
+            $payload['invoice_ids'] = $invoiceIds;
+        }
+
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
@@ -283,19 +321,12 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                     'Accept'        => 'application/json',
                     'Content-Type'  => 'application/json',
                 ])
-                ->post(rtrim($url, '/') . '/api/inflows', [
-                    'reference'      => $reference,
-                    'amount_ngn'     => $amountNgn,
-                    'account_number' => $accountNumber,
-                    'account_label'  => $senderName,
-                    'sender_name'    => $senderName,
-                    'deposit_id'     => $depositId,
-                    'deposited_at'   => $depositedAt,
-                    'source'         => 'schoolms',
-                ]);
+                ->post(rtrim($url, '/') . '/api/inflows', $payload);
 
             if ($response->successful()) {
-                Log::info("PollJuicyWayDeposits[SchoolMS]: PayGrid notified for ref {$reference}");
+                Log::info("PollJuicyWayDeposits[SchoolMS]: PayGrid notified for ref {$reference}", [
+                    'invoice_id' => $invoiceId,
+                ]);
             } else {
                 Log::warning("PollJuicyWayDeposits[SchoolMS]: PayGrid notification failed", [
                     'status' => $response->status(),
