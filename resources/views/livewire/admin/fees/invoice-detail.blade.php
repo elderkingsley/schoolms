@@ -397,12 +397,10 @@
         </div>
 
         {{-- ── Virtual Account Status ── --}}
-        {{-- ── Virtual Account Status ── --}}
         @php
             $primaryParent = $invoice->student->parents
                 ->filter(fn($p) => $p->user !== null)
                 ->first();
-            // Check if there's ANY virtual account available (any provider)
             $hasAnyAccount = $primaryParent && !empty($primaryParent->active_account_number);
         @endphp
         <div class="panel">
@@ -486,33 +484,6 @@
                         No parent portal account found for this student. Approve the
                         enrolment first so the parent receives their portal login.
                     </p>
-                @else
-                    <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
-                        A virtual bank account will be provisioned automatically when this
-                        invoice is sent to the parent.
-                    </p>
-                @endif
-            </div>
-        </div>
-
-                @elseif($primaryParent?->isWalletProvisioning())
-                    <div class="pay-link-pending">
-                        Virtual account is being provisioned in the background.
-                        This typically takes 30–60 seconds. Refresh to check.
-                    </div>
-
-                @elseif($invoice->isSent())
-                    <div class="pay-link-pending">
-                        Invoice sent. Virtual account provisioning has been queued
-                        and will complete shortly.
-                    </div>
-
-                @elseif(! $primaryParent)
-                    <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
-                        No parent portal account found for this student. Approve the
-                        enrolment first so the parent receives their portal login.
-                    </p>
-
                 @else
                     <p style="font-size:12px;color:var(--c-text-3);line-height:1.5;">
                         A virtual bank account will be provisioned automatically when this
