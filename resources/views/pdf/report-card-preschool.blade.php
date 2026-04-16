@@ -1,4 +1,4 @@
-{{-- Updated for Nurtureville: Forces content onto Page 1 --}}
+{{-- Updated Preschool Report: Header matched to Primary Section --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,84 +9,111 @@ body {
     font-family:'DejaVu Sans', Arial, sans-serif;
     font-size:8px;
     color:#111111;
-    padding:10px 20px;
+    background:#ffffff;
+    padding:16px 18px 12px;
     line-height:1.2;
 }
 
-@media print { @page { margin: 0; } }
+/* ── HEADER (Matched to Primary) ── */
+.hdr { width:100%; border-collapse:collapse; margin-bottom:6px; }
+.hdr td { vertical-align:middle; }
+.logo-img { width:42px; height:42px; object-fit:cover; border-radius:5px; }
+.logo-fb  { width:42px; height:42px; background:#1A56FF; color:#fff; font-size:18px; font-weight:700; text-align:center; line-height:42px; border-radius:5px; }
+.school-name { font-size:15px; font-weight:700; color:#111111; text-transform:uppercase; letter-spacing:-0.01em; }
+.school-addr { font-size:7px; color:#999999; margin-top:1px; }
+.school-sub  { font-size:7px; color:#1A3A2A; font-weight:700; margin-top:2px; text-transform:uppercase; }
 
-/* ── HEADER ── */
-.hdr { width:100%; border-collapse:collapse; margin-bottom:4px; }
-.school-name { font-size:15px; font-weight:800; color:#B01E3E; text-transform:uppercase; }
-.school-addr { font-size:7.5px; color:#555; }
+/* Meta table - Right Side */
+.meta { border-collapse:collapse; border:1px solid #E8E6E1; }
+.meta td { font-size:6.5px; padding:2px 5px; border-bottom:1px solid #E8E6E1; border-left:1px solid #E8E6E1; }
+.ml { color:#999999; font-weight:700; text-transform:uppercase; background:#F5F4F0; width:65px; }
+.mv { color:#111111; font-weight:700; }
 
-.meta td { font-size:7px; padding:1px 4px; border:1px solid #EEE; }
-.ml { background:#F9F9F7; font-weight:bold; width:70px; }
+.rule { height:1px; background:#E8E6E1; margin-bottom:8px; }
 
-/* ── BIO (Compressed) ── */
-.bio { width:100%; border-collapse:collapse; border:1px solid #EEE; margin-bottom:6px; }
-.bio-photo-cell { width:55px; text-align:center; padding:2px; border-right:1px solid #EEE; }
-.bio-photo-img { width:50px; height:55px; object-fit:cover; }
-.bio-inner td { font-size:7.5px; padding:2px 5px; border-bottom:1px solid #EEE; }
-.bl { color:#777; font-weight:700; background:#F9F9F7; width:12%; }
+/* ── BIO ── */
+.bio { width:100%; border-collapse:collapse; border:1px solid #E8E6E1; margin-bottom:8px; }
+.bio-photo-cell { width:60px; background:#F5F4F0; text-align:center; padding:4px; border-right:1px solid #E8E6E1; }
+.bio-photo-img { width:52px; height:60px; object-fit:cover; display:block; border-radius:2px; }
+.bio-inner td { font-size:7.5px; padding:3px 6px; border-bottom:1px solid #F5F4F0; }
+.bl { color:#999999; font-weight:700; text-transform:uppercase; font-size:6.5px; background:#F5F4F0; width:15%; }
+.bv { color:#111111; font-weight:700; }
 
-/* ── LAYOUT & TABLES ── */
-.sec { font-size:7px; font-weight:800; color:#FFF; background:#3D4A5C; padding:3px 6px; margin-top:5px; }
-
+/* ── LAYOUT ── */
+.sec { font-size:7px; font-weight:800; color:#FFFFFF; text-transform:uppercase; padding:3px 8px; background:#3D4A5C; margin-bottom:0; }
 .body-tbl { width:100%; border-collapse:collapse; table-layout: fixed; }
-.et { width:100%; border-collapse:collapse; page-break-inside: auto; } /* Forces table to allow splitting */
-.et tr { page-break-inside: avoid; page-break-after: auto; }
-.et td { border:1px solid #EEE; padding:3px 5px; vertical-align:top; }
+.et { width:100%; border-collapse:collapse; page-break-inside: auto; }
+.et tr { page-break-inside: avoid; }
+.et td { border:1px solid #E8E6E1; padding:4px 5px; vertical-align:top; }
 
-.tt { width:100%; border-collapse:collapse; border:1px solid #EEE; }
-.tt td { padding:2px 4px; border-bottom:1px solid #EEE; font-size:7.5px; }
-.sc { text-align:center; font-weight:bold; width:20px; background:#F9F9F7; }
+.tt { width:100%; border-collapse:collapse; border:1px solid #E8E6E1; }
+.tt td { padding:2px 4px; border-bottom:1px solid #F5F4F0; font-size:7.5px; }
+.sc { text-align:center; font-weight:bold; width:22px; background:#F5F4F0; border-left:1px solid #E8E6E1; }
 
 /* ── REMARKS ── */
-.cmt-box { border:1px solid #EEE; padding:5px; background:#FAFAF8; margin-top:5px; }
-.cmt-lbl { font-size:7px; font-weight:800; color:#B01E3E; border-bottom:1px solid #EEE; margin-bottom:3px; }
-.cmt-txt { font-size:8px; font-style:italic; }
+.cmt-box { border:1px solid #E8E6E1; padding:6px; background:#F5F4F0; margin-top:5px; min-height:45px; }
+.cmt-lbl { font-size:7px; font-weight:800; color:#3D4A5C; border-bottom:1px solid #E8E6E1; margin-bottom:3px; padding-bottom:2px; }
+.cmt-txt { font-size:8px; font-style:italic; line-height:1.3; }
 
-.sig-tbl { width:100%; margin-top:15px; }
+.sig-tbl { width:100%; margin-top:20px; }
 .sig-ln { border-top:1px solid #333; margin-bottom:2px; }
-.sig-lb { font-size:6.5px; text-align:center; font-weight:bold; }
+.sig-lb { font-size:6.5px; text-align:center; font-weight:bold; color:#555; text-transform:uppercase; }
 </style>
 </head>
 <body>
 
+{{-- HEADER (Identical to Primary) --}}
 <table class="hdr">
     <tr>
-        <td>
+        <td style="width:48px;">
+            @if($logoBase64)
+                <img src="{{ $logoBase64 }}" class="logo-img" alt="Logo">
+            @else
+                <div class="logo-fb">{{ strtoupper(substr($schoolName,0,1)) }}</div>
+            @endif
+        </td>
+        <td style="padding-left:10px;">
             <div class="school-name">{{ $schoolName }}</div>
             <div class="school-addr">{{ $schoolAddress }}</div>
-            <div style="font-size:8px; font-weight:700; margin-top:2px;">PRESCHOOL PERFORMANCE REPORT</div>
+            <div class="school-sub">Preschool Performance Report</div>
         </td>
         <td style="text-align:right;">
             <table class="meta" style="margin-left:auto;">
-                <tr><td class="ml">BEGINS</td><td>{{ $term->next_term_begins?->format('d/m/Y') ?? '—' }}</td></tr>
-                <tr><td class="ml">SESSION</td><td>{{ $term->session->name }}</td></tr>
-                <tr><td class="ml">TERM</td><td>{{ strtoupper($term->name) }}</td></tr>
-                <tr><td class="ml">CLASS</td><td>{{ strtoupper($enrolment?->schoolClass?->display_name ?? '—') }}</td></tr>
+                <tr><td class="ml">Begins</td><td class="mv">{{ $term->next_term_begins?->format('d/m/Y') ?? '—' }}</td></tr>
+                <tr><td class="ml">Session</td><td class="mv">{{ $term->session->name }}</td></tr>
+                <tr><td class="ml">Term</td><td class="mv">{{ strtoupper($term->name) }}</td></tr>
+                <tr><td class="ml">Class</td><td class="mv">{{ strtoupper($enrolment?->schoolClass?->display_name ?? '—') }}</td></tr>
             </table>
         </td>
     </tr>
 </table>
+<div class="rule"></div>
 
+{{-- BIO --}}
 <table class="bio">
     <tr>
         <td class="bio-photo-cell">
-            @if($photoBase64) <img src="{{ $photoBase64 }}" class="bio-photo-img"> @else <div style="font-size:6px;">No Photo</div> @endif
+            @if($photoBase64)
+                <img src="{{ $photoBase64 }}" class="bio-photo-img">
+            @else
+                <div style="font-size:6px; color:#999;">NO PHOTO</div>
+            @endif
         </td>
         <td>
             <table class="bio-inner" style="width:100%;">
                 <tr>
-                    <td class="bl">NAME</td><td colspan="3"><strong>{{ strtoupper($student->full_name) }}</strong></td>
-                    <td class="bl">ADM NO</td><td>{{ $student->admission_number }}</td>
+                    <td class="bl">NAME</td><td class="bv" colspan="3">{{ strtoupper($student->full_name) }}</td>
+                    <td class="bl">ADM NO</td><td class="bv">{{ $student->admission_number }}</td>
                 </tr>
                 <tr>
-                    <td class="bl">SEX</td><td>{{ $student->gender }}</td>
-                    <td class="bl">D.O.B</td><td>{{ $student->date_of_birth?->format('d/m/Y') ?? '—' }}</td>
-                    <td class="bl">OPENED</td><td>{{ $term->school_days_count ?? '—' }}</td>
+                    <td class="bl">SEX</td><td class="bv">{{ $student->gender }}</td>
+                    <td class="bl">D.O.B</td><td class="bv">{{ $student->date_of_birth?->format('d/m/Y') ?? '—' }}</td>
+                    <td class="bl">OPENED</td><td class="bv">{{ $term->school_days_count ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="bl">PRESENT</td><td class="bv">{{ $enrolment?->times_present ?? '—' }}</td>
+                    <td class="bl">ABSENT</td><td class="bv">{{ $enrolment?->times_absent ?? '—' }}</td>
+                    <td class="bl">EXTRA</td><td class="bv">N/A</td>
                 </tr>
             </table>
         </td>
@@ -96,34 +123,34 @@ body {
 <table class="body-tbl">
     <tr>
         <td style="width:65%; vertical-align:top; padding-right:10px;">
-            <div class="sec">SUBJECT EVALUATIONS</div>
+            <div class="sec">Subject Evaluations</div>
             <table class="et">
-                <tr style="background:#F5F4F0; font-weight:bold; font-size:7px;">
-                    <td style="width:25%;">SUBJECT</td><td>DETAILED ASSESSMENT</td><td style="width:15%;">REMARK</td>
+                <tr style="background:#F5F4F0; font-weight:bold; font-size:7px; text-transform:uppercase;">
+                    <td style="width:25%;">Subject</td><td>Detailed Assessment</td><td style="width:18%;">Remark</td>
                 </tr>
                 @foreach($results as $result)
                 <tr>
-                    <td style="font-weight:bold; color:#B01E3E;">{{ $result->subject->name }}</td>
+                    <td style="font-weight:bold; color:#3D4A5C;">{{ $result->subject->name }}</td>
                     <td>{{ $result->admin_comment }}</td>
-                    <td style="text-align:center; font-weight:bold;">{{ $result->remark }}</td>
+                    <td style="text-align:center; font-weight:bold;">{{ strtoupper($result->remark) }}</td>
                 </tr>
                 @endforeach
             </table>
         </td>
         <td style="width:35%; vertical-align:top;">
-            <div class="sec">PSYCHOMOTOR</div>
+            <div class="sec">Psychomotor</div>
             <table class="tt">
                 @foreach($psychomotorDef as $key => $label)
                 <tr><td>{{ $label }}</td><td class="sc">{{ $traitScores[$key] ?? '—' }}</td></tr>
                 @endforeach
             </table>
-            <div class="sec">AFFECTIVE</div>
+            <div class="sec">Affective</div>
             <table class="tt">
                 @foreach($affectiveDef as $key => $label)
                 <tr><td>{{ $label }}</td><td class="sc">{{ $traitScores[$key] ?? '—' }}</td></tr>
                 @endforeach
             </table>
-            <div class="sec">RATING KEY</div>
+            <div class="sec">Rating Key</div>
             <table class="tt">
                 <tr><td>Excellent / Very Good</td><td class="sc">5-4</td></tr>
                 <tr><td>Good / Fair</td><td class="sc">3-2</td></tr>
@@ -133,18 +160,18 @@ body {
     </tr>
 </table>
 
-<div class="sec">OBSERVATIONS & REMARKS</div>
+<div class="sec">Observations & Remarks</div>
 <table style="width:100%; border-collapse:collapse;">
     <tr>
         <td style="width:50%; padding-right:5px;">
             <div class="cmt-box">
-                <div class="cmt-lbl">CLASS TEACHER</div>
+                <div class="cmt-lbl">Class Teacher</div>
                 <div class="cmt-txt">{{ $termComment?->teacher_comment }}</div>
             </div>
         </td>
         <td style="width:50%; padding-left:5px;">
             <div class="cmt-box">
-                <div class="cmt-lbl">HEAD TEACHER</div>
+                <div class="cmt-lbl">Head Teacher</div>
                 <div class="cmt-txt">{{ $termComment?->head_teacher_comment }}</div>
             </div>
         </td>
@@ -155,7 +182,7 @@ body {
     <tr>
         <td style="width:33%; padding:0 10px;"><div class="sig-ln"></div><div class="sig-lb">Class Teacher</div></td>
         <td style="width:33%; padding:0 10px;"><div class="sig-ln"></div><div class="sig-lb">Head Teacher</div></td>
-        <td style="width:33%; padding:0 10px;"><div class="sig-ln"></div><div class="sig-lb">Parent</div></td>
+        <td style="width:33%; padding:0 10px;"><div class="sig-lb" style="border-top:1px solid #333;">Parent Signature</div></td>
     </tr>
 </table>
 
