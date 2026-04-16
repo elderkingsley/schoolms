@@ -241,11 +241,12 @@
                             </td>
                             <td>
                                 <div class="row-actions">
-                                    {{-- IMPERSONATE BUTTON --}}
+                                    {{-- IMPERSONATE BUTTON - Now styled like other buttons --}}
                                     <form method="POST" action="{{ route('admin.impersonate.start', $member) }}" style="display:inline;">
                                         @csrf
                                         <button type="submit"
-                                                class="btn-sm btn-sm-impersonate"
+                                                class="btn-sm"
+                                                style="color:#afbfebde; border-color:#afbfebde;"
                                                 onclick="return confirm('Login as {{ $member->name }}?\n\nYou will be able to view and edit all their classes and student data. Click OK to continue.')"
                                                 title="Login as this teacher">
                                             👤 Login As
