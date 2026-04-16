@@ -17,14 +17,16 @@
 
 .field       { display:flex; flex-direction:column; gap:5px; }
 .field label { font-size:11px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.06em; }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
     padding:9px 12px; border:1px solid var(--c-border); border-radius:8px;
     font-size:13px; font-family:var(--f-sans); background:var(--c-surface);
     outline:none; color:var(--c-text-1); width:100%;
 }
-.field input:focus, .field textarea:focus { border-color:var(--c-accent); }
+.field input:focus, .field textarea:focus, .field select:focus { border-color:var(--c-accent); }
 .field textarea { resize:vertical; min-height:70px; }
+.field select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%23888' d='M4 6l4 4 4-4'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:36px; }
 .field-hint { font-size:11px; color:var(--c-text-3); }
+.field-hint-warning { font-size:11px; color:#B45309; background:rgba(180,83,9,0.08); padding:8px 10px; border-radius:6px; margin-top:6px; }
 .err { font-size:11px; color:var(--c-danger); margin-top:2px; }
 
 .logo-preview { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
@@ -36,13 +38,23 @@
 .btn-primary:hover { opacity:0.9; }
 .btn-danger-sm { padding:5px 10px; background:none; border:1px solid var(--c-border); color:var(--c-danger); border-radius:6px; font-size:11px; font-weight:500; cursor:pointer; font-family:var(--f-sans); }
 .btn-danger-sm:hover { background:rgba(190,18,60,0.05); }
+.btn-outline { padding:8px 16px; background:none; border:1px solid var(--c-border); color:var(--c-text-2); border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; font-family:var(--f-sans); }
+.btn-outline:hover { background:var(--c-bg); }
 .save-bar { display:flex; justify-content:flex-end; padding-top:8px; }
+
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(3px); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal-box { background:var(--c-surface); border-radius:16px; width:100%; max-width:440px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+.modal-title { font-size:15px; font-weight:700; color:var(--c-text-1); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.modal-body { font-size:13px; color:var(--c-text-2); line-height:1.6; margin-bottom:20px; }
+.modal-highlight { background:var(--c-accent-bg); padding:12px 14px; border-radius:8px; margin:14px 0; font-weight:600; color:var(--c-accent); text-align:center; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
 </style>
 
 <div class="pg-header">
     <div>
         <div class="pg-title">School Settings</div>
-        <div class="pg-sub">Configure school identity, logo and invoice payment details</div>
+        <div class="pg-sub">Configure school identity, logo, wallet provider, and invoice payment details</div>
     </div>
 </div>
 
@@ -126,6 +138,38 @@
         </div>
     </div>
 
+    {{-- ── Wallet Provider ── --}}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Wallet Provider</div>
+            <div class="card-sub">Virtual account provider for parent payments</div>
+        </div>
+        <div class="card-body">
+            <div class="field">
+                <label>Active Provider</label>
+                <select wire:model.live="wallet_provider">
+                    <option value="budpay">BudPay</option>
+                    <option value="juicyway">JuicyWay</option>
+                </select>
+                @error('wallet_provider') <span class="err">{{ $message }}</span> @enderror
+            </div>
+            <div class="field-hint">
+                <strong>Current:</strong>
+                @if($wallet_provider === 'juicyway')
+                    JuicyWay
+                @else
+                    BudPay
+                @endif
+            </div>
+            <div class="field-hint-warning">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+                </svg>
+                Changing provider will queue account creation for all parents without an account with the new provider.
+            </div>
+        </div>
+    </div>
+
     {{-- ── Invoice Payment Instructions ── --}}
     <div class="card" style="grid-column: 1 / -1;">
         <div class="card-header">
@@ -161,5 +205,33 @@
     </button>
 </div>
 </form>
+
+{{-- ── Provider Change Confirmation Modal ── --}}
+@if($showProviderConfirmModal)
+<div class="modal-overlay" wire:click.self="cancelProviderChange">
+    <div class="modal-box">
+        <div class="modal-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A56FF" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+            Confirm Provider Change
+        </div>
+        <div class="modal-body">
+            <p>You are switching the wallet provider to <strong>{{ ucfirst($pendingProvider) }}</strong>.</p>
+            <div class="modal-highlight">
+                {{ $parentsNeedingProvisioning }} parent(s) will have new {{ ucfirst($pendingProvider) }} accounts created.
+            </div>
+            <p style="font-size:12px;color:var(--c-text-3);">Parents who already have {{ ucfirst($pendingProvider) }} accounts will be skipped.</p>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-outline" wire:click="cancelProviderChange">Cancel</button>
+            <button type="button" class="btn-primary" wire:click="confirmProviderChange" wire:loading.attr="disabled">
+                <span wire:loading.remove wire:target="confirmProviderChange">Yes, Switch</span>
+                <span wire:loading wire:target="confirmProviderChange">Processing…</span>
+            </button>
+        </div>
+    </div>
+</div>
+@endif
 
 </div>

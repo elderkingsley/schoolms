@@ -55,28 +55,91 @@ class ParentGuardian extends Model
                     ->withTimestamps();
     }
 
+    // ── Provider Account Helpers ─────────────────────────────────────────────
+
+    /**
+     * Check if parent has a JuicyWay account provisioned.
+     */
+    public function hasJuicyWayAccount(): bool
+    {
+        return ! empty($this->juicyway_account_number);
+    }
+
+    /**
+     * Check if parent has a BudPay account provisioned.
+     */
+    public function hasBudPayAccount(): bool
+    {
+        return ! empty($this->budpay_account_number);
+    }
+
+    /**
+     * Check if parent has an account for the given provider.
+     */
+    public function hasProviderAccount(string $provider): bool
+    {
+        return match($provider) {
+            'juicyway' => $this->hasJuicyWayAccount(),
+            'budpay'   => $this->hasBudPayAccount(),
+            default    => false,
+        };
+    }
+
+    /**
+     * Check if parent needs provisioning for the given provider.
+     */
+    public function needsProviderAccount(string $provider): bool
+    {
+        return ! $this->hasProviderAccount($provider);
+    }
+
+    /**
+     * Get the current active wallet provider from config or settings.
+     */
+    public static function getActiveWalletProvider(): string
+    {
+        // 1. Check admin override in school_settings
+        $setting = SchoolSetting::get('wallet_provider');
+        if ($setting && in_array($setting, ['budpay', 'juicyway'])) {
+            return $setting;
+        }
+
+        // 2. Fall back to config (which reads from .env)
+        return config('services.wallet.default', 'budpay');
+    }
+
     // ── Virtual account helpers ───────────────────────────────────────────────
 
     /**
      * Returns true if this parent has an active permanent NUBAN.
-     * Checks Korapay first, then BudPay, then JuicyWay.
+     * Checks based on the currently active provider preference.
      */
     public function hasVirtualAccount(): bool
     {
-        return ! empty($this->korapay_account_number)
-            || ! empty($this->budpay_account_number)
-            || ! empty($this->juicyway_account_number);
+        $provider = self::getActiveWalletProvider();
+        return $this->hasProviderAccount($provider);
     }
 
     /**
      * The active NUBAN to display and use for payment matching.
-     * Priority: Korapay → BudPay → JuicyWay
+     * Priority: Based on active wallet provider setting.
      */
     public function getActiveAccountNumberAttribute(): ?string
     {
-        return $this->korapay_account_number
+        $provider = self::getActiveWalletProvider();
+
+        if ($provider === 'juicyway' && $this->hasJuicyWayAccount()) {
+            return $this->juicyway_account_number;
+        }
+
+        if ($provider === 'budpay' && $this->hasBudPayAccount()) {
+            return $this->budpay_account_number;
+        }
+
+        // Fallback: return whatever is available (legacy support)
+        return $this->juicyway_account_number
             ?? $this->budpay_account_number
-            ?? $this->juicyway_account_number
+            ?? $this->korapay_account_number
             ?? null;
     }
 
@@ -85,13 +148,24 @@ class ParentGuardian extends Model
      */
     public function getActiveBankNameAttribute(): ?string
     {
-        if (! empty($this->korapay_account_number)) {
-            return $this->korapay_bank_name;
+        $provider = self::getActiveWalletProvider();
+
+        if ($provider === 'juicyway' && $this->hasJuicyWayAccount()) {
+            return $this->juicyway_bank_name;
+        }
+
+        if ($provider === 'budpay' && $this->hasBudPayAccount()) {
+            return $this->budpay_bank_name;
+        }
+
+        // Fallback
+        if (! empty($this->juicyway_account_number)) {
+            return $this->juicyway_bank_name;
         }
         if (! empty($this->budpay_account_number)) {
             return $this->budpay_bank_name;
         }
-        return $this->juicyway_bank_name;
+        return $this->korapay_bank_name;
     }
 
     /**
@@ -104,13 +178,24 @@ class ParentGuardian extends Model
     }
 
     /**
-     * Overall provisioning status — reflects the most recent provider.
+     * Overall provisioning status — reflects the active provider.
      */
     public function getWalletStatusAttribute(): ?string
     {
-        return $this->korapay_wallet_status
+        $provider = self::getActiveWalletProvider();
+
+        if ($provider === 'juicyway') {
+            return $this->juicyway_wallet_status;
+        }
+
+        if ($provider === 'budpay') {
+            return $this->budpay_wallet_status;
+        }
+
+        // Fallback
+        return $this->juicyway_wallet_status
             ?? $this->budpay_wallet_status
-            ?? $this->juicyway_wallet_status;
+            ?? $this->korapay_wallet_status;
     }
 
     public function isWalletProvisioning(): bool

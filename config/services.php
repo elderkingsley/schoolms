@@ -1,4 +1,6 @@
 <?php
+
+use App\Jobs\ProvisionJuicyWayWalletJob;
 // Deploy to: config/services.php
 
 return [
@@ -46,8 +48,6 @@ return [
         'base_url'    => env('JUICYWAY_API_BASE_URL', 'https://api.spendjuice.com'),
     ],
 
-
-
     // ── PayGrid ──────────────────────────────────────────────────────────────
     // PayGrid fires a signed webhook to SchoolMS when a parent's bank transfer
     // is detected and posted to Nurtureville's ledger.
@@ -65,17 +65,39 @@ return [
     ],
 
     'budpay' => [
-    'secret_key' => env('BUDPAY_SECRET_KEY'),
-    'public_key' => env('BUDPAY_PUBLIC_KEY'),
-    'base_url'   => env('BUDPAY_BASE_URL', 'https://api.budpay.com/api/v2'),
+        'secret_key' => env('BUDPAY_SECRET_KEY'),
+        'public_key' => env('BUDPAY_PUBLIC_KEY'),
+        'base_url'   => env('BUDPAY_BASE_URL', 'https://api.budpay.com/api/v2'),
     ],
 
     'korapay' => [
-    'secret_key' => env('KORAPAY_SECRET_KEY'),
-    'public_key' => env('KORAPAY_PUBLIC_KEY'),
-    'base_url'   => env('KORAPAY_BASE_URL', 'https://api.korapay.com/merchant/api/v1'),
-    'bank_code'  => env('KORAPAY_BANK_CODE', '035'),
-    'bvn'        => env('KORAPAY_BVN'),
+        'secret_key' => env('KORAPAY_SECRET_KEY'),
+        'public_key' => env('KORAPAY_PUBLIC_KEY'),
+        'base_url'   => env('KORAPAY_BASE_URL', 'https://api.korapay.com/merchant/api/v1'),
+        'bank_code'  => env('KORAPAY_BANK_CODE', '035'),
+        'bvn'        => env('KORAPAY_BVN'),
+    ],
+
+    // ── Wallet Provider Configuration ────────────────────────────────────────
+    // Determines which payment provider is used for virtual account provisioning.
+    // Priority:
+    //   1. Admin override in school_settings (wallet_provider)
+    //   2. WALLET_PROVIDER in .env
+    //   3. Default fallback (budpay)
+    //
+    // Supported values: 'budpay', 'juicyway'
+    'wallet' => [
+        'default' => env('WALLET_PROVIDER', 'budpay'),
+        'providers' => [
+            'budpay' => [
+                'name' => 'BudPay',
+                'job' => \App\Jobs\ProvisionParentWalletJob::class,
+            ],
+            'juicyway' => [
+                'name' => 'JuicyWay',
+                'job' => ProvisionJuicyWayWalletJob::class,
+            ],
+        ],
     ],
 
 ];
