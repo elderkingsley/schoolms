@@ -246,7 +246,7 @@
                                         @csrf
                                         <button type="submit"
                                                 class="btn-sm"
-                                                style="color:#afbfebde; border-color:#afbfebde;"
+                                                style="color:#7581a185; border-color:#afbfebde;"
                                                 onclick="return confirm('Login as {{ $member->name }}?\n\nYou will be able to view and edit all their classes and student data. Click OK to continue.')"
                                                 title="Login as this teacher">
                                             👤 Login As
