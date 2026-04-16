@@ -103,7 +103,7 @@ Route::middleware(['auth', 'role:super_admin|admin'])
 
 // ── Teacher routes ─────────────────────────────────────────────────────────────
 // Apply impersonate middleware to ALL teacher routes
-Route::middleware(['auth', 'role:teacher', 'impersonate'])
+Route::middleware(['auth', 'role:teacher,teaching_assistant', 'impersonate', 'teacher.access'])
     ->prefix('teacher')
     ->name('teacher.')
     ->group(function () {

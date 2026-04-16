@@ -16,22 +16,22 @@ class ImpersonationController extends Controller
     public function start(Request $request, User $user)
     {
         // Security: Only admins can impersonate
-        if (! auth()->user()->isAdmin()) {
-            abort(403);
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can impersonate.');
         }
 
-        // Security: Only impersonate teachers
-        if (!$user->isTeacher()) {
-            return back()->with('error', 'You can only impersonate teachers.');
+        // Security: Only impersonate teachers or teaching assistants
+        if (!in_array($user->user_type, ['teacher', 'teaching_assistant'])) {
+            return back()->with('error', 'You can only impersonate teachers or teaching assistants.');
         }
 
-        // Store admin ID in session to return later
+        // Store original admin ID in session
         session([
             'impersonate_admin_id' => auth()->id(),
             'impersonate_teacher_id' => $user->id,
         ]);
 
-        // Log the impersonation (optional but recommended)
+        // Log the impersonation
         \Log::info('Admin impersonating teacher', [
             'admin_id' => auth()->id(),
             'admin_name' => auth()->user()->name,
@@ -39,8 +39,12 @@ class ImpersonationController extends Controller
             'teacher_name' => $user->name,
         ]);
 
+        // Log out current user and login as teacher
+        Auth::logout();
+        Auth::login($user);
+
         return redirect()->route('teacher.dashboard')
-            ->with('success', "You are now viewing as {$user->name}. Click 'Stop Impersonating' to return to admin.");
+            ->with('success', "You are now viewing the portal as {$user->name}. Use 'Stop Impersonating' to return.");
     }
 
     /**
@@ -57,7 +61,8 @@ class ImpersonationController extends Controller
         // Clear impersonation session
         session()->forget(['impersonate_admin_id', 'impersonate_teacher_id']);
 
-        // Log back in as admin
+        // Log out current user (teacher) and log back in as admin
+        Auth::logout();
         Auth::loginUsingId($adminId);
 
         return redirect()->route('admin.dashboard')

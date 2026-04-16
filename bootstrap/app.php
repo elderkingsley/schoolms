@@ -40,6 +40,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'force.password'     => \App\Http\Middleware\ForcePasswordChange::class,
             'impersonate'        => \App\Http\Middleware\Impersonate::class,
+            'teacher.access' => \App\Http\Middleware\TeacherAccess::class,
+
         ]);
 
         // Apply ForcePasswordChange globally to authenticated web routes
