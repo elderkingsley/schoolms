@@ -276,17 +276,27 @@ class ResultEntry extends Component
     {
         if (! $this->selectedTermId || ! $this->selectedClassId) return;
 
-        $rules = collect($this->headComments)
-            ->mapWithKeys(fn($v, $id) => ["headComments.{$id}" => 'nullable|string|max:500'])
+        // Only save comments for students in the currently selected class.
+        // Never iterate the full $headComments array — it can contain stale
+        // entries from previously viewed classes, and saving those would
+        // overwrite those students' already-saved comments with blank values.
+        $currentStudentIds = $this->getStudents()->pluck('id')->all();
+
+        if (empty($currentStudentIds)) return;
+
+        $rules = collect($currentStudentIds)
+            ->mapWithKeys(fn($id) => ["headComments.{$id}" => 'nullable|string|max:500'])
             ->toArray();
 
         $this->validate($rules);
 
-        foreach ($this->headComments as $studentId => $comment) {
+        foreach ($currentStudentIds as $studentId) {
+            if (! array_key_exists($studentId, $this->headComments)) continue;
+
             StudentTermComment::updateOrCreate(
                 ['student_id' => $studentId, 'term_id' => $this->selectedTermId],
                 [
-                    'head_teacher_comment' => trim($comment) ?: null,
+                    'head_teacher_comment' => trim($this->headComments[$studentId]) ?: null,
                     'reviewed_by' => auth()->id(),
                 ]
             );
