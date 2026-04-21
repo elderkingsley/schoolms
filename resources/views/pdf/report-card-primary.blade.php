@@ -352,11 +352,12 @@ body {
 
             <table class="krt">
                 <tr class="krt-head"><td colspan="2">Key Rating</td></tr>
-                <tr><td class="tn">Very Good</td> <td class="kv">5</td></tr>
-                <tr><td class="tn">Good</td>      <td class="kv">4</td></tr>
-                <tr><td class="tn">Fair</td>       <td class="kv">3</td></tr>
-                <tr><td class="tn">Poor</td>       <td class="kv">2</td></tr>
-                <tr><td class="tn">N/A</td>        <td class="kv" style="color:#999;">1</td></tr>
+                <tr><td class="tn">Distinction</td> <td class="kv">6</td></tr>
+                <tr><td class="tn">Excellent</td>      <td class="kv">5</td></tr>
+                <tr><td class="tn">Very good</td>       <td class="kv">4</td></tr>
+                <tr><td class="tn">Good</td>       <td class="kv">3</td></tr>
+                <tr><td class="tn">Average</td>       <td class="kv">2</td></tr>
+                <tr><td class="tn">Below Average</td>        <td class="kv" style="color:#999;">1</td></tr>
             </table>
         </td>
 

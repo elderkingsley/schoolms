@@ -152,6 +152,7 @@ body {
             </table>
             <div class="sec">Rating Key</div>
             <table class="tt">
+                <tr><td>Distinction</td><td class="sc">6</td></tr>
                 <tr><td>Excellent</td><td class="sc">5</td></tr>
                 <tr><td>Very Good</td><td class="sc">4</td></tr>
                 <tr><td>Good</td><td class="sc">3</td></tr>
