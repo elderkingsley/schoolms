@@ -138,19 +138,23 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         $accountNumber = $deposit['payment_method']['account_number'] ?? null;
         $amountKobo    = (int) ($deposit['amount'] ?? 0);
         $amountNgn     = $amountKobo / 100;
-        $reference     = $deposit['reference'] ?? null;
+        $depositId     = $deposit['id']         ?? null;  // UUID — used as idempotency key
+        $reference     = $deposit['reference']  ?? $depositId; // bank ref — falls back to id
         $senderName    = $deposit['sender_name'] ?? 'Unknown Sender';
-        $depositId     = $deposit['id'] ?? null;
         $depositedAt   = $deposit['created_at'] ?? now()->toISOString();
 
-        if (! $accountNumber || $amountNgn <= 0 || ! $reference) return false;
+        if (! $accountNumber || $amountNgn <= 0 || ! $depositId) return false;
 
         // Only process accounts we know about — skip all other PayGrid customers
         if (! isset($knownAccounts[$accountNumber])) return false;
 
         // ── Idempotency ───────────────────────────────────────────────────
-        if (FeePayment::where('reference', $reference)->exists()) {
-            return false; // already processed
+        // Use depositId (UUID) as the canonical key — this is the same value
+        // ProcessJuicyWayDepositJob records when it handles deposit.received.
+        // Using the numeric bank reference (deposit['reference']) caused double
+        // payments because the webhook path uses the UUID and they never matched.
+        if (FeePayment::where('reference', $depositId)->exists()) {
+            return false; // already processed by webhook or previous poll
         }
 
         // ── Find parent and student ───────────────────────────────────────
@@ -182,11 +186,9 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         if ($invoices->isEmpty()) {
             Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices", [
                 'account' => $accountNumber,
-                'ref'     => $reference,
+                'ref'     => $depositId,
             ]);
-            // Still notify PayGrid so the inflow appears in Nurtureville's ledger
-            // No invoice ID to send, so pass null.
-            $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
+            $this->notifyPayGrid($amountNgn, $depositId, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
             return true;
         }
 
@@ -205,7 +207,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
-            $reference, $feeService, $systemActorId, $student
+            $depositId, $feeService, $systemActorId, $student
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
@@ -220,27 +222,26 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     'JuicyWay Transfer',
-                    reference:  $reference,
+                    reference:  $depositId,  // UUID — matches webhook path idempotency key
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );
 
                 $remaining -= $toApply;
                 $settledInvoices[] = $invoice->fresh();
-                $settledInvoiceIds[] = (string) $invoice->id; // SchoolMS invoice ID
+                $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$toApply} applied to invoice {$invoice->id}", [
                     'student'   => $student->id,
                     'status'    => $invoice->fresh()->status,
-                    'reference' => $reference,
+                    'reference' => $depositId,
                 ]);
             }
         });
 
         // ── Notify PayGrid — post to Nurtureville's ledger ─────────────────
-        // Send the first settled invoice ID as the primary, and the full list as well.
         $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, $primaryInvoiceId, $settledInvoiceIds);
+        $this->notifyPayGrid($amountNgn, $depositId, $accountNumber, $senderName, $depositId, $depositedAt, $primaryInvoiceId, $settledInvoiceIds);
 
         // ── Email the parent ───────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
@@ -249,7 +250,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                     student:         $student,
                     amountPaid:      $amountNgn,
                     senderName:      $senderName,
-                    reference:       $reference,
+                    reference:       $depositId,
                     settledInvoices: $settledInvoices,
                 ));
             } catch (\Throwable $e) {
@@ -259,7 +260,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} fully processed for student {$student->id}", [
             'account'          => $accountNumber,
-            'reference'        => $reference,
+            'reference'        => $depositId,
             'invoices_settled' => count($settledInvoices),
             'invoice_ids'      => $settledInvoiceIds,
             'sender'           => $senderName,
