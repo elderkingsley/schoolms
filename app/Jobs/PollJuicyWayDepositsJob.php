@@ -48,6 +48,13 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
     public function handle(FeeService $feeService): void
     {
+        // Exit silently if JuicyWay is not the active provider.
+        // This means the scheduler entry never needs to be commented out —
+        // switching providers in School Settings automatically disables this job.
+        if (\App\Models\ParentGuardian::getActiveWalletProvider() !== 'juicyway') {
+            return;
+        }
+
         $apiKey  = config('services.juicyway.api_key', '');
         $baseUrl = config('services.juicyway.base_url', 'https://api.spendjuice.com');
 

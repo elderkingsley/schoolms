@@ -15,38 +15,36 @@ Artisan::command('inspire', function () {
  *   * * * * * cd /var/www/schoolms && php artisan schedule:run >> /dev/null 2>&1
  */
 
-// Poll JuicyWay GET /deposits every minute to detect student fee payments.
-// withoutOverlapping(2) prevents concurrent runs if a cycle takes > 1 min.
-// Note: runInBackground() is NOT used here — it only works with commands,
-// not jobs. The job itself is non-blocking via the queue worker.
+// Poll JuicyWay GET /deposits every minute to detect NUBAN bank transfers.
+// Provider-aware: the job checks the active wallet provider at the start of
+// each run and exits silently if JuicyWay is not active. This means you never
+// need to comment this out when switching providers — just change the provider
+// in School Settings or .env and this job self-disables.
 Schedule::job(new \App\Jobs\PollJuicyWayDepositsJob, 'payments')
     ->everyMinute()
     ->withoutOverlapping(2);
 
-// Daily sweep at 2am — catches any parent whose provisioning was missed
+// Daily sweep at 2am — provisions any parent missing an account on the
+// currently active provider. Catches parents whose provisioning was missed
 // (e.g. queue worker was down when enrolment was approved).
-// Resets status to null so ProvisionParentWalletJob starts fresh from step 1.
+// Provider-aware: reads the active provider at runtime so it works correctly
+// regardless of whether BudPay or JuicyWay is currently active.
 Schedule::call(function () {
+    $provider = App\Models\ParentGuardian::getActiveWalletProvider();
+
     App\Models\ParentGuardian::whereNotNull('user_id')
-        ->whereNull('juicyway_account_number')
-        ->where(function ($q) {
-            $q->whereNull('juicyway_wallet_status')
-              ->orWhere('juicyway_wallet_status', 'failed');
-        })
         ->with(['user', 'students'])
         ->get()
-        ->each(function ($parent) {
-            if ($parent->user && $parent->students->isNotEmpty()) {
-                $parent->update([
-                    'juicyway_customer_id'   => null,
-                    'juicyway_wallet_id'     => null,
-                    'juicyway_account_id'    => null,
-                    'juicyway_wallet_status' => null,
-                ]);
+        ->each(function ($parent) use ($provider) {
+            if (
+                $parent->user
+                && $parent->students->isNotEmpty()
+                && $parent->needsProviderAccount($provider)
+            ) {
                 App\Jobs\ProvisionParentWalletJob::dispatch($parent)
                     ->onQueue('provisioning');
                 \Illuminate\Support\Facades\Log::info(
-                    "DailySweep: dispatched provisioning for parent {$parent->id}"
+                    "DailySweep: queued {$provider} provisioning for parent {$parent->id}"
                 );
             }
         });

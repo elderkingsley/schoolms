@@ -5,7 +5,6 @@ namespace App\Livewire\Admin;
 use App\Models\SchoolSetting;
 use App\Models\ParentGuardian;
 use App\Jobs\ProvisionParentWalletJob;
-use App\Jobs\ProvisionJuicyWayWalletJob;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -154,26 +153,22 @@ class SchoolSettings extends Component
 
     /**
      * Dispatch backfill jobs for parents missing the provider's account.
+     * Uses the generic ProvisionParentWalletJob which reads the active provider
+     * at runtime — no need for provider-specific job classes.
      * Returns the number of jobs dispatched.
      */
     protected function dispatchBackfillJobs(string $provider): int
     {
-        $jobClass = match($provider) {
-            'juicyway' => ProvisionJuicyWayWalletJob::class,
-            'budpay'   => ProvisionParentWalletJob::class,
-            default    => null,
-        };
-
-        if (! $jobClass) {
-            return 0;
-        }
-
         $parents = ParentGuardian::whereNotNull('user_id')
+            ->with(['user', 'students'])
             ->get()
-            ->filter(fn($parent) => $parent->needsProviderAccount($provider));
+            ->filter(fn($parent) => $parent->needsProviderAccount($provider)
+                && $parent->user
+                && $parent->students->isNotEmpty()
+            );
 
         foreach ($parents as $parent) {
-            $jobClass::dispatch($parent)->onQueue('provisioning');
+            ProvisionParentWalletJob::dispatch($parent)->onQueue('provisioning');
         }
 
         return $parents->count();
