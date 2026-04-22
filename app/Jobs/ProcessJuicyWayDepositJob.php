@@ -56,23 +56,29 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
     {
         $deposit = $this->payload['data'] ?? [];
 
-        // ── Extract fields from deposit object ────────────────────────────
-        // JuicyWay deposit.received payload mirrors GET /deposits response:
-        //   data.payment_method.account_number — the credited NUBAN
-        //   data.amount                        — amount in KOBO
-        //   data.reference                     — unique deposit reference
-        //   data.sender_name                   — originating account name
-        //   data.status                        — must be 'settled'
-        //   data.type                          — must be 'credit'
-        $accountNumber = $deposit['payment_method']['account_number'] ?? null;
-        $amountKobo    = (int) ($deposit['amount'] ?? 0);
+        // ── Extract fields from deposit.received payload ───────────────────
+        // deposit.received has a DIFFERENT structure from GET /deposits.
+        //
+        // GET /deposits shape (used by PollJuicyWayDepositsJob):
+        //   data.payment_method.account_number — credited NUBAN
+        //   data.reference                     — unique reference
+        //   data.sender_name                   — originator name
+        //   data.created_at                    — timestamp
+        //   data.status / data.type            — 'settled' / 'credit'
+        //
+        // deposit.received webhook shape (this job):
+        //   data.beneficiary.account_number    — credited NUBAN
+        //   data.id                            — unique deposit ID (use as reference)
+        //   data.sender.details.account_name   — originator name
+        //   data.occurred_at                   — timestamp
+        //   data.amount                        — always a settled credit; no status/type fields
+        $accountNumber = $deposit['beneficiary']['account_number']      ?? null;
+        $amountKobo    = (int) ($deposit['amount']                       ?? 0);
         $amountNgn     = $amountKobo / 100;
-        $reference     = $deposit['reference'] ?? null;
-        $senderName    = $deposit['sender_name'] ?? 'Unknown Sender';
-        $depositId     = $deposit['id'] ?? null;
-        $depositedAt   = $deposit['created_at'] ?? now()->toISOString();
-        $status        = $deposit['status'] ?? '';
-        $type          = $deposit['type'] ?? '';
+        $reference     = $deposit['id']                                  ?? null;
+        $senderName    = $deposit['sender']['details']['account_name']   ?? 'Unknown Sender';
+        $depositId     = $deposit['id']                                  ?? null;
+        $depositedAt   = $deposit['occurred_at']                         ?? now()->toISOString();
 
         // ── Validate required fields ──────────────────────────────────────
         if (! $accountNumber || $amountNgn <= 0 || ! $reference) {
@@ -81,16 +87,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
                 'amount'    => $amountNgn,
                 'reference' => $reference,
                 'log_id'    => $this->logId,
-            ]);
-            return;
-        }
-
-        // Only process settled credit deposits
-        // deposit.received may fire before settlement — if status isn't
-        // 'settled' yet, we return and let the poll job catch it once settled.
-        if ($status !== 'settled' || $type !== 'credit') {
-            Log::info("ProcessJuicyWayDepositJob: deposit not yet settled (status={$status}, type={$type}) — poll job will catch it", [
-                'reference' => $reference,
             ]);
             return;
         }

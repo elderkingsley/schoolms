@@ -32,7 +32,9 @@ class JuicyWayWebhookController extends Controller
         $rawBody   = $request->getContent();
         $payload   = $request->json()->all();
         $event     = $payload['event']             ?? 'unknown';
-        $reference = $payload['data']['reference'] ?? null;
+        // deposit.received uses data.id as the unique identifier (no data.reference)
+        // payment.session.succeeded uses data.reference
+        $reference = $payload['data']['reference'] ?? $payload['data']['id'] ?? null;
         $logId     = (string) Str::uuid();
 
         // ── Step 1: Log raw event immediately ─────────────────────────────
@@ -99,9 +101,9 @@ class JuicyWayWebhookController extends Controller
      */
     private function handleDeposit(array $payload, string $logId): void
     {
-        $reference     = $payload['data']['reference']                        ?? null;
-        $accountNumber = $payload['data']['payment_method']['account_number'] ?? null;
-        $amountKobo    = $payload['data']['amount']                           ?? 0;
+        $depositId     = $payload['data']['id']                                  ?? null;
+        $accountNumber = $payload['data']['beneficiary']['account_number']       ?? null;
+        $amountKobo    = $payload['data']['amount']                              ?? 0;
         $amountNgn     = $amountKobo / 100;
 
         ProcessJuicyWayDepositJob::dispatch($payload, $logId)
@@ -113,10 +115,10 @@ class JuicyWayWebhookController extends Controller
         ]);
 
         Log::info('JuicyWay webhook: deposit.received dispatched to queue', [
-            'reference' => $reference,
-            'account'   => $accountNumber,
-            'amount'    => "NGN {$amountNgn}",
-            'log_id'    => $logId,
+            'deposit_id' => $depositId,
+            'account'    => $accountNumber,
+            'amount'     => "NGN {$amountNgn}",
+            'log_id'     => $logId,
         ]);
     }
 
