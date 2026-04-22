@@ -1,7 +1,9 @@
 <?php
+// Deploy to: app/Http/Controllers/JuicyWayWebhookController.php
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessJuicyWayDepositJob;
 use App\Jobs\ProcessJuicyWayPaymentJob;
 use App\Services\JuicyWayService;
 use Illuminate\Http\JsonResponse;
@@ -12,31 +14,40 @@ use Illuminate\Support\Str;
 
 class JuicyWayWebhookController extends Controller
 {
+    /**
+     * Handles all incoming JuicyWay webhook events.
+     *
+     * Supported events:
+     *   deposit.received          — parent made a bank transfer to their NUBAN (real-time)
+     *   payment.session.succeeded — parent paid via a JuicyWay payment link
+     *
+     * All other events are logged and acknowledged but not processed.
+     *
+     * The controller must respond within 10 seconds — all heavy work is
+     * dispatched to the queue. A 200 response is always returned after
+     * checksum verification to prevent JuicyWay from retrying endlessly.
+     */
     public function handle(Request $request, JuicyWayService $juicyWay): JsonResponse
     {
-        $rawBody  = $request->getContent(); // raw bytes — used for logging
-        $payload  = $request->json()->all();
-        $event    = $payload['event']              ?? 'unknown';
+        $rawBody   = $request->getContent();
+        $payload   = $request->json()->all();
+        $event     = $payload['event']             ?? 'unknown';
         $reference = $payload['data']['reference'] ?? null;
-        $logId    = (string) Str::uuid();
+        $logId     = (string) Str::uuid();
 
         // ── Step 1: Log raw event immediately ─────────────────────────────
-        // We log before any verification so we have a record even if something
-        // goes wrong. This is essential for debugging payment disputes.
         DB::table('juicyway_webhook_events')->insert([
             'id'              => $logId,
             'event_type'      => $event,
             'reference'       => $reference,
             'payload'         => $rawBody,
-            'signature_valid' => false, // updated below if it passes
+            'signature_valid' => false,
             'received_at'     => now(),
             'created_at'      => now(),
             'updated_at'      => now(),
         ]);
 
         // ── Step 2: Verify checksum ────────────────────────────────────────
-        // Must use the parsed payload (not raw body) — JuicyWay signs the data
-        // object, not the full raw body bytes. See spec Section 5.3.
         if (! $juicyWay->verifyChecksum($payload)) {
             Log::warning('JuicyWay webhook: invalid checksum', [
                 'event'     => $event,
@@ -52,43 +63,19 @@ class JuicyWayWebhookController extends Controller
             return response()->json(['error' => 'Invalid checksum'], 401);
         }
 
-        // Mark signature as valid in the log
         DB::table('juicyway_webhook_events')->where('id', $logId)
             ->update(['signature_valid' => true, 'updated_at' => now()]);
 
-        // ── Step 3: Only handle payment.session.succeeded ─────────────────
-        // Log other events but don't process them.
-        if ($event !== 'payment.session.succeeded') {
-            Log::info("JuicyWay webhook: unhandled event type '{$event}' — logged only.");
-
-            DB::table('juicyway_webhook_events')->where('id', $logId)->update([
-                'processed_at' => now(),
-                'updated_at'   => now(),
-            ]);
-
-            return response()->json(['status' => 'event_not_handled'], 200);
-        }
-
-        // ── Step 4: Dispatch to queue — respond fast ──────────────────────
-        // The controller must respond within 10 seconds (JuicyWay requirement).
-        // All actual DB work happens in ProcessJuicyWayPaymentJob.
+        // ── Step 3: Route by event type ───────────────────────────────────
         try {
-            ProcessJuicyWayPaymentJob::dispatch($payload, $logId);
-
-            DB::table('juicyway_webhook_events')->where('id', $logId)->update([
-                'processed_at' => now(),
-                'updated_at'   => now(),
-            ]);
-
-            Log::info("JuicyWay webhook: {$event} dispatched to queue", [
-                'reference' => $reference,
-                'log_id'    => $logId,
-            ]);
-
+            match ($event) {
+                'deposit.received'          => $this->handleDeposit($payload, $logId),
+                'payment.session.succeeded' => $this->handlePaymentSession($payload, $logId),
+                default                     => $this->handleUnknown($event, $logId),
+            };
         } catch (\Throwable $e) {
-            // Log but still return 200 — if we return 5xx, JuicyWay retries,
-            // which just fails again. Accept and investigate manually.
             Log::error('JuicyWay webhook: dispatch failed — ' . $e->getMessage(), [
+                'event'     => $event,
                 'reference' => $reference,
             ]);
 
@@ -98,7 +85,71 @@ class JuicyWayWebhookController extends Controller
             ]);
         }
 
-        // ── Step 5: Always return 200 within 10 seconds ───────────────────
         return response()->json(['status' => 'ok'], 200);
+    }
+
+    // ── Event handlers ────────────────────────────────────────────────────────
+
+    /**
+     * Handle deposit.received — NUBAN bank transfer detected.
+     *
+     * Dispatches ProcessJuicyWayDepositJob to the payments queue for
+     * immediate processing. PollJuicyWayDepositsJob remains as a safety
+     * net and will skip this reference via idempotency if already processed.
+     */
+    private function handleDeposit(array $payload, string $logId): void
+    {
+        $reference     = $payload['data']['reference']                        ?? null;
+        $accountNumber = $payload['data']['payment_method']['account_number'] ?? null;
+        $amountKobo    = $payload['data']['amount']                           ?? 0;
+        $amountNgn     = $amountKobo / 100;
+
+        ProcessJuicyWayDepositJob::dispatch($payload, $logId)
+            ->onQueue('payments');
+
+        DB::table('juicyway_webhook_events')->where('id', $logId)->update([
+            'processed_at' => now(),
+            'updated_at'   => now(),
+        ]);
+
+        Log::info('JuicyWay webhook: deposit.received dispatched to queue', [
+            'reference' => $reference,
+            'account'   => $accountNumber,
+            'amount'    => "NGN {$amountNgn}",
+            'log_id'    => $logId,
+        ]);
+    }
+
+    /**
+     * Handle payment.session.succeeded — parent paid via a JuicyWay payment link.
+     */
+    private function handlePaymentSession(array $payload, string $logId): void
+    {
+        $reference = $payload['data']['reference'] ?? null;
+
+        ProcessJuicyWayPaymentJob::dispatch($payload, $logId);
+
+        DB::table('juicyway_webhook_events')->where('id', $logId)->update([
+            'processed_at' => now(),
+            'updated_at'   => now(),
+        ]);
+
+        Log::info('JuicyWay webhook: payment.session.succeeded dispatched to queue', [
+            'reference' => $reference,
+            'log_id'    => $logId,
+        ]);
+    }
+
+    /**
+     * Handle any unrecognised event — log and acknowledge, do not process.
+     */
+    private function handleUnknown(string $event, string $logId): void
+    {
+        Log::info("JuicyWay webhook: unhandled event type '{$event}' — logged only.");
+
+        DB::table('juicyway_webhook_events')->where('id', $logId)->update([
+            'processed_at' => now(),
+            'updated_at'   => now(),
+        ]);
     }
 }
