@@ -97,14 +97,16 @@
                     <thead>
                         <tr>
                             <th>Subject</th>
-                            <th>Teacher's Remark</th>
+                            <th>Assessment</th>
+                            <th class="center">Rating</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($termResults->sortBy('subject.name') as $result)
                             <tr>
                                 <td style="font-weight:500">{{ $result->subject->name }}</td>
-                                <td style="color:var(--c-text-2);font-size:13px">{{ $result->remark ?? '—' }}</td>
+                                <td style="color:var(--c-text-2);font-size:13px">{{ $result->admin_comment ?? '—' }}</td>
+                                <td class="center" style="font-size:13px;font-weight:500">{{ $result->remark ?? '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
