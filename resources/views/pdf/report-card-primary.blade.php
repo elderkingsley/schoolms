@@ -141,7 +141,7 @@ body {
 <body>
 
 @php
-    function chipClass(string $r): string {
+    $chipClass = function(string $r): string {
         return match($r) {
             'Distinction'   => 'chip chip-d',
             'Excellent'     => 'chip chip-e',
@@ -150,7 +150,7 @@ body {
             'Average'       => 'chip chip-a',
             default         => 'chip chip-b',
         };
-    }
+    };
 @endphp
 
 {{-- ═══ HEADER ═══ --}}
@@ -265,7 +265,7 @@ body {
                     <td style="color:#999999;">{{ $result->class_average ? number_format($result->class_average,1) : '—' }}</td>
                     <td>
                         @if($result->remark)
-                            <span class="{{ chipClass($result->remark) }}">{{ $result->remark }}</span>
+                            <span class="{{ $chipClass($result->remark) }}">{{ $result->remark }}</span>
                         @else
                             <span style="color:#999;">—</span>
                         @endif
