@@ -21,6 +21,8 @@ class Results extends Component
         $terms   = Term::with('session')->orderByDesc('id')->get();
         $results = collect();
 
+        $isRemarkOnly = false;
+
         if ($parentProfile && ($this->filterChild || $children->isNotEmpty())) {
             // Default to first child if none selected — avoids showing a blank
             // "please select a child" screen when the parent has multiple children.
@@ -34,10 +36,20 @@ class Results extends Component
                     ->orderBy('term_id', 'desc')
                     ->get()
                     ->groupBy('term_id');
+
+                // Detect remark-only class (nursery/preschool) so blade renders
+                // the correct layout — scored table vs remark-only table.
+                $currentTerm = Term::current();
+                $enrolment = \App\Models\Enrolment::with('schoolClass')
+                    ->where('student_id', $studentId)
+                    ->where('academic_session_id', $currentTerm?->academic_session_id)
+                    ->where('status', 'active')
+                    ->first();
+                $isRemarkOnly = $enrolment?->schoolClass?->isRemarkOnly() ?? false;
             }
         }
 
-        return view('livewire.parent.results', compact('children', 'terms', 'results'))
+        return view('livewire.parent.results', compact('children', 'terms', 'results', 'isRemarkOnly'))
             ->layout('layouts.parent', ['title' => 'Results']);
     }
 }
