@@ -1,4 +1,5 @@
 <?php
+// Deploy to: app/Notifications/ReportCardNotification.php
 
 namespace App\Notifications;
 
@@ -16,7 +17,7 @@ class ReportCardNotification extends Notification implements ShouldQueue
     public function __construct(
         public Student $student,
         public Term    $term,
-        public string  $pdfContent,   // raw PDF bytes
+        public string  $pdfBase64,  // base64-encoded PDF — safe for JSON queue serialization
         public string  $filename,
     ) {}
 
@@ -39,7 +40,7 @@ class ReportCardNotification extends Notification implements ShouldQueue
             ->line('If you have any questions about your child\'s results, please contact the school.')
             ->salutation('The Nurtureville Team')
             ->attachData(
-                $this->pdfContent,
+                base64_decode($this->pdfBase64),  // decode back to binary for attachment
                 $this->filename,
                 ['mime' => 'application/pdf']
             );

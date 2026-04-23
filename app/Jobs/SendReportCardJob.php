@@ -130,7 +130,9 @@ class SendReportCardJob implements ShouldQueue
             'classLowest', 'classHighest'
         ))->setPaper('a4', 'portrait');
 
-        $pdfContent = $pdf->output();
+        // Base64-encode PDF bytes — raw binary cannot be JSON-serialized by the queue.
+        // ReportCardNotification decodes it back to binary in toMail() before attaching.
+        $pdfBase64 = base64_encode($pdf->output());
 
         $filename = 'ReportCard-'
             . str_replace(['/', '\\', ' '], '-', $student->admission_number)
@@ -144,7 +146,7 @@ class SendReportCardJob implements ShouldQueue
 
             try {
                 $parent->user->notify(
-                    new ReportCardNotification($student, $term, $pdfContent, $filename)
+                    new ReportCardNotification($student, $term, $pdfBase64, $filename)
                 );
                 Log::info("SendReportCard: sent to parent {$parent->id} for student {$student->id}");
             } catch (\Throwable $e) {
