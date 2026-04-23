@@ -35,10 +35,19 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        // Route each user type to their portal
+        // Route each user type to their portal.
+        // Special case: a teacher who also has a parent profile with active children
+        // is sent to the parent portal — they can always navigate to their teacher
+        // results page from there via the direct URL /teacher/results.
+        if (in_array($user->user_type, ['teacher', 'teaching_assistant'])) {
+            if ($user->parentProfile && $user->parentProfile->students()->where('status', 'active')->exists()) {
+                return redirect()->intended(route('parent.dashboard'));
+            }
+        }
+
         return redirect()->intended(match($user->user_type) {
             'super_admin', 'admin' => route('admin.dashboard'),
-            'teacher'              => route('teacher.dashboard'),
+            'teacher', 'teaching_assistant' => route('teacher.dashboard'),
             'accountant'           => route('accountant.dashboard'),
             'parent'               => route('parent.dashboard'),
             default                => route('login'),
