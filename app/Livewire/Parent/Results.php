@@ -21,7 +21,9 @@ class Results extends Component
         $terms   = Term::with('session')->orderByDesc('id')->get();
         $results = collect();
 
-        if ($parentProfile && ($this->filterChild || $children->count() === 1)) {
+        if ($parentProfile && ($this->filterChild || $children->isNotEmpty())) {
+            // Default to first child if none selected — avoids showing a blank
+            // "please select a child" screen when the parent has multiple children.
             $studentId = $this->filterChild ?: $children->first()?->id;
 
             if ($studentId) {

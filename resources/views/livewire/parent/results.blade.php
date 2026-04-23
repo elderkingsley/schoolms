@@ -75,11 +75,6 @@
         <div class="empty-title">No active students linked to your account.</div>
     </div>
 
-@elseif($children->count() > 1 && ! $filterChild)
-    <div class="hint-card">
-        👆 Please select a child above to view their results.
-    </div>
-
 @elseif($results->isEmpty())
     <div class="empty-state">
         <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
