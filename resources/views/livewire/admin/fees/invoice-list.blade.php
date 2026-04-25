@@ -725,7 +725,7 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 });
                 $canCreate = ($createMode === 'single' && is_array($createPreview))
                     || ($createMode === 'class'  && $createClassEligible > 0)
-                    || ($createMode === 'misc');   {{-- Always show for misc; validation catches incomplete fields --}}
+                    || ($createMode === 'misc');   // Always show for misc — validation catches incomplete fields
             @endphp
             @if($canCreate)
                 <button class="btn-confirm" wire:click="createInvoices"
