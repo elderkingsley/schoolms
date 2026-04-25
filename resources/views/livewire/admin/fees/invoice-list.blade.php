@@ -736,7 +736,10 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                         @elseif($createMode === 'class')
                             Create {{ $createClassEligible }} {{ Str::plural('Invoice', $createClassEligible) }}
                         @else
-                            Create Invoice@if($miscTotal > 0) — ₦{{ number_format($miscTotal, 0) }}@endif
+                            Create Invoice
+                            @if($miscTotal > 0)
+                                — ₦{{ number_format($miscTotal, 0) }}
+                            @endif
                         @endif
                     </span>
                     <span wire:loading>Creating…</span>
