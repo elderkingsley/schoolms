@@ -279,7 +279,12 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                             <div class="student-adm">{{ $invoice->student->admission_number }}</div>
                         </td>
                         <td class="hide-sm" style="font-size:12px;color:var(--c-text-3);">
-                            {{ $invoice->term->name }}
+                            @if($invoice->isMiscellaneous())
+                                <span style="background:rgba(124,58,237,0.08);color:#7C3AED;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;">MISC</span>
+                                {{ $invoice->description }}
+                            @else
+                                {{ $invoice->term->name }}
+                            @endif
                         </td>
                         <td class="mono">₦{{ number_format($invoice->total_amount, 0) }}</td>
                         <td class="mono" style="color:#15803D;">₦{{ number_format($invoice->amount_paid, 0) }}</td>

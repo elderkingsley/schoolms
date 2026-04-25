@@ -610,7 +610,14 @@ class InvoiceList extends Component
     protected function buildQuery()
     {
         return FeeInvoice::with('student', 'term.session')
-            ->when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId))
+            ->when($this->selectedTermId, fn($q) =>
+                // Include invoices matching the selected term OR miscellaneous invoices
+                // (which have no term) so they always appear regardless of term filter.
+                $q->where(fn($q2) =>
+                    $q2->where('term_id', $this->selectedTermId)
+                       ->orWhere('invoice_type', 'miscellaneous')
+                )
+            )
             ->when($this->filterStatus,   fn($q) => $q->where('status', $this->filterStatus))
             ->when($this->tab === 'draft', fn($q) => $q->draft())
             ->when($this->tab === 'sent',  fn($q) => $q->sent())
