@@ -60,7 +60,7 @@ class InvoiceList extends Component
 
     // Misc mode
     public string $miscDescription   = '';
-    public array  $miscItems         = [['name' => '', 'amount' => '']];
+    public array  $miscItems         = [['fee_item_id' => '', 'name' => '', 'qty' => 1, 'unit_price' => '']];
     public ?int   $miscStudentId     = null;
     public string $miscStudentName   = '';
     public string $miscStudentSearch = '';
@@ -300,7 +300,7 @@ class InvoiceList extends Component
         $this->createPreview       = null;
         $this->createClassEligible = 0;
         $this->miscDescription     = '';
-        $this->miscItems           = [['name' => '', 'amount' => '']];
+        $this->miscItems           = [['fee_item_id' => '', 'name' => '', 'qty' => 1, 'unit_price' => '']];
         $this->miscStudentId       = null;
         $this->miscStudentName     = '';
         $this->miscStudentSearch   = '';
@@ -319,7 +319,7 @@ class InvoiceList extends Component
         $this->createPreview       = null;
         $this->createClassEligible = 0;
         $this->miscDescription     = '';
-        $this->miscItems           = [['name' => '', 'amount' => '']];
+        $this->miscItems           = [['fee_item_id' => '', 'name' => '', 'qty' => 1, 'unit_price' => '']];
         $this->miscStudentId       = null;
         $this->miscStudentName     = '';
         $this->miscStudentSearch   = '';
@@ -474,7 +474,7 @@ class InvoiceList extends Component
 
     public function addMiscItem(): void
     {
-        $this->miscItems[] = ['name' => '', 'amount' => ''];
+        $this->miscItems[] = ['fee_item_id' => '', 'name' => '', 'qty' => 1, 'unit_price' => ''];
     }
 
     public function removeMiscItem(int $index): void
@@ -485,9 +485,26 @@ class InvoiceList extends Component
         }
     }
 
+    /**
+     * When a fee item is selected from the dropdown, auto-fill the item name.
+     * Unit price is left blank so the admin sets the price for this invoice.
+     */
+    public function selectFeeItem(int $index, int $feeItemId): void
+    {
+        $feeItem = \App\Models\FeeItem::find($feeItemId);
+        if ($feeItem) {
+            $this->miscItems[$index]['fee_item_id'] = $feeItemId;
+            $this->miscItems[$index]['name']        = $feeItem->name;
+        }
+    }
+
     public function miscTotal(): float
     {
-        return collect($this->miscItems)->sum(fn($item) => (float) ($item['amount'] ?? 0));
+        return collect($this->miscItems)->sum(function ($item) {
+            $qty   = max(1, (int) ($item['qty']        ?? 1));
+            $price = (float) ($item['unit_price'] ?? 0);
+            return $qty * $price;
+        });
     }
 
     // ── Submit: create the invoice(s) ─────────────────────────────────────────
@@ -534,22 +551,24 @@ class InvoiceList extends Component
     protected function createMiscInvoice(): void
     {
         $this->validate([
-            'miscStudentId'   => 'required|exists:students,id',
-            'miscDescription' => 'required|string|max:255',
-            'miscItems'       => 'required|array|min:1',
-            'miscItems.*.name'   => 'required|string|max:255',
-            'miscItems.*.amount' => 'required|numeric|min:1',
+            'miscStudentId'            => 'required|exists:students,id',
+            'miscDescription'          => 'required|string|max:255',
+            'miscItems'                => 'required|array|min:1',
+            'miscItems.*.name'         => 'required|string|max:255',
+            'miscItems.*.qty'          => 'required|integer|min:1',
+            'miscItems.*.unit_price'   => 'required|numeric|min:1',
         ], [
-            'miscStudentId.required'        => 'Please select a student.',
-            'miscDescription.required'      => 'Please enter a description for this invoice.',
-            'miscItems.*.name.required'     => 'Each item must have a name.',
-            'miscItems.*.amount.required'   => 'Each item must have an amount.',
-            'miscItems.*.amount.min'        => 'Item amounts must be greater than zero.',
+            'miscStudentId.required'          => 'Please select a student.',
+            'miscDescription.required'        => 'Please enter a description for this invoice.',
+            'miscItems.*.name.required'       => 'Each item must have a name.',
+            'miscItems.*.qty.required'        => 'Each item must have a quantity.',
+            'miscItems.*.qty.min'             => 'Quantity must be at least 1.',
+            'miscItems.*.unit_price.required' => 'Each item must have a unit price.',
+            'miscItems.*.unit_price.min'      => 'Unit price must be greater than zero.',
         ]);
 
         $student = Student::findOrFail($this->miscStudentId);
 
-        // Create the invoice without a term
         $invoice = FeeInvoice::create([
             'student_id'   => $student->id,
             'term_id'      => null,
@@ -561,19 +580,20 @@ class InvoiceList extends Component
             'status'       => 'unpaid',
         ]);
 
-        // Create line items
         $total = 0;
         foreach ($this->miscItems as $item) {
-            $amount = (float) $item['amount'];
+            $qty       = max(1, (int) ($item['qty']        ?? 1));
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $lineTotal = $qty * $unitPrice;
+
             $invoice->items()->create([
                 'item_name'   => trim($item['name']),
-                'amount'      => $amount,
-                'fee_item_id' => null,
+                'amount'      => $lineTotal,
+                'fee_item_id' => ($item['fee_item_id'] ?? null) ?: null,
             ]);
-            $total += $amount;
+            $total += $lineTotal;
         }
 
-        // Recalculate totals
         $invoice->update([
             'total_amount' => $total,
             'balance'      => $total,
@@ -606,9 +626,10 @@ class InvoiceList extends Component
 
     public function render()
     {
-        $terms    = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
-        $classes  = SchoolClass::ordered()->get();
-        $invoices = $this->buildQuery()->paginate(25);
+        $terms     = Term::with('session')->orderByDesc('academic_session_id')->orderBy('id')->get();
+        $classes   = SchoolClass::ordered()->get();
+        $feeItems  = \App\Models\FeeItem::active()->orderBy('name')->get();
+        $invoices  = $this->buildQuery()->paginate(25);
 
         $base = FeeInvoice::when($this->selectedTermId, fn($q) => $q->where('term_id', $this->selectedTermId));
 
@@ -621,7 +642,7 @@ class InvoiceList extends Component
             'outstanding' => (clone $base)->sum('balance'),
         ];
 
-        return view('livewire.admin.fees.invoice-list', compact('terms', 'classes', 'invoices', 'stats'))
+        return view('livewire.admin.fees.invoice-list', compact('terms', 'classes', 'feeItems', 'invoices', 'stats'))
             ->layout('layouts.admin', ['title' => 'Fee Invoices']);
     }
 }

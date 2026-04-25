@@ -636,51 +636,96 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 @error('miscDescription') <div class="field-error">{{ $message }}</div> @enderror
             </div>
 
+            {{-- Line items with fee catalogue + qty --}}
             <div class="form-field">
                 <label>Line Items <span style="color:var(--c-danger)">*</span></label>
+
                 @foreach($miscItems as $i => $item)
-                    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
-                        <div style="flex:1;">
+                    <div style="border:1px solid var(--c-border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--c-bg);">
+
+                        {{-- Fee item catalogue picker --}}
+                        <div style="margin-bottom:8px;">
+                            <select wire:change="selectFeeItem({{ $i }}, $event.target.value)"
+                                style="width:100%;padding:8px 10px;border:1px solid var(--c-border);border-radius:6px;font-family:var(--f-sans);font-size:12px;background:var(--c-surface);color:var(--c-text-2);outline:none;">
+                                <option value="">— Pick from fee catalogue (optional) —</option>
+                                @foreach($feeItems as $fi)
+                                    <option value="{{ $fi->id }}" {{ ($item['fee_item_id'] ?? '') == $fi->id ? 'selected' : '' }}>
+                                        {{ $fi->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- Item name (editable, auto-filled when catalogue item chosen) --}}
+                        <div style="margin-bottom:8px;">
                             <input type="text" wire:model="miscItems.{{ $i }}.name"
-                                placeholder="Item name"
-                                style="width:100%;padding:9px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:13px;background:var(--c-bg);color:var(--c-text-1);outline:none;">
+                                placeholder="Item name (edit or type custom name)"
+                                style="width:100%;padding:8px 10px;border:1px solid var(--c-border);border-radius:6px;font-family:var(--f-sans);font-size:13px;background:var(--c-surface);color:var(--c-text-1);outline:none;">
                             @error("miscItems.{$i}.name") <div class="field-error" style="font-size:11px;">{{ $message }}</div> @enderror
                         </div>
-                        <div>
-                            <input type="number" wire:model="miscItems.{{ $i }}.amount"
-                                placeholder="Amount (₦)"
-                                style="width:120px;padding:9px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-mono);font-size:13px;background:var(--c-bg);color:var(--c-text-1);outline:none;">
-                            @error("miscItems.{$i}.amount") <div class="field-error" style="font-size:11px;">{{ $message }}</div> @enderror
+
+                        {{-- Qty + Unit price on one row --}}
+                        <div style="display:flex;gap:8px;align-items:flex-start;">
+                            <div style="width:90px;">
+                                <label style="font-size:10px;color:var(--c-text-3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:3px;">Qty</label>
+                                <input type="number" wire:model="miscItems.{{ $i }}.qty"
+                                    min="1" step="1"
+                                    style="width:100%;padding:8px 10px;border:1px solid var(--c-border);border-radius:6px;font-family:var(--f-mono);font-size:13px;background:var(--c-surface);color:var(--c-text-1);outline:none;">
+                                @error("miscItems.{$i}.qty") <div class="field-error" style="font-size:10px;">{{ $message }}</div> @enderror
+                            </div>
+                            <div style="flex:1;">
+                                <label style="font-size:10px;color:var(--c-text-3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:3px;">Unit Price (₦)</label>
+                                <input type="number" wire:model="miscItems.{{ $i }}.unit_price"
+                                    placeholder="0"
+                                    style="width:100%;padding:8px 10px;border:1px solid var(--c-border);border-radius:6px;font-family:var(--f-mono);font-size:13px;background:var(--c-surface);color:var(--c-text-1);outline:none;">
+                                @error("miscItems.{$i}.unit_price") <div class="field-error" style="font-size:10px;">{{ $message }}</div> @enderror
+                            </div>
+                            @php
+                                $lineQty   = max(1, (int)($item['qty'] ?? 1));
+                                $linePrice = (float)($item['unit_price'] ?? 0);
+                                $lineTotal = $lineQty * $linePrice;
+                            @endphp
+                            <div style="width:100px;text-align:right;padding-top:18px;">
+                                <span style="font-family:var(--f-mono);font-size:13px;font-weight:600;color:{{ $lineTotal > 0 ? 'var(--c-text-1)' : 'var(--c-text-3)' }};">
+                                    ₦{{ number_format($lineTotal, 0) }}
+                                </span>
+                            </div>
+                            @if(count($miscItems) > 1)
+                                <button wire:click="removeMiscItem({{ $i }})"
+                                    style="background:none;border:none;cursor:pointer;color:var(--c-danger);font-size:18px;line-height:1;padding:18px 0 0 4px;flex-shrink:0;">×</button>
+                            @endif
                         </div>
-                        @if(count($miscItems) > 1)
-                            <button wire:click="removeMiscItem({{ $i }})"
-                                style="background:none;border:none;cursor:pointer;color:var(--c-danger);font-size:20px;line-height:1;padding:8px 4px;flex-shrink:0;">×</button>
-                        @endif
                     </div>
                 @endforeach
+
                 <button wire:click="addMiscItem"
-                    style="background:none;border:1px dashed var(--c-border);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--c-text-3);cursor:pointer;width:100%;font-family:var(--f-sans);margin-top:2px;">
+                    style="background:none;border:1px dashed var(--c-border);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--c-text-3);cursor:pointer;width:100%;font-family:var(--f-sans);">
                     + Add another item
                 </button>
             </div>
 
-            @php $miscTotal = collect($miscItems)->sum(fn($i) => (float)($i['amount'] ?? 0)); @endphp
-            @if($miscTotal > 0)
-                <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;font-size:13px;font-weight:700;margin-top:4px;">
-                    <span>Total</span>
-                    <span style="font-family:var(--f-mono);">₦{{ number_format($miscTotal, 0) }}</span>
-                </div>
-            @endif
+            {{-- Running total --}}
+            @php
+                $miscTotal = collect($miscItems)->sum(function($item) {
+                    return max(1, (int)($item['qty'] ?? 1)) * (float)($item['unit_price'] ?? 0);
+                });
+            @endphp
+            <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;font-size:13px;font-weight:700;margin-top:4px;">
+                <span>Total</span>
+                <span style="font-family:var(--f-mono);color:{{ $miscTotal > 0 ? 'var(--c-text-1)' : 'var(--c-text-3)' }};">₦{{ number_format($miscTotal, 0) }}</span>
+            </div>
 
         @endif
 
         <div class="modal-actions">
             <button class="btn-cancel" wire:click="$set('showCreateModal', false)">Cancel</button>
             @php
-                $miscTotal = collect($miscItems)->sum(fn($i) => (float)($i['amount'] ?? 0));
+                $miscTotal = collect($miscItems)->sum(function($item) {
+                    return max(1, (int)($item['qty'] ?? 1)) * (float)($item['unit_price'] ?? 0);
+                });
                 $canCreate = ($createMode === 'single' && is_array($createPreview))
                     || ($createMode === 'class'  && $createClassEligible > 0)
-                    || ($createMode === 'misc'   && $miscStudentId && trim($miscDescription) !== '' && $miscTotal > 0);
+                    || ($createMode === 'misc');   {{-- Always show for misc; validation catches incomplete fields --}}
             @endphp
             @if($canCreate)
                 <button class="btn-confirm" wire:click="createInvoices"
@@ -691,7 +736,7 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                         @elseif($createMode === 'class')
                             Create {{ $createClassEligible }} {{ Str::plural('Invoice', $createClassEligible) }}
                         @else
-                            Create Misc Invoice — ₦{{ number_format($miscTotal, 0) }}
+                            Create Invoice@if($miscTotal > 0) — ₦{{ number_format($miscTotal, 0) }}@endif
                         @endif
                     </span>
                     <span wire:loading>Creating…</span>
