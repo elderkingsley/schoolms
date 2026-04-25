@@ -723,28 +723,27 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 $miscTotal = collect($miscItems)->sum(function($item) {
                     return max(1, (int)($item['qty'] ?? 1)) * (float)($item['unit_price'] ?? 0);
                 });
-                $canCreate = ($createMode === 'single' && is_array($createPreview))
-                    || ($createMode === 'class'  && $createClassEligible > 0)
-                    || ($createMode === 'misc');   // Always show for misc — validation catches incomplete fields
             @endphp
-            @if($canCreate)
-                <button class="btn-confirm" wire:click="createInvoices"
-                    wire:loading.attr="disabled" wire:loading.class="opacity-50">
-                    <span wire:loading.remove>
-                        @if($createMode === 'single')
-                            Create Draft Invoice
-                        @elseif($createMode === 'class')
+            <button class="btn-confirm" wire:click="createInvoices"
+                wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                <span wire:loading.remove>
+                    @if($createMode === 'single')
+                        Create Draft Invoice
+                    @elseif($createMode === 'class')
+                        @if($createClassEligible > 0)
                             Create {{ $createClassEligible }} {{ Str::plural('Invoice', $createClassEligible) }}
                         @else
-                            Create Invoice
-                            @if($miscTotal > 0)
-                                — ₦{{ number_format($miscTotal, 0) }}
-                            @endif
+                            Create Invoices
                         @endif
-                    </span>
-                    <span wire:loading>Creating…</span>
-                </button>
-            @endif
+                    @else
+                        Create Invoice
+                        @if($miscTotal > 0)
+                            — ₦{{ number_format($miscTotal, 0) }}
+                        @endif
+                    @endif
+                </span>
+                <span wire:loading>Creating…</span>
+            </button>
         </div>
     </div>
 </div>
