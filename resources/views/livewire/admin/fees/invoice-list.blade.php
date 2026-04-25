@@ -562,7 +562,7 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 @endif
             @endif
 
-        @else
+        @elseif($createMode === 'class')
             {{-- Class mode --}}
             <div class="form-field">
                 <label>Class <span style="color:var(--c-danger)">*</span></label>
