@@ -98,28 +98,28 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             return;
         }
 
-        $student = $parent->students->first();
-        if (! $student) {
-            Log::warning("ProcessBudPayWebhookJob: parent {$parent->id} has no linked student");
+        $studentIds = $parent->students->pluck('id');
+        if ($studentIds->isEmpty()) {
+            Log::warning("ProcessBudPayWebhookJob: parent {$parent->id} has no linked students");
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, null, []);
             $this->forwardToPayGrid();
             return;
         }
 
-        // ── Find unpaid invoices FIFO ─────────────────────────────────────
-        $invoices = \App\Models\FeeInvoice::where('student_id', $student->id)
+        // ── Find unpaid invoices across ALL children FIFO ─────────────────
+        $invoices = \App\Models\FeeInvoice::whereIn('student_id', $studentIds)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->with(['items', 'payments', 'term.session'])
+            ->with(['items', 'payments', 'term.session', 'student'])
             ->orderBy('id', 'asc')
             ->get();
 
-        // Store the invoice IDs that will be settled, for later notification
         $settledInvoiceIds = [];
 
         if ($invoices->isEmpty()) {
-            Log::info("ProcessBudPayWebhookJob: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices", [
-                'account'   => $accountNumber,
-                'reference' => $reference,
+            Log::info("ProcessBudPayWebhookJob: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices across any child", [
+                'account'     => $accountNumber,
+                'reference'   => $reference,
+                'student_ids' => $studentIds->toArray(),
             ]);
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, null, []);
             $this->forwardToPayGrid();
@@ -132,13 +132,13 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             ->orderBy('id')
             ->value('id');
 
-        // ── Apply payment FIFO ────────────────────────────────────────────
+        // ── Apply payment across all children's invoices FIFO ─────────────
         $remaining       = $amountNgn;
         $settledInvoices = [];
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
-            $reference, $feeService, $systemActorId, $student
+            $reference, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
@@ -159,30 +159,29 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                 );
 
                 $remaining -= $toApply;
-                $settledInvoices[] = $invoice->fresh();
-                $settledInvoiceIds[] = (string) $invoice->id; // SchoolMS invoice ID
+                $settledInvoices[]   = $invoice->fresh();
+                $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("ProcessBudPayWebhookJob: ₦{$toApply} applied to invoice {$invoice->id}", [
-                    'student'   => $student->id,
+                    'student'   => $invoice->student_id,
                     'reference' => $reference,
                 ]);
             }
         });
 
-        // ── Notify PayGrid (inflow reconciliation) with invoice IDs ──────
+        // ── Notify PayGrid ────────────────────────────────────────────────
         $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
         $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $primaryInvoiceId, $settledInvoiceIds);
 
         // ── Forward raw BudPay payload to PayGrid webhook ─────────────────
-        // PayGrid needs the raw webhook for its own organisations that also
-        // use BudPay virtual accounts — completely independent of SchoolMS.
         $this->forwardToPayGrid();
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
+            $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
                 $parent->user->notify(new PaymentReceivedNotification(
-                    student:         $student,
+                    student:         $firstStudent,
                     amountPaid:      $amountNgn,
                     senderName:      $senderName,
                     reference:       $reference,
@@ -199,7 +198,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             'updated_at'   => now(),
         ]);
 
-        Log::info("ProcessBudPayWebhookJob: ₦{$amountNgn} fully processed for student {$student->id}", [
+        Log::info("ProcessBudPayWebhookJob: ₦{$amountNgn} fully processed for parent {$parent->id}", [
             'account'          => $accountNumber,
             'reference'        => $reference,
             'invoices_settled' => count($settledInvoices),

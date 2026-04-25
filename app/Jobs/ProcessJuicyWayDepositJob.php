@@ -114,26 +114,27 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             return;
         }
 
-        $student = $parent->students->first();
-        if (! $student) {
-            Log::warning("ProcessJuicyWayDepositJob: parent {$parent->id} has no linked student");
+        $studentIds = $parent->students->pluck('id');
+        if ($studentIds->isEmpty()) {
+            Log::warning("ProcessJuicyWayDepositJob: parent {$parent->id} has no linked students");
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
             return;
         }
 
-        // ── Find unpaid invoices FIFO ─────────────────────────────────────
-        $invoices = FeeInvoice::where('student_id', $student->id)
+        // ── Find unpaid invoices across ALL children FIFO ─────────────────
+        $invoices = FeeInvoice::whereIn('student_id', $studentIds)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->with(['items', 'payments', 'term.session'])
+            ->with(['items', 'payments', 'term.session', 'student'])
             ->orderBy('id', 'asc')
             ->get();
 
         $settledInvoiceIds = [];
 
         if ($invoices->isEmpty()) {
-            Log::info("ProcessJuicyWayDepositJob: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices", [
-                'account'   => $accountNumber,
-                'reference' => $reference,
+            Log::info("ProcessJuicyWayDepositJob: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices across any child", [
+                'account'     => $accountNumber,
+                'reference'   => $reference,
+                'student_ids' => $studentIds->toArray(),
             ]);
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
             $this->markProcessed();
@@ -145,13 +146,13 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             ->orderBy('id')
             ->value('id');
 
-        // ── Apply payment FIFO ────────────────────────────────────────────
+        // ── Apply payment across all children's invoices FIFO ─────────────
         $remaining       = $amountNgn;
         $settledInvoices = [];
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
-            $reference, $feeService, $systemActorId, $student
+            $reference, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
@@ -176,7 +177,7 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
                 $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("ProcessJuicyWayDepositJob: ₦{$toApply} applied to invoice {$invoice->id}", [
-                    'student'   => $student->id,
+                    'student'   => $invoice->student_id,
                     'reference' => $reference,
                 ]);
             }
@@ -188,9 +189,10 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
+            $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
                 $parent->user->notify(new PaymentReceivedNotification(
-                    student:         $student,
+                    student:         $firstStudent,
                     amountPaid:      $amountNgn,
                     senderName:      $senderName,
                     reference:       $reference,
@@ -204,7 +206,7 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
         // ── Mark webhook event as processed ──────────────────────────────
         $this->markProcessed();
 
-        Log::info("ProcessJuicyWayDepositJob: ₦{$amountNgn} fully processed for student {$student->id}", [
+        Log::info("ProcessJuicyWayDepositJob: ₦{$amountNgn} fully processed for parent {$parent->id}", [
             'account'          => $accountNumber,
             'reference'        => $reference,
             'invoices_settled' => count($settledInvoices),

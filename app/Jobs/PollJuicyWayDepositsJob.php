@@ -157,7 +157,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             return false; // already processed by webhook or previous poll
         }
 
-        // ── Find parent and student ───────────────────────────────────────
+        // ── Find parent ───────────────────────────────────────────────────
         $parent = ParentGuardian::where('juicyway_account_number', $accountNumber)
             ->with(['user', 'students'])
             ->first();
@@ -167,47 +167,47 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             return false;
         }
 
-        $student = $parent->students->first();
-        if (! $student) {
-            Log::warning("PollJuicyWayDeposits[SchoolMS]: parent {$parent->id} has no linked student");
+        $studentIds = $parent->students->pluck('id');
+        if ($studentIds->isEmpty()) {
+            Log::warning("PollJuicyWayDeposits[SchoolMS]: parent {$parent->id} has no linked students");
             return false;
         }
 
-        // ── Find unpaid/partial invoices — oldest first (FIFO) ────────────
-        $invoices = FeeInvoice::where('student_id', $student->id)
+        // ── Find unpaid/partial invoices across ALL children — oldest first ──
+        // A parent with multiple children has one JuicyWay account for all of
+        // them. The deposit must be distributed across all outstanding invoices
+        // not just the first child's.
+        $invoices = FeeInvoice::whereIn('student_id', $studentIds)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->with(['items', 'payments', 'term.session'])
+            ->with(['items', 'payments', 'term.session', 'student'])
             ->orderBy('id', 'asc')
             ->get();
 
-        // Store the invoice IDs that will be settled, for later notification
         $settledInvoiceIds = [];
 
         if ($invoices->isEmpty()) {
-            Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices", [
-                'account' => $accountNumber,
-                'ref'     => $depositId,
+            Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices across any child", [
+                'account'     => $accountNumber,
+                'ref'         => $depositId,
+                'student_ids' => $studentIds->toArray(),
             ]);
             $this->notifyPayGrid($amountNgn, $depositId, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
             return true;
         }
 
         // ── Resolve system actor for audit trail ────────────────────────────
-        // We pass recorded_by explicitly to FeeService::recordPayment() so
-        // the queue worker never needs auth()->setUser() — which pollutes
-        // the audit trail by making automated payments look like manual ones.
         $systemActorId = \App\Models\User::where('user_type', 'super_admin')
             ->orWhere('user_type', 'admin')
             ->orderBy('id')
             ->value('id');
 
-        // ── Apply deposit across invoices (FIFO) ──────────────────────────
+        // ── Apply deposit across all children's invoices (FIFO) ──────────────
         $remaining       = $amountNgn;
         $settledInvoices = [];
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
-            $depositId, $feeService, $systemActorId, $student
+            $depositId, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) break;
@@ -222,32 +222,34 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     'JuicyWay Transfer',
-                    reference:  $depositId,  // UUID — matches webhook path idempotency key
+                    reference:  $depositId,
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );
 
                 $remaining -= $toApply;
-                $settledInvoices[] = $invoice->fresh();
+                $settledInvoices[]   = $invoice->fresh();
                 $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$toApply} applied to invoice {$invoice->id}", [
-                    'student'   => $student->id,
+                    'student'   => $invoice->student_id,
                     'status'    => $invoice->fresh()->status,
                     'reference' => $depositId,
                 ]);
             }
         });
 
-        // ── Notify PayGrid — post to Nurtureville's ledger ─────────────────
+        // ── Notify PayGrid ─────────────────────────────────────────────────
         $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
         $this->notifyPayGrid($amountNgn, $depositId, $accountNumber, $senderName, $depositId, $depositedAt, $primaryInvoiceId, $settledInvoiceIds);
 
         // ── Email the parent ───────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
+            // Group settled invoices by student for a clear notification
+            $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
                 $parent->user->notify(new PaymentReceivedNotification(
-                    student:         $student,
+                    student:         $firstStudent,
                     amountPaid:      $amountNgn,
                     senderName:      $senderName,
                     reference:       $depositId,
@@ -258,7 +260,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             }
         }
 
-        Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} fully processed for student {$student->id}", [
+        Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} fully processed for parent {$parent->id}", [
             'account'          => $accountNumber,
             'reference'        => $depositId,
             'invoices_settled' => count($settledInvoices),
