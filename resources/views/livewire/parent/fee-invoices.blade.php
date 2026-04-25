@@ -116,7 +116,7 @@
             <div class="invoice-card-head">
                 <div>
                     <div class="invoice-student">{{ $invoice->student->full_name }}</div>
-                    <div class="invoice-term">{{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}</div>
+                    <div class="invoice-term">{{ $invoice->isMiscellaneous() ? $invoice->description : $invoice->term->name.' Term — '.$invoice->term->session->name }}</div>
                 </div>
                 <span class="badge badge-{{ $invoice->status }}">
                     <span class="badge-dot"></span>

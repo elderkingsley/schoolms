@@ -61,7 +61,7 @@
 {{-- Header --}}
 <div class="inv-header">
     <div class="inv-student">{{ $invoice->student->full_name }}</div>
-    <div class="inv-meta">{{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}</div>
+    <div class="inv-meta">{{ $invoice->isMiscellaneous() ? $invoice->description : $invoice->term->name.' Term — '.$invoice->term->session->name }}</div>
     <span class="badge badge-{{ $invoice->status }}">
         <span class="badge-dot"></span>{{ ucfirst($invoice->status) }}
     </span>

@@ -659,7 +659,7 @@
                 @if($currentInvoice && $invoice->id === $currentInvoice->id) @continue @endif
                 <a href="{{ route('admin.fees.invoices.show', $invoice) }}" class="inv-row">
                     <div class="inv-row-term">
-                        <div class="inv-row-name">{{ $invoice->term->name }} — {{ $invoice->term->session->name }}</div>
+                        <div class="inv-row-name">{{ $invoice->isMiscellaneous() ? $invoice->description : $invoice->term->name.' — '.$invoice->term->session->name }}</div>
                         <div class="inv-row-meta">
                             {{ $invoice->items->count() }} items
                             @if($invoice->isSent()) · Sent @else · Draft @endif
