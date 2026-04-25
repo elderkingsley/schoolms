@@ -98,7 +98,7 @@
                             <div class="student-adm">{{ $invoice->student->admission_number }}</div>
                         </td>
                         <td style="font-size:12px;color:var(--c-text-3);">
-                            {{ $invoice->isMiscellaneous() ? $invoice->description : $invoice->term->name.' · '.$invoice->term->session->name }}
+                            {{ $invoice->term->name }} · {{ $invoice->term->session->name }}
                         </td>
                         <td class="right mono">₦{{ number_format($invoice->total_amount, 0) }}</td>
                         <td class="right mono" style="color:#15803D;">₦{{ number_format($invoice->amount_paid, 0) }}</td>
