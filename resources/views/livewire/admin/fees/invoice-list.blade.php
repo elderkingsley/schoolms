@@ -466,9 +466,14 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                 wire:click="$set('createMode','class')">
                 Entire Class
             </button>
+            <button style="flex:1;padding:8px;border-radius:6px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--f-sans);transition:all 150ms;background:{{ $createMode === 'misc' ? 'var(--c-surface)' : 'none' }};color:{{ $createMode === 'misc' ? 'var(--c-text-1)' : 'var(--c-text-3)' }};box-shadow:{{ $createMode === 'misc' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }};"
+                wire:click="$set('createMode','misc')">
+                Miscellaneous
+            </button>
         </div>
 
-        {{-- Term selector (shared) --}}
+        {{-- Term selector (shared — hidden for misc invoices) --}}
+        @if($createMode !== 'misc')
         <div class="form-field">
             <label>Term <span style="color:var(--c-danger)">*</span></label>
             <select wire:model.live="createTermId" class="filter-sel" style="width:100%;padding:10px 12px;">
@@ -479,6 +484,7 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
             </select>
             @error('createTermId') <div class="field-error">{{ $message }}</div> @enderror
         </div>
+        @endif
 
         @if($createMode === 'single')
             {{-- Student search --}}
@@ -582,13 +588,99 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                     </div>
                 @endif
             @endif
+        @elseif($createMode === 'misc')
+
+            {{-- Student search --}}
+            @if(! $miscStudentId)
+                <div class="form-field" style="position:relative;">
+                    <label>Student <span style="color:var(--c-danger)">*</span></label>
+                    <div style="position:relative;">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--c-text-3);pointer-events:none;">
+                            <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3 3"/>
+                        </svg>
+                        <input type="text" wire:model.live="miscStudentSearch"
+                            placeholder="Search by name or admission number…"
+                            style="width:100%;padding:10px 12px 10px 34px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;background:var(--c-bg);outline:none;color:var(--c-text-1);"
+                            autocomplete="off">
+                    </div>
+                    @if(count($miscStudentResults) > 0)
+                        <div style="position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--c-surface);border:1px solid var(--c-border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);overflow:hidden;margin-top:4px;">
+                            @foreach($miscStudentResults as $r)
+                                <div wire:click="selectMiscStudent({{ $r['id'] }}, '{{ addslashes($r['name']) }}')"
+                                     style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--c-border);"
+                                     onmouseover="this.style.background='var(--c-bg)'"
+                                     onmouseout="this.style.background=''">
+                                    <div style="font-size:13px;font-weight:600;color:var(--c-text-1);">{{ $r['name'] }}</div>
+                                    <div style="font-size:11px;color:var(--c-text-3);">{{ $r['adm'] }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    @error('miscStudentId') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+            @else
+                <div class="form-field">
+                    <label>Student</label>
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--c-accent-bg);border:1px solid rgba(26,86,255,0.2);border-radius:8px;">
+                        <span style="font-size:13px;font-weight:600;color:var(--c-text-1);flex:1;">{{ $miscStudentName }}</span>
+                        <button wire:click="clearMiscStudent" style="background:none;border:none;cursor:pointer;color:var(--c-text-3);font-size:18px;line-height:1;padding:0;" title="Change student">×</button>
+                    </div>
+                </div>
+            @endif
+
+            <div class="form-field">
+                <label>Invoice Description <span style="color:var(--c-danger)">*</span></label>
+                <input type="text" wire:model="miscDescription"
+                    placeholder="e.g. School Uniform 2026, Book List, Extra Lesson Fee…"
+                    style="width:100%;padding:10px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:14px;background:var(--c-bg);outline:none;color:var(--c-text-1);">
+                @error('miscDescription') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="form-field">
+                <label>Line Items <span style="color:var(--c-danger)">*</span></label>
+                @foreach($miscItems as $i => $item)
+                    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+                        <div style="flex:1;">
+                            <input type="text" wire:model="miscItems.{{ $i }}.name"
+                                placeholder="Item name"
+                                style="width:100%;padding:9px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-sans);font-size:13px;background:var(--c-bg);color:var(--c-text-1);outline:none;">
+                            @error("miscItems.{$i}.name") <div class="field-error" style="font-size:11px;">{{ $message }}</div> @enderror
+                        </div>
+                        <div>
+                            <input type="number" wire:model="miscItems.{{ $i }}.amount"
+                                placeholder="Amount (₦)"
+                                style="width:120px;padding:9px 12px;border:1px solid var(--c-border);border-radius:8px;font-family:var(--f-mono);font-size:13px;background:var(--c-bg);color:var(--c-text-1);outline:none;">
+                            @error("miscItems.{$i}.amount") <div class="field-error" style="font-size:11px;">{{ $message }}</div> @enderror
+                        </div>
+                        @if(count($miscItems) > 1)
+                            <button wire:click="removeMiscItem({{ $i }})"
+                                style="background:none;border:none;cursor:pointer;color:var(--c-danger);font-size:20px;line-height:1;padding:8px 4px;flex-shrink:0;">×</button>
+                        @endif
+                    </div>
+                @endforeach
+                <button wire:click="addMiscItem"
+                    style="background:none;border:1px dashed var(--c-border);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--c-text-3);cursor:pointer;width:100%;font-family:var(--f-sans);margin-top:2px;">
+                    + Add another item
+                </button>
+            </div>
+
+            @php $miscTotal = collect($miscItems)->sum(fn($i) => (float)($i['amount'] ?? 0)); @endphp
+            @if($miscTotal > 0)
+                <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:8px;font-size:13px;font-weight:700;margin-top:4px;">
+                    <span>Total</span>
+                    <span style="font-family:var(--f-mono);">₦{{ number_format($miscTotal, 0) }}</span>
+                </div>
+            @endif
+
         @endif
 
         <div class="modal-actions">
             <button class="btn-cancel" wire:click="$set('showCreateModal', false)">Cancel</button>
             @php
+                $miscTotal = collect($miscItems)->sum(fn($i) => (float)($i['amount'] ?? 0));
                 $canCreate = ($createMode === 'single' && is_array($createPreview))
-                    || ($createMode === 'class' && $createClassEligible > 0);
+                    || ($createMode === 'class'  && $createClassEligible > 0)
+                    || ($createMode === 'misc'   && $miscStudentId && trim($miscDescription) !== '' && $miscTotal > 0);
             @endphp
             @if($canCreate)
                 <button class="btn-confirm" wire:click="createInvoices"
@@ -596,8 +688,10 @@ input[type=checkbox].row-check { width:16px; height:16px; accent-color:var(--c-a
                     <span wire:loading.remove>
                         @if($createMode === 'single')
                             Create Draft Invoice
-                        @else
+                        @elseif($createMode === 'class')
                             Create {{ $createClassEligible }} {{ Str::plural('Invoice', $createClassEligible) }}
+                        @else
+                            Create Misc Invoice — ₦{{ number_format($miscTotal, 0) }}
                         @endif
                     </span>
                     <span wire:loading>Creating…</span>

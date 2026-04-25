@@ -45,7 +45,7 @@ class SendInvoiceJob implements ShouldQueue
         $invoice = $this->invoice->load([
             'student.parents.user',
             'items.feeItem',
-            'term.session',
+            'term.session',  // null for miscellaneous invoices — handled gracefully
         ]);
 
         $parents = $invoice->student->parents->filter(fn($p) => $p->user !== null);

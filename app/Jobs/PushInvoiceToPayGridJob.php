@@ -92,7 +92,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             $parent->korapay_account_number,
         ]));
 
-        $termLabel = optional($invoice->term)->name . ' — ' . optional($invoice->term?->session)->name;
+        $termLabel = $invoice->label();
 
         $payload = [
             'schoolms_invoice_id' => (string) $invoice->id,

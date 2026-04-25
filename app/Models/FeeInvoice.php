@@ -10,6 +10,7 @@ class FeeInvoice extends Model
 {
     protected $fillable = [
         'student_id', 'term_id',
+        'invoice_type', 'description',
         'total_amount', 'amount_paid', 'balance', 'status',
         'sent_at',
         'payment_link_reference', 'payment_link_id',
@@ -43,6 +44,19 @@ class FeeInvoice extends Model
 
     public function isDraft(): bool { return $this->sent_at === null; }
     public function isSent(): bool  { return $this->sent_at !== null; }
+    public function isMiscellaneous(): bool { return $this->invoice_type === 'miscellaneous'; }
+
+    /**
+     * Human-readable label for the invoice — used in emails, PDFs, PayGrid payload.
+     * School fee invoices show term name. Misc invoices show their description.
+     */
+    public function label(): string
+    {
+        if ($this->isMiscellaneous()) {
+            return $this->description ?? 'Miscellaneous Invoice';
+        }
+        return optional($this->term)->name . ' — ' . optional($this->term?->session)->name;
+    }
 
     public function hasPaymentLink(): bool { return ! empty($this->payment_link_url); }
 

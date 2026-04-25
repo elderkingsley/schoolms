@@ -213,7 +213,7 @@
     <div class="meta-cell right">
         <div class="meta-block" style="text-align:left;">
             <div class="meta-label">Invoice Period</div>
-            <div class="meta-value">{{ $invoice->term->name }} Term</div>
+            <div class="meta-value">{{ $invoice->isMiscellaneous() ? $invoice->description : $invoice->term->name . ' Term' }}</div>
             <div class="meta-sub">{{ $invoice->term->session->name }}</div>
             <div class="meta-sub" style="margin-top:6px;">
                 Date: {{ $invoice->created_at->format('d M Y') }}

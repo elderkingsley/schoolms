@@ -42,7 +42,7 @@ class InvoiceList extends Component
 
     // ── Create invoice modal ──────────────────────────────────────────────────
     public bool   $showCreateModal = false;
-    public string $createMode      = 'single';  // 'single' | 'class'
+    public string $createMode      = 'single';  // 'single' | 'class' | 'misc'
 
     // Single-student mode
     public string $studentSearch   = '';
@@ -57,6 +57,14 @@ class InvoiceList extends Component
     // Class mode
     public ?int   $createClassId   = null;
     public int    $createClassEligible = 0; // students who would get a new invoice
+
+    // Misc mode
+    public string $miscDescription   = '';
+    public array  $miscItems         = [['name' => '', 'amount' => '']];
+    public ?int   $miscStudentId     = null;
+    public string $miscStudentName   = '';
+    public string $miscStudentSearch = '';
+    public array  $miscStudentResults = [];
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -291,13 +299,18 @@ class InvoiceList extends Component
         $this->createClassId       = null;
         $this->createPreview       = null;
         $this->createClassEligible = 0;
+        $this->miscDescription     = '';
+        $this->miscItems           = [['name' => '', 'amount' => '']];
+        $this->miscStudentId       = null;
+        $this->miscStudentName     = '';
+        $this->miscStudentSearch   = '';
+        $this->miscStudentResults  = [];
         $this->showCreateModal     = true;
         $this->resetValidation();
     }
 
     public function updatedCreateMode(): void
     {
-        // Reset mode-specific state when switching tabs
         $this->createStudentId     = null;
         $this->createStudentName   = '';
         $this->studentSearch       = '';
@@ -305,6 +318,12 @@ class InvoiceList extends Component
         $this->createClassId       = null;
         $this->createPreview       = null;
         $this->createClassEligible = 0;
+        $this->miscDescription     = '';
+        $this->miscItems           = [['name' => '', 'amount' => '']];
+        $this->miscStudentId       = null;
+        $this->miscStudentName     = '';
+        $this->miscStudentSearch   = '';
+        $this->miscStudentResults  = [];
     }
 
     // ── Student search (single mode) ──────────────────────────────────────────
@@ -419,10 +438,67 @@ class InvoiceList extends Component
         $this->createClassEligible = $enrolments->diff($existingIds)->count();
     }
 
+    // ── Misc student search ───────────────────────────────────────────────────
+
+    public function updatedMiscStudentSearch(): void
+    {
+        $term = trim($this->miscStudentSearch);
+        if ($term === '') { $this->miscStudentResults = []; return; }
+
+        $this->miscStudentResults = Student::where('status', 'active')
+            ->where(function ($q) use ($term) {
+                $q->where('first_name',       'like', "{$term}%")
+                  ->orWhere('last_name',       'like', "{$term}%")
+                  ->orWhere('first_name',      'like', "%{$term}%")
+                  ->orWhere('last_name',       'like', "%{$term}%")
+                  ->orWhere('admission_number','like', "%{$term}%");
+            })
+            ->limit(8)->get()
+            ->map(fn($s) => ['id' => $s->id, 'name' => $s->full_name, 'adm' => $s->admission_number])
+            ->toArray();
+    }
+
+    public function selectMiscStudent(int $studentId, string $studentName): void
+    {
+        $this->miscStudentId       = $studentId;
+        $this->miscStudentName     = $studentName;
+        $this->miscStudentSearch   = '';
+        $this->miscStudentResults  = [];
+    }
+
+    public function clearMiscStudent(): void
+    {
+        $this->miscStudentId   = null;
+        $this->miscStudentName = '';
+    }
+
+    public function addMiscItem(): void
+    {
+        $this->miscItems[] = ['name' => '', 'amount' => ''];
+    }
+
+    public function removeMiscItem(int $index): void
+    {
+        if (count($this->miscItems) > 1) {
+            array_splice($this->miscItems, $index, 1);
+            $this->miscItems = array_values($this->miscItems);
+        }
+    }
+
+    public function miscTotal(): float
+    {
+        return collect($this->miscItems)->sum(fn($item) => (float) ($item['amount'] ?? 0));
+    }
+
     // ── Submit: create the invoice(s) ─────────────────────────────────────────
 
     public function createInvoices(FeeService $feeService): void
     {
+        if ($this->createMode === 'misc') {
+            $this->createMiscInvoice();
+            return;
+        }
+
         $this->validate(['createTermId' => 'required|exists:terms,id']);
 
         $term    = Term::findOrFail($this->createTermId);
@@ -431,25 +507,16 @@ class InvoiceList extends Component
 
         if ($this->createMode === 'single') {
             $this->validate(['createStudentId' => 'required|exists:students,id']);
-
             $student = Student::findOrFail($this->createStudentId);
             $invoice = $feeService->generateInvoiceForStudent($student, $term);
-
-            if ($invoice) {
-                $created = 1;
-            } else {
-                $skipped = 1;
-            }
+            $invoice ? $created = 1 : $skipped = 1;
         } else {
-            // Class mode — generate for all eligible students
             $this->validate(['createClassId' => 'required|exists:school_classes,id']);
-
             $enrolments = Enrolment::with('student')
                 ->where('school_class_id', $this->createClassId)
                 ->where('academic_session_id', $term->academic_session_id)
                 ->where('status', 'active')
                 ->get();
-
             foreach ($enrolments as $enrolment) {
                 $invoice = $feeService->generateInvoiceForStudent($enrolment->student, $term);
                 $invoice ? $created++ : $skipped++;
@@ -457,17 +524,64 @@ class InvoiceList extends Component
         }
 
         $this->showCreateModal = false;
-
         $msg = "{$created} invoice(s) created as drafts.";
-        if ($skipped > 0) {
-            $msg .= " {$skipped} skipped (invoice already exists for this term).";
-        }
-        if ($created > 0) {
-            $msg .= " Review and send from the Drafts tab.";
-            $this->tab = 'draft';
+        if ($skipped > 0) $msg .= " {$skipped} skipped (invoice already exists for this term).";
+        if ($created > 0) { $msg .= " Review and send from the Drafts tab."; $this->tab = 'draft'; }
+        session()->flash($created > 0 ? 'success' : 'error', $msg);
+        $this->resetPage();
+    }
+
+    protected function createMiscInvoice(): void
+    {
+        $this->validate([
+            'miscStudentId'   => 'required|exists:students,id',
+            'miscDescription' => 'required|string|max:255',
+            'miscItems'       => 'required|array|min:1',
+            'miscItems.*.name'   => 'required|string|max:255',
+            'miscItems.*.amount' => 'required|numeric|min:1',
+        ], [
+            'miscStudentId.required'        => 'Please select a student.',
+            'miscDescription.required'      => 'Please enter a description for this invoice.',
+            'miscItems.*.name.required'     => 'Each item must have a name.',
+            'miscItems.*.amount.required'   => 'Each item must have an amount.',
+            'miscItems.*.amount.min'        => 'Item amounts must be greater than zero.',
+        ]);
+
+        $student = Student::findOrFail($this->miscStudentId);
+
+        // Create the invoice without a term
+        $invoice = FeeInvoice::create([
+            'student_id'   => $student->id,
+            'term_id'      => null,
+            'invoice_type' => 'miscellaneous',
+            'description'  => trim($this->miscDescription),
+            'total_amount' => 0,
+            'amount_paid'  => 0,
+            'balance'      => 0,
+            'status'       => 'unpaid',
+        ]);
+
+        // Create line items
+        $total = 0;
+        foreach ($this->miscItems as $item) {
+            $amount = (float) $item['amount'];
+            $invoice->items()->create([
+                'item_name'   => trim($item['name']),
+                'amount'      => $amount,
+                'fee_item_id' => null,
+            ]);
+            $total += $amount;
         }
 
-        session()->flash($created > 0 ? 'success' : 'error', $msg);
+        // Recalculate totals
+        $invoice->update([
+            'total_amount' => $total,
+            'balance'      => $total,
+        ]);
+
+        $this->showCreateModal = false;
+        $this->tab = 'draft';
+        session()->flash('success', "Miscellaneous invoice created for {$student->full_name}. Review and send from the Drafts tab.");
         $this->resetPage();
     }
 

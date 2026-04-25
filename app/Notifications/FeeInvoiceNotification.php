@@ -26,14 +26,12 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
     public function toMail($notifiable): MailMessage
     {
         $student     = $this->invoice->student;
-        $term        = $this->invoice->term;
-        $session     = $term->session;
         $studentName = $student->full_name;
-        $termLabel   = "{$term->name} Term — {$session->name}";
+        $termLabel   = $this->invoice->label();
         $total       = '₦' . number_format($this->invoice->total_amount, 0);
         $balance     = '₦' . number_format($this->invoice->balance, 0);
         $reference   = $this->invoice->payment_link_reference
-            ?? "INV-{$this->invoice->id}-T{$this->invoice->term_id}";
+            ?? 'INV-' . $this->invoice->id . ($this->invoice->term_id ? '-T' . $this->invoice->term_id : '-MISC');
 
         // The parent this email is going to — load their virtual account details
         $parentGuardian = $student->parents
