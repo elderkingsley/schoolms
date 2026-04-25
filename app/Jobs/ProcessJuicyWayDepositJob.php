@@ -183,9 +183,24 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             }
         });
 
-        // ── Notify PayGrid ────────────────────────────────────────────────
-        $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, $primaryInvoiceId, $settledInvoiceIds);
+        // ── Notify PayGrid — one call per settled invoice ─────────────────
+        foreach ($settledInvoices as $settledInvoice) {
+            $payment = $settledInvoice->payments()
+                ->where('reference', $reference)
+                ->first();
+            if ($payment) {
+                $this->notifyPayGrid(
+                    (float) $payment->amount,
+                    $reference . '-inv-' . $settledInvoice->id,
+                    $accountNumber,
+                    $senderName,
+                    $depositId,
+                    $depositedAt,
+                    (string) $settledInvoice->id,
+                    [(string) $settledInvoice->id]
+                );
+            }
+        }
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {

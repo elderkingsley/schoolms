@@ -169,9 +169,22 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             }
         });
 
-        // ── Notify PayGrid ────────────────────────────────────────────────
-        $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $primaryInvoiceId, $settledInvoiceIds);
+        // ── Notify PayGrid — one call per settled invoice ─────────────────
+        foreach ($settledInvoices as $settledInvoice) {
+            $payment = $settledInvoice->payments()
+                ->where('reference', $reference)
+                ->first();
+            if ($payment) {
+                $this->notifyPayGrid(
+                    (float) $payment->amount,
+                    $reference . '-inv-' . $settledInvoice->id,
+                    $accountNumber,
+                    $senderName,
+                    (string) $settledInvoice->id,
+                    [(string) $settledInvoice->id]
+                );
+            }
+        }
 
         // ── Forward raw BudPay payload to PayGrid webhook ─────────────────
         $this->forwardToPayGrid();

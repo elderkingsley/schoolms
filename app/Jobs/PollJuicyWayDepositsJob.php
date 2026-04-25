@@ -239,9 +239,29 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             }
         });
 
-        // ── Notify PayGrid ─────────────────────────────────────────────────
-        $primaryInvoiceId = $settledInvoiceIds[0] ?? null;
-        $this->notifyPayGrid($amountNgn, $depositId, $accountNumber, $senderName, $depositId, $depositedAt, $primaryInvoiceId, $settledInvoiceIds);
+        // ── Notify PayGrid — one call per settled invoice ──────────────────
+        // A single deposit can now be split across multiple children's invoices.
+        // PayGrid matches by account_number → invoice_id, so each invoice needs
+        // its own notification with the amount applied to THAT invoice specifically,
+        // not the total deposit amount. Sending the total against one invoice_id
+        // caused overpayment on one child and missed payment on another.
+        foreach ($settledInvoices as $settledInvoice) {
+            $payment = $settledInvoice->payments()
+                ->where('reference', $depositId)
+                ->first();
+            if ($payment) {
+                $this->notifyPayGrid(
+                    (float) $payment->amount,
+                    $depositId . '-inv-' . $settledInvoice->id,
+                    $accountNumber,
+                    $senderName,
+                    $depositId,
+                    $depositedAt,
+                    (string) $settledInvoice->id,
+                    [(string) $settledInvoice->id]
+                );
+            }
+        }
 
         // ── Email the parent ───────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
