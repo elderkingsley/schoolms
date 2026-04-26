@@ -381,8 +381,13 @@
                 <div class="info-row"><span class="info-label">Type</span><span class="info-value">Miscellaneous</span></div>
                 <div class="info-row"><span class="info-label">Description</span><span class="info-value">{{ $invoice->description }}</span></div>
             @else
-                <div class="info-row"><span class="info-label">Term</span><span class="info-value">{{ $invoice->term->name }}</span></div>
-                <div class="info-row"><span class="info-label">Session</span><span class="info-value">{{ $invoice->term->session->name }}</span></div>
+                @if($invoice->isMiscellaneous())
+                    <div class="info-row"><span class="info-label">Type</span><span class="info-value">Miscellaneous</span></div>
+                    <div class="info-row"><span class="info-label">Description</span><span class="info-value">{{ $invoice->description }}</span></div>
+                @else
+                    <div class="info-row"><span class="info-label">Term</span><span class="info-value">{{ $invoice->term->name }}</span></div>
+                    <div class="info-row"><span class="info-label">Session</span><span class="info-value">{{ $invoice->term->session->name }}</span></div>
+                @endif
             @endif
             <div class="info-row"><span class="info-label">Generated</span><span class="info-value">{{ $invoice->created_at->format('d M Y') }}</span></div>
             <div class="info-row">

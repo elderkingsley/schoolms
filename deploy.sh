@@ -49,9 +49,9 @@ echo "[ 7/9 ] Rebuilding caches..."
 $PHP artisan config:clear
 $PHP artisan config:cache
 $PHP artisan route:clear
-$PHP artisan route:cache
+$PHP artisan route:cache || echo "Route cache skipped — running uncached"
 $PHP artisan view:clear
-$PHP artisan view:cache
+$PHP artisan view:cache || echo "View cache skipped"
 $PHP artisan event:cache
 
 echo "[ 8/9 ] Storage symlink..."

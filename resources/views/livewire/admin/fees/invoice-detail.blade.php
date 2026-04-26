@@ -153,10 +153,14 @@
             @endif
         </div>
         <div class="inv-meta">
-            {{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}
-            @php $enrolment = $invoice->student->enrolments
-                ->where('academic_session_id', $invoice->term->academic_session_id)->first(); @endphp
-            @if($enrolment) · {{ $enrolment->schoolClass->display_name }} @endif
+            @if($invoice->isMiscellaneous())
+                <span style="background:rgba(124,58,237,0.08);color:#7C3AED;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px;">MISC</span>{{ $invoice->description }}
+            @else
+                {{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}
+                @php $enrolment = $invoice->student->enrolments
+                    ->where('academic_session_id', $invoice->term->academic_session_id)->first(); @endphp
+                @if($enrolment) · {{ $enrolment->schoolClass->display_name }} @endif
+            @endif
         </div>
         <div class="inv-adm">{{ $invoice->student->admission_number }}</div>
     </div>
@@ -373,8 +377,13 @@
         <div class="panel">
             <div class="panel-head"><span class="panel-title">Invoice Details</span></div>
             <div class="info-row"><span class="info-label">Invoice ID</span><span class="info-value mono">#{{ str_pad($invoice->id, 6, '0', STR_PAD_LEFT) }}</span></div>
-            <div class="info-row"><span class="info-label">Term</span><span class="info-value">{{ $invoice->term->name }}</span></div>
-            <div class="info-row"><span class="info-label">Session</span><span class="info-value">{{ $invoice->term->session->name }}</span></div>
+            @if($invoice->isMiscellaneous())
+                <div class="info-row"><span class="info-label">Type</span><span class="info-value">Miscellaneous</span></div>
+                <div class="info-row"><span class="info-label">Description</span><span class="info-value">{{ $invoice->description }}</span></div>
+            @else
+                <div class="info-row"><span class="info-label">Term</span><span class="info-value">{{ $invoice->term->name }}</span></div>
+                <div class="info-row"><span class="info-label">Session</span><span class="info-value">{{ $invoice->term->session->name }}</span></div>
+            @endif
             <div class="info-row"><span class="info-label">Generated</span><span class="info-value">{{ $invoice->created_at->format('d M Y') }}</span></div>
             <div class="info-row">
                 <span class="info-label">Sent to Parent</span>
@@ -640,7 +649,7 @@
         <div class="modal-sub">
             This will permanently delete the invoice for
             <strong>{{ $invoice->student->full_name }}</strong>
-            ({{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}).
+            ({{ $invoice->isMiscellaneous() ? $invoice->description : $invoice->term->name.' Term — '.$invoice->term->session->name }}).
             <br><br>
             This action cannot be undone. The student's fee structure assignment remains intact
             and a new invoice can be regenerated from the invoices list if needed.
