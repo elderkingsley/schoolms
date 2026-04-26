@@ -152,13 +152,20 @@
                 </span>
             @endif
         </div>
+        @php
+            // Resolve enrolment here so $enrolment is available throughout the page
+            // (used in the Student panel below). Null for misc invoices.
+            $enrolment = $invoice->isMiscellaneous()
+                ? null
+                : $invoice->student->enrolments
+                    ->where('academic_session_id', $invoice->term->academic_session_id)
+                    ->first();
+        @endphp
         <div class="inv-meta">
             @if($invoice->isMiscellaneous())
                 <span style="background:rgba(124,58,237,0.08);color:#7C3AED;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px;">MISC</span>{{ $invoice->description }}
             @else
                 {{ $invoice->term->name }} Term — {{ $invoice->term->session->name }}
-                @php $enrolment = $invoice->student->enrolments
-                    ->where('academic_session_id', $invoice->term->academic_session_id)->first(); @endphp
                 @if($enrolment) · {{ $enrolment->schoolClass->display_name }} @endif
             @endif
         </div>

@@ -1,0 +1,471 @@
+nohup: ignoring input
+=== Cleaning up orphaned test customers ===
+DELETE /customers/cbf60d8c-e04b-43ad-8831-c9e0aa40b3cf: HTTP 404 (already gone or error)
+
+=== Provisioning all unprovisioned / stuck parents ===
+Found 71 parent(s) to provision.
+
+--- Parent ID: 9 | Abolaji Yewande  | Child: Abolaji Iremide
+  Step 1 SKIP: customer_id=1682fde3-043a-43b8-8e85-5610299982a3
+  Step 2 SKIP: wallet_id=2942d976-44e1-40f6-91a7-75c4affde371
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8141911257 (name: Abolaji Iremide)
+  ✓ Done.
+
+--- Parent ID: 11 | Mrs Lynda Abayomi  | Child: Oriana Abayomi
+  Step 1 SKIP: customer_id=15831f66-b0b5-496a-a3cb-e2fb838e3933
+  Step 2 SKIP: wallet_id=433a8228-2bee-4f47-a946-5d21a76832a4
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8115776711 (name: Oriana Abayomi)
+  ✓ Done.
+
+--- Parent ID: 12 | Joseph Famous Abayomi  | Child: Oriana Abayomi
+  Step 1 SKIP: customer_id=c50449ff-959a-48c8-804f-4e760bd62fba
+  Step 2 SKIP: wallet_id=d984e9a7-9bd2-47c0-92b0-c89f465a65e2
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet d984e9a7-9bd2-47c0-92b0-c89f465a65e2.
+
+--- Parent ID: 13 | Mrs AJOKE SODIQ | Child: SULTAN Sodiq
+  Step 1 SKIP: customer_id=4494a98f-4fe3-4e6e-9b70-87ee7ad3b655
+  Step 2 SKIP: wallet_id=07c0d9d1-7f43-4e27-91c4-5e162572f216
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8161140638 (name: SULTAN Sodiq)
+  ✓ Done.
+
+--- Parent ID: 14 | Mrs Oluwadamilola Ouedji | Child: Temidire Oyedeji
+  Step 1 SKIP: customer_id=9c6cd6d6-24d6-4170-956e-ac048a7db80b
+  Step 2 SKIP: wallet_id=ec5e4e8e-ba26-47e2-b803-9a9fa1819a03
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8178950650 (name: Temidire Oyedeji)
+  ✓ Done.
+
+--- Parent ID: 15 | Mrs Akinleu | Child: Oluwadarasimi Akinkeu
+  Step 1 SKIP: customer_id=33800376-0025-421d-8c19-b0b305745240
+  Step 2 SKIP: wallet_id=b3055298-21b6-4130-92b7-676e05599d39
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet b3055298-21b6-4130-92b7-676e05599d39.
+
+--- Parent ID: 16 | Mrs Ayeni Kehinde  | Child: Ayeni Jubril
+  Step 1 SKIP: customer_id=91a27a94-a301-4b6f-a50a-a2444845a511
+  Step 2 SKIP: wallet_id=2847d51f-f503-4d84-a2cc-8448bcc6f8ef
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8101690365 (name: Ayeni Jubril)
+  ✓ Done.
+
+--- Parent ID: 17 | Mr Adekunle Adebayo  | Child: Irewamiri Adebayo
+  Step 1 SKIP: customer_id=3b42f0f0-8b6b-4c30-945c-c0aff870509b
+  Step 2 SKIP: wallet_id=8f39c2d5-8864-4173-83b6-abec9e533ff8
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 8f39c2d5-8864-4173-83b6-abec9e533ff8.
+
+--- Parent ID: 18 | Mrs Yetunde Adebayo | Child: Irewamiri Adebayo
+  Step 1 SKIP: customer_id=3ed17095-fadc-4fe7-bcf8-e64407595354
+  Step 2 SKIP: wallet_id=32083870-2aaf-4b96-b28c-e6549d161deb
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8172766794 (name: Irewamiri Adebayo)
+  ✓ Done.
+
+--- Parent ID: 19 | Dr leonard Okonkwo | Child: Jenessa Okonkwo
+  Step 1 SKIP: customer_id=d213aa52-53ce-45e8-aae1-a19289128f78
+  Step 2 SKIP: wallet_id=3c54d14f-cb35-42a1-b5cb-b8d3f0a0215d
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8188157408 (name: Jenessa Okonkwo)
+  ✓ Done.
+
+--- Parent ID: 20 | Mrs Michelle Udeh | Child: Chifumnaya Udeh
+  Step 1 SKIP: customer_id=03f89f96-332e-4209-8a18-b0663ede22de
+  Step 2 SKIP: wallet_id=bc21dbc6-bb4b-4a62-b04f-4f6acaedd0bd
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet bc21dbc6-bb4b-4a62-b04f-4f6acaedd0bd.
+
+--- Parent ID: 21 | Mrs. Omolara Ajiboye | Child: OMOJUOLALO TURNER
+  Step 1 SKIP: customer_id=c9df53ad-9b1a-4639-a906-9ec64f18f577
+  Step 2 SKIP: wallet_id=5c83b5be-86de-4c1b-b5b5-209a485afe06
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8116007344 (name: OMOJUOLALO TURNER)
+  ✓ Done.
+
+--- Parent ID: 22 | Mr Adeboye Olagunju  | Child: Imisioluwa Olagunju
+  Step 1 SKIP: customer_id=e72739fc-f1e0-4066-9a4b-8deab5c223b7
+  Step 2 SKIP: wallet_id=9688e016-948b-41a9-9b57-0beba13d6302
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8168220739 (name: Imisioluwa Olagunju)
+  ✓ Done.
+
+--- Parent ID: 23 | Mrs. Biliqis Oderemi | Child: Atiyah Oderemi
+  Step 1 SKIP: customer_id=94b5a8cc-90b9-430a-a2cd-2bbc41b66ebf
+  Step 2 SKIP: wallet_id=142b7ddd-d7df-44ab-9609-3bfd747c6e30
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8108172859 (name: Atiyah Oderemi)
+  ✓ Done.
+
+--- Parent ID: 24 | Mrs Henry Priscilla  | Child: DIANA HENRY
+  Step 1 SKIP: customer_id=0ce18095-15c3-44e2-9a12-75472f9aa3d6
+  Step 2 SKIP: wallet_id=f63347c5-36c6-4384-a66c-531a3e7531ce
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8197061409 (name: DIANA HENRY)
+  ✓ Done.
+
+--- Parent ID: 25 | Mr Afuye Olayinka  | Child: Flourish Olayinka
+  Step 1 SKIP: customer_id=a1b9a823-02fc-4f2e-9b03-b0a31ee678c0
+  Step 2 SKIP: wallet_id=c0115524-c8b5-43ff-b8df-06b5c09a4434
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: Not Found (HTTP 404)
+
+--- Parent ID: 26 | Mrs Olayinka Olamiotan  | Child: Flourish Olayinka
+  Step 1 SKIP: customer_id=4227a899-d37f-4a82-84fd-f9e66e081758
+  Step 2 SKIP: wallet_id=067b9867-a0b8-4b5a-baa3-d3bbcfb8446f
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: Not Found (HTTP 404)
+
+--- Parent ID: 27 | Mr Afuye Olayinka  | Child: Fortine Olayinka
+  Step 1 SKIP: customer_id=b5a24a9e-c582-4d8a-b404-bcd8550d4a31
+  Step 2 SKIP: wallet_id=63138d73-10ad-4abe-878b-2983fd5d7155
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8185584604 (name: Fortine Olayinka)
+  ✓ Done.
+
+--- Parent ID: 28 | Mrs Olayinka Olamiotan  | Child: Fortine Olayinka
+  Step 1 SKIP: customer_id=07fb115e-2e48-4993-932a-c8239f6d084e
+  Step 2 SKIP: wallet_id=f12e907b-623b-4a00-af10-06ce4d8caa69
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8149931479 (name: Fortine Olayinka)
+  ✓ Done.
+
+--- Parent ID: 29 | Rita Onah | Child: Elsie John
+  Step 1 SKIP: customer_id=1738f7c2-0eae-4e24-87c9-68a362e22bf6
+  Step 2 SKIP: wallet_id=87aff5cc-5f7e-4e89-97a3-cd9bf19a38ba
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: Not Found (HTTP 404)
+
+--- Parent ID: 30 | Rita Onah | Child: Carissa John
+  Step 1 SKIP: customer_id=8a1c7193-58df-46e0-88c1-11381503fe20
+  Step 2 SKIP: wallet_id=c115cdf6-7444-4742-ba8e-34e3487d0321
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8160051699 (name: Carissa John)
+  ✓ Done.
+
+--- Parent ID: 31 | Mrs rasheedah oke-hortons  | Child: Bilala Oke-hortons
+  Step 1 SKIP: customer_id=a89391b0-2eb5-4f9b-b31c-8d172d8a367e
+  Step 2 SKIP: wallet_id=f5847977-ecf0-4a74-8d62-0f73f200e132
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet f5847977-ecf0-4a74-8d62-0f73f200e132.
+
+--- Parent ID: 32 | Mrs Frances Ogunbayo  | Child: Karen Ogunbayo
+  Step 1 SKIP: customer_id=ffb01c0c-9ad4-40e6-ac07-c5fbe2e1e857
+  Step 2 SKIP: wallet_id=9a248896-d8d2-48d3-b7a3-2bd578b4f68a
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: Not Found (HTTP 404)
+
+--- Parent ID: 33 | Mr Oladele Ezekiel Ogunbayo  | Child: Karen Ogunbayo
+  Step 1 SKIP: customer_id=8cb04c26-820b-4b66-8e41-6e530676356a
+  Step 2 SKIP: wallet_id=99c3bc98-943a-4410-869a-ce7a1ddc4aa3
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8114849466 (name: Karen Ogunbayo)
+  ✓ Done.
+
+--- Parent ID: 34 | Mrs Wasilat Olaiya | Child: Faiz Olaiya
+  Step 1 SKIP: customer_id=006c22c0-a396-415e-a3e0-7e9e4253dda5
+  Step 2 SKIP: wallet_id=7f0b5e3c-bc36-417a-bfb5-c0f9ef8a7198
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: Not Found (HTTP 404)
+
+--- Parent ID: 35 | Mrs Frances Ogunbayo  | Child: Olivia Ogunbayo
+  Step 1 SKIP: customer_id=f118f6a6-371b-4ad7-923b-0fc096a77283
+  Step 2 SKIP: wallet_id=a22ef665-ea19-4f5e-a6f3-5d29f57a8fea
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet a22ef665-ea19-4f5e-a6f3-5d29f57a8fea.
+
+--- Parent ID: 36 | Lucky Oyakhire | Child: Anslem Osemudiamen Oyakhire
+  Step 1 SKIP: customer_id=321c23cd-6ef9-46f5-82b5-0bee721e27ba
+  Step 2 SKIP: wallet_id=ea0dbb74-edd2-4eee-84b7-62fcceabf04c
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8195017281 (name: Anslem Osemudiamen Oyakhire)
+  ✓ Done.
+
+--- Parent ID: 37 | Elohozino Oyakhire | Child: Anslem Osemudiamen Oyakhire
+  Step 1 SKIP: customer_id=3c11c34c-9291-4bfd-889c-a7b956ad1fc5
+  Step 2 SKIP: wallet_id=197745db-dd37-4cbd-bfb1-81dbadc56db8
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8129174680 (name: Anslem Osemudiamen Oyakhire)
+  ✓ Done.
+
+--- Parent ID: 38 | Abubakar zurayat odufar  | Child: Oyewole Jasmine
+  Step 1 SKIP: customer_id=5e37ec92-967e-4889-979d-4f222b1a88c9
+  Step 2 SKIP: wallet_id=7fcc9774-9b3e-43a5-8aea-f5dbedb8830b
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8193948244 (name: Oyewole Jasmine)
+  ✓ Done.
+
+--- Parent ID: 39 | Mrs Wasilat Olaiya | Child: Faiza Olaiya
+  Step 1 SKIP: customer_id=bdebdbd0-3aeb-4074-92f7-ce87c62aebe9
+  Step 2 SKIP: wallet_id=9ecdfaef-1660-44e2-9602-b15b19977714
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 9ecdfaef-1660-44e2-9602-b15b19977714.
+
+--- Parent ID: 40 | Mrs Modupe Olowe | Child: Phebean Olowe
+  Step 1 SKIP: customer_id=88a1e92f-4d32-42c3-a074-4f9fff246018
+  Step 2 SKIP: wallet_id=b1d25a19-3845-40ad-a4a6-2b3bc4f9af07
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet b1d25a19-3845-40ad-a4a6-2b3bc4f9af07.
+
+--- Parent ID: 41 | Mrs Abimbola Young | Child: Oviereya Young
+  Step 1 SKIP: customer_id=a3cb25be-c3e8-46f4-a012-464c4e0028cc
+  Step 2 SKIP: wallet_id=8f5b0b26-63fa-4829-8ece-1f5185208a68
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8191156301 (name: Oviereya Young)
+  ✓ Done.
+
+--- Parent ID: 42 | Mrs Praise Ekomobong Kufre | Child: Lily Kufre
+  Step 1 SKIP: customer_id=4b882887-e8dc-4b60-ab62-50aa8ecd8f4c
+  Step 2 SKIP: wallet_id=ebcb2f54-450a-4378-888d-c1d7b73c5a5f
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8120572314 (name: Lily Kufre)
+  ✓ Done.
+
+--- Parent ID: 43 | Oluwabusola Ajibola | Child: IfeOluwa Ajibola
+  Step 1 SKIP: customer_id=867148fd-cd23-4c88-a06e-66c2f4512169
+  Step 2 SKIP: wallet_id=d1075358-143a-4e95-b723-6ec91bb0e0d6
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8178809777 (name: IfeOluwa Ajibola)
+  ✓ Done.
+
+--- Parent ID: 44 | Abiola Ajibola | Child: IfeOluwa Ajibola
+  Step 1 SKIP: customer_id=e41e7845-6b90-48ef-8588-13ecfada3a09
+  Step 2 SKIP: wallet_id=d8ab8f07-0963-499b-964c-d78122ccdab1
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8129344806 (name: IfeOluwa Ajibola)
+  ✓ Done.
+
+--- Parent ID: 45 | Mrs Victoria Ike | Child: Stephanie Ike
+  Step 1 SKIP: customer_id=dfe389b4-a174-484b-8be0-70943a5d8cdd
+  Step 2 SKIP: wallet_id=62a6d221-b8be-4249-b79a-e051896f5361
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 62a6d221-b8be-4249-b79a-e051896f5361.
+
+--- Parent ID: 46 | Mrs Uju Nwanze | Child: Kobichimdi Nwanze
+  Step 1 OK: customer as 'Kobichimdi Nwanze' → be438ffe-9609-4fe9-9d80-45dfc718e976
+  Step 2 OK: wallet_id=2e90a229-23fd-4fdf-b3bb-2e4b62d6330d
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8129429829 (name: Kobichimdi Nwanze)
+  ✓ Done.
+
+--- Parent ID: 47 | Mr Daniel Nwanze | Child: Kobichimdi Nwanze
+  Step 1 OK: customer as 'Kobichimdi Nwanze' → 00febeab-6df5-4ee0-b4ad-b3d9518adf17
+  Step 2 OK: wallet_id=78f383c7-fcb6-4594-b208-57abf5237bb0
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 78f383c7-fcb6-4594-b208-57abf5237bb0.
+
+--- Parent ID: 48 | Ishola Deborah  | Child: Raphael Ishola
+  Step 1 SKIP: customer_id=a7214c63-d27b-430a-b12e-c68391118a45
+  Step 2 SKIP: wallet_id=465c2fc5-e1a0-4c86-a180-8dc16789abd1
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 465c2fc5-e1a0-4c86-a180-8dc16789abd1.
+
+--- Parent ID: 49 | Mrs.funmilayo Okusi  | Child: Okusi Orevaoghene
+  Step 1 SKIP: customer_id=a8deeeb9-738b-4a7e-bb18-588eb1ca3e7e
+  Step 2 SKIP: wallet_id=df8b8955-436d-40be-91fa-ed010cc6f8b1
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet df8b8955-436d-40be-91fa-ed010cc6f8b1.
+
+--- Parent ID: 50 | Mr Comfort Popoola  | Child: Zoe Popoola
+  Step 1 SKIP: customer_id=2c7861f1-efde-4424-8e8c-907a98784b12
+  Step 2 SKIP: wallet_id=b9bf1702-1882-4355-8e40-bf944e7d4544
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet b9bf1702-1882-4355-8e40-bf944e7d4544.
+
+--- Parent ID: 51 | Tijani Suliat  | Child: Abdullah Jimoh
+  Step 1 SKIP: customer_id=efeb27e3-1947-49b0-ad36-aff333ee346c
+  Step 2 SKIP: wallet_id=c297c900-e375-4ea4-bce5-93e386204617
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8136899176 (name: Abdullah Jimoh)
+  ✓ Done.
+
+--- Parent ID: 52 | Mrs Yusuf Zainab Adeyemo  | Child: Iresanmi Yusuf
+  Step 1 SKIP: customer_id=115712fc-6a03-4f3c-9ac1-9ed4c15f1b6f
+  Step 2 SKIP: wallet_id=cd6dc1f7-d973-4694-938b-49fe32952073
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8197193955 (name: Iresanmi Yusuf)
+  ✓ Done.
+
+--- Parent ID: 53 | Mrs Lynda Richards | Child: Ryan Adeniji
+  Step 1 OK: customer as 'Ryan Adeniji' → 84b44649-b270-404f-a026-1185b0496931
+  Step 2 OK: wallet_id=8ed8f102-cca9-4be4-af80-dfac93f4d83f
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 8ed8f102-cca9-4be4-af80-dfac93f4d83f.
+
+--- Parent ID: 54 | Mrs Fabusola Deborah | Child: Ewaoluwa Fabusola
+  Step 1 SKIP: customer_id=d0c08ddc-5723-4967-a14d-b0761603cc0f
+  Step 2 SKIP: wallet_id=f5193a04-67e0-42cf-b217-c60d8a751193
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet f5193a04-67e0-42cf-b217-c60d8a751193.
+
+--- Parent ID: 55 | Mrs Fabusola Damilola  | Child: Ewaoluwa Fabusola
+  Step 1 SKIP: customer_id=753c5a93-7fb7-4d80-87e0-822f1a6571a6
+  Step 2 SKIP: wallet_id=fa6a1f61-50c2-4c08-8e43-1dfee0c0499c
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet fa6a1f61-50c2-4c08-8e43-1dfee0c0499c.
+
+--- Parent ID: 56 | Mrs Fabusola Deborah | Child: Momoreoluwa Fabusola
+  Step 1 SKIP: customer_id=d8ea7122-862e-4ba5-b2f9-ed07c18e33aa
+  Step 2 SKIP: wallet_id=dda6b0a0-5ae1-44d8-b00b-f12876a7dff1
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet dda6b0a0-5ae1-44d8-b00b-f12876a7dff1.
+
+--- Parent ID: 57 | Mrs Fabusola Damilola  | Child: Momoreoluwa Fabusola
+  Step 1 SKIP: customer_id=5ac05595-f701-4f3b-8fb6-8049c789e1b3
+  Step 2 SKIP: wallet_id=ca78c658-436f-451b-a4b3-9d64c6fd4cc4
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet ca78c658-436f-451b-a4b3-9d64c6fd4cc4.
+
+--- Parent ID: 58 | Mrs Imanfuegbe  | Child: Caleb Imanfuegbe
+  Step 1 SKIP: customer_id=3074c3f9-a07c-4162-bcd5-d7165d710209
+  Step 2 SKIP: wallet_id=66373bc1-3efb-4dfd-b5fd-8e3f659170ce
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 66373bc1-3efb-4dfd-b5fd-8e3f659170ce.
+
+--- Parent ID: 59 | Faleye Oluwasola | Child: Ethan Faleye
+  Step 1 SKIP: customer_id=970b354b-b160-436c-8836-9f2125af37a6
+  Step 2 SKIP: wallet_id=4fc9ef43-0915-47e1-93c7-26f753edd41b
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 4fc9ef43-0915-47e1-93c7-26f753edd41b.
+
+--- Parent ID: 60 | Mrs Kareem Maria  | Child: Ameerah Kareem
+  Step 1 SKIP: customer_id=2cdfbe5b-ce9f-47aa-a4fb-6eb268208680
+  Step 2 SKIP: wallet_id=a19d7aaf-aad4-4958-b9b7-f8fd10155ea2
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet a19d7aaf-aad4-4958-b9b7-f8fd10155ea2.
+
+--- Parent ID: 61 | Mr Kareem Abdulahi | Child: Ameerah Kareem
+  Step 1 SKIP: customer_id=4c2520b2-94f8-44e0-bddc-934e337661f0
+  Step 2 SKIP: wallet_id=06b1a78a-0f31-47e5-9f5d-ee33620907bb
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 06b1a78a-0f31-47e5-9f5d-ee33620907bb.
+
+--- Parent ID: 62 | Mrs Happiness Iyekowa  | Child: Jireh Iyekowa
+  Step 1 SKIP: customer_id=53da9667-618b-4389-9220-eb8bd3f24951
+  Step 2 SKIP: wallet_id=e68fdb33-f85c-4dbd-9dbb-0959d6290ebd
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8109141138 (name: Jireh Iyekowa)
+  ✓ Done.
+
+--- Parent ID: 63 | Taiwo Iyekowa  | Child: Jireh Iyekowa
+  Step 1 SKIP: customer_id=ee406375-e981-4acd-a3d4-af912853db3c
+  Step 2 SKIP: wallet_id=b1ec0863-bb45-4176-90d9-41366429bc72
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: duplicate (HTTP 400)
+
+--- Parent ID: 64 | Mrs Victoria Ike | Child: King Bryan Ike
+  Step 1 OK: customer as 'King Bryan Ike' → dfe389b4-a174-484b-8be0-70943a5d8cdd
+  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...
+  Step 2: new customer_id=fbdaaf60-bc1b-4afc-a0f7-899ca41a51b2
+  Step 2 OK: wallet_id=c3ad8055-76dc-4dcc-a15f-ff7d3df27e5a
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet c3ad8055-76dc-4dcc-a15f-ff7d3df27e5a.
+
+--- Parent ID: 65 | Mr Abe  | Child: ABE ERINAYOMI
+  Step 1 OK: customer as 'ABE ERINAYOMI' → 2edb5c84-d77b-4438-afde-f8ff2c8663b6
+  Step 2 OK: wallet_id=d4b46fe5-ff8f-42d1-a74f-cae01ff59009
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet d4b46fe5-ff8f-42d1-a74f-cae01ff59009.
+
+--- Parent ID: 66 | Mr Abe  | Child: ABE INIOLUWA
+  Step 1 OK: customer as 'ABE INIOLUWA' → 2edb5c84-d77b-4438-afde-f8ff2c8663b6
+  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...
+  Step 2: new customer_id=ce3cfa93-9819-4ae3-9e2d-a9a2fcafab00
+  Step 2 OK: wallet_id=a584a66c-0d3e-478d-93af-49f4346b5d2a
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet a584a66c-0d3e-478d-93af-49f4346b5d2a.
+
+--- Parent ID: 67 | Mrs Imanfuegbe  | Child: Michelle Imanfuegbe
+  Step 1 OK: customer as 'Michelle Imanfuegbe' → 3074c3f9-a07c-4162-bcd5-d7165d710209
+  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...
+  Step 2: new customer_id=8dd9f98b-ffd7-4f9e-ac7d-a7f9ff08a95c
+  Step 2 OK: wallet_id=413924a8-4179-4097-ac15-78ab34dd93b2
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 413924a8-4179-4097-ac15-78ab34dd93b2.
+
+--- Parent ID: 68 | Mrs AJOKE SODIQ | Child: Jamal Sodiq
+  Step 1 OK: customer as 'Jamal Sodiq' → 4494a98f-4fe3-4e6e-9b70-87ee7ad3b655
+  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...
+  Step 2: new customer_id=8b2ce29f-73f2-4989-a467-2a57efdb818b
+  Step 2 OK: wallet_id=c9cdac58-229b-42d4-8aa2-65fad8aa9cd9
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet c9cdac58-229b-42d4-8aa2-65fad8aa9cd9.
+
+--- Parent ID: 69 | Mr Joseph Ohiomu | Child: STAR OHIOMU
+  Step 1 OK: customer as 'STAR OHIOMU' → a2785c1d-29d0-4243-9c0b-41ac0651c2e8
+  Step 2 OK: wallet_id=fd631b12-4eac-477d-ac7a-6a918f48892e
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet fd631b12-4eac-477d-ac7a-6a918f48892e.
+
+--- Parent ID: 70 | Queen Ohiomu | Child: STAR OHIOMU
+  Step 1 OK: customer as 'STAR OHIOMU' → e55ae6df-c22f-438a-88e5-9ec520cc8532
+  Step 2 OK: wallet_id=0860ff02-d2d1-4540-b3d5-d4ab688cd515
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 0860ff02-d2d1-4540-b3d5-d4ab688cd515.
+
+--- Parent ID: 71 | Elegbede Mosunmola  | Child: Oluwafayokunmi Nyla
+  Step 1 SKIP: customer_id=a94269a6-f110-4c6e-ba76-7f1c8975e83b
+  Step 2 SKIP: wallet_id=fd527a21-62b9-47cc-b316-b9998216be3e
+  Step 3 SKIP: account_number=8106618924
+  ✓ Done.
+
+--- Parent ID: 72 | Erinle Ayobami  Oluwaseun  | Child: Oluwafayokunmi Nyla
+  Step 1 SKIP: customer_id=6e6a8e7c-60e6-42ee-bf84-f7da3c4a6e44
+  Step 2 SKIP: wallet_id=1e96ea3c-00f1-4632-9fc0-a140bfa1dcac
+  Step 3 SKIP: account_number=8151305311
+  ✓ Done.
+
+--- Parent ID: 73 | Oluwaseun Oluwamuyide  | Child: Inioluwa Oluwamuyide
+  Step 1 OK: customer as 'Inioluwa Oluwamuyide' → ab5b4faf-d8d2-4c56-99fe-dbebe0125a50
+  Step 2 OK: wallet_id=e7992b79-1f4e-4774-8da5-311caf6c8c67
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet e7992b79-1f4e-4774-8da5-311caf6c8c67.
+
+--- Parent ID: 74 | Mr Olajide Oluwamuyide  | Child: Inioluwa Oluwamuyide
+  Step 1 SKIP: customer_id=3bc13714-6aa5-46f2-90c9-efca4afec4c3
+  Step 2 SKIP: wallet_id=a3613112-b644-4c0c-8263-26f6defe11ac
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet a3613112-b644-4c0c-8263-26f6defe11ac.
+
+--- Parent ID: 75 | Mr Olajide Oluwamuyide  | Child: Ireoluwa Oluwamuyide
+  Step 1 SKIP: customer_id=100ae31c-f730-4e01-b823-85da1272a0be
+  Step 2 SKIP: wallet_id=b68c997f-6e45-4280-aff0-5ea7771f5946
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet b68c997f-6e45-4280-aff0-5ea7771f5946.
+
+--- Parent ID: 76 | Oluwaseun Oluwamuyide  | Child: Ireoluwa Oluwamuyide
+  Step 1 SKIP: customer_id=de271ab8-fb21-4473-a7c8-30f77658922b
+  Step 2 SKIP: wallet_id=491464fb-bca0-45ec-ae52-12b489c5b395
+  Step 3: requesting NUBAN (polling up to 120s)...
+  Step 3 OK: Assets Microfinance Bank — 8143144849 (name: Ireoluwa Oluwamuyide)
+  ✓ Done.
+
+--- Parent ID: 77 | Mrs Gloria Alade | Child: Taiwo Alade
+  Step 1 SKIP: customer_id=0653be62-d233-490b-bc9d-87d5787526b0
+  Step 2 SKIP: wallet_id=5a25b79a-56ab-4856-94a2-e9f333ebd2b2
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: duplicate (HTTP 400)
+
+--- Parent ID: 78 | Mrs Gloria Alade | Child: Kehinde Alade
+  Step 1 SKIP: customer_id=80c60803-8780-4e02-97f3-8f0254ee020a
+  Step 2 SKIP: wallet_id=782dc457-cfd2-44b6-8c19-95e9dc028fa7
+  Step 3 SKIP: account_number=8115664759
+  ✓ Done.
+
+--- Parent ID: 80 | Mrs Olaniyan  | Child: Sumayyah Olaniyan
+  Step 1 OK: customer as 'Sumayyah Olaniyan' → 3421241c-2d23-4cfb-b0d6-cab98c70bce5
+  Step 2 OK: wallet_id=e35aee49-2247-43db-868f-d0fbc5b2a46a
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet e35aee49-2247-43db-868f-d0fbc5b2a46a.
+
+--- Parent ID: 82 | Mrs Olaniyan  | Child: Farhan Olaniyan
+  Step 1 OK: customer as 'Farhan Olaniyan' → 3421241c-2d23-4cfb-b0d6-cab98c70bce5
+  Step 2: duplicate_currency_wallet — deleting orphaned customer and recreating...
+  Step 2: new customer_id=6ac51fb6-21c8-46b3-bc96-e57e6007f634
+  Step 2 OK: wallet_id=036dcc42-b6ff-4f8f-936d-c618df4370fd
+  Step 3: requesting NUBAN (polling up to 120s)...
+  ✗ FAILED: JuicyWay: no payment method appeared after 120s for wallet 036dcc42-b6ff-4f8f-936d-c618df4370fd.
+
+Complete. Run: rm fix_wallets.php
