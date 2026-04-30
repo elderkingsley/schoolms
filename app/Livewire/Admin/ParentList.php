@@ -16,10 +16,72 @@ class ParentList extends Component
     use WithPagination;
 
     public string $search          = '';
-    public string $filterWallet    = ''; // '' | 'active' | 'pending' | 'failed' | 'none'
+    public string $filterWallet    = '';
+
+    // ── Edit modal ────────────────────────────────────────────────────────────
+    public bool   $showEditModal   = false;
+    public ?int   $editParentId    = null;
+    public ?int   $editUserId      = null;
+    public string $editName        = '';
+    public string $editEmail       = '';
+    public string $editPhone       = '';
 
     public function updatedSearch(): void       { $this->resetPage(); }
     public function updatedFilterWallet(): void { $this->resetPage(); }
+
+    // ── Edit modal ────────────────────────────────────────────────────────────
+
+    public function openEdit(int $parentId): void
+    {
+        abort_if(! auth()->user()->isAdmin(), 403);
+
+        $parent = ParentGuardian::with('user')->findOrFail($parentId);
+
+        $this->editParentId  = $parent->id;
+        $this->editUserId    = $parent->user?->id;
+        $this->editName      = $parent->user?->name ?? '';
+        $this->editEmail     = $parent->user?->email ?? '';
+        $this->editPhone     = $parent->phone ?? $parent->user?->phone ?? '';
+        $this->showEditModal = true;
+    }
+
+    public function closeEdit(): void
+    {
+        $this->showEditModal = false;
+        $this->reset(['editParentId', 'editUserId', 'editName', 'editEmail', 'editPhone']);
+    }
+
+    public function saveEdit(): void
+    {
+        abort_if(! auth()->user()->isAdmin(), 403);
+
+        $this->validate([
+            'editName'  => 'required|string|max:255',
+            'editEmail' => 'required|email|max:255|unique:users,email,' . $this->editUserId,
+            'editPhone' => 'nullable|string|max:20',
+        ]);
+
+        $parent = ParentGuardian::findOrFail($this->editParentId);
+        $name   = trim($this->editName);
+
+        // Update User record (name + email)
+        if ($this->editUserId) {
+            User::where('id', $this->editUserId)->update([
+                'name'  => $name,
+                'email' => trim($this->editEmail),
+            ]);
+        }
+
+        // Update phone on the ParentGuardian record
+        $parent->update([
+            'phone' => trim($this->editPhone) ?: null,
+        ]);
+
+        $this->closeEdit();
+        session()->flash('success', "Parent details updated for {$name}.");
+    }
+
+    // ── Existing actions ──────────────────────────────────────────────────────
 
     public function resetPassword(int $userId): void
     {
@@ -49,28 +111,18 @@ class ParentList extends Component
         session()->flash('success', "{$user->name}'s account has been {$status}.");
     }
 
-    /**
-     * Manually re-trigger wallet provisioning for a parent whose job
-     * previously failed or whose status is stuck.
-     *
-     * Self-heals: if the parent already has a NUBAN in the DB but the
-     * status column is wrong (e.g. stuck at 'failed'), we fix the status
-     * without hitting BudPay again.
-     */
     public function retryProvisioning(int $parentId): void
     {
         abort_if(! auth()->user()->isSuperAdmin(), 403);
 
-        $parent = \App\Models\ParentGuardian::findOrFail($parentId);
+        $parent = ParentGuardian::findOrFail($parentId);
 
-        // NUBAN already in DB but status is wrong — just correct the status.
         if (! empty($parent->budpay_account_number) && $parent->budpay_wallet_status !== 'active') {
             $parent->update(['budpay_wallet_status' => 'active']);
             session()->flash('success', "Status corrected for parent #{$parentId} — NUBAN was already provisioned.");
             return;
         }
 
-        // No NUBAN yet — dispatch a fresh provisioning job.
         \App\Jobs\ProvisionParentWalletJob::dispatch($parent);
         $parent->update(['budpay_wallet_status' => 'pending']);
         session()->flash('success', "Provisioning job queued for parent #{$parentId}.");

@@ -42,9 +42,29 @@
 .btn-sm:hover { background:var(--c-bg); }
 .btn-sm-danger { color:var(--c-danger); border-color:rgba(190,18,60,0.2); }
 .btn-sm-danger:hover { background:rgba(190,18,60,0.06); }
+.btn-sm-primary { color:var(--c-accent); border-color:rgba(var(--c-accent-rgb),0.3); }
+.btn-sm-primary:hover { background:var(--c-accent-bg); }
 .empty-state { padding:40px 20px; text-align:center; font-size:13px; color:var(--c-text-3); }
 .pag-wrap { padding:14px 18px; border-top:1px solid var(--c-border); }
 @media(max-width:640px){ .hide-sm { display:none; } }
+
+/* ── Edit modal ── */
+.modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal-box { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-lg); width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.15); }
+.modal-head { padding:18px 20px 14px; border-bottom:1px solid var(--c-border); display:flex; align-items:center; justify-content:space-between; }
+.modal-title { font-size:15px; font-weight:700; color:var(--c-text-1); }
+.modal-close { background:none; border:none; cursor:pointer; color:var(--c-text-3); font-size:18px; line-height:1; padding:2px 6px; border-radius:4px; }
+.modal-close:hover { background:var(--c-bg); color:var(--c-text-1); }
+.modal-body { padding:20px; display:flex; flex-direction:column; gap:14px; }
+.modal-footer { padding:14px 20px; border-top:1px solid var(--c-border); display:flex; justify-content:flex-end; gap:8px; }
+.field-label { font-size:11px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:5px; }
+.field-input { width:100%; padding:9px 12px; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-family:var(--f-sans); background:var(--c-bg); outline:none; color:var(--c-text-1); box-sizing:border-box; }
+.field-input:focus { border-color:var(--c-accent); background:var(--c-surface); }
+.field-error { font-size:11px; color:var(--c-danger); margin-top:4px; }
+.btn-primary { padding:8px 18px; background:var(--c-accent); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--f-sans); }
+.btn-primary:hover { opacity:0.9; }
+.btn-cancel { padding:8px 14px; background:none; border:1px solid var(--c-border); border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--f-sans); color:var(--c-text-2); }
+.btn-cancel:hover { background:var(--c-bg); }
 </style>
 
 @if(session('success'))
@@ -105,7 +125,7 @@
                     <th>Children</th>
                     <th class="hide-sm">Virtual Account</th>
                     <th>Status</th>
-                    @if(auth()->user()->isSuperAdmin()) <th>Actions</th> @endif
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -164,10 +184,17 @@
                                 </span>
                             @endif
                         </td>
-                        @if(auth()->user()->isSuperAdmin())
                         <td>
                             @if($user)
                             <div class="row-actions">
+                                {{-- Edit — available to admin and super_admin --}}
+                                <button class="btn-sm btn-sm-primary"
+                                    wire:click="openEdit({{ $parent->id }})">
+                                    Edit
+                                </button>
+
+                                {{-- Super admin only actions --}}
+                                @if(auth()->user()->isSuperAdmin())
                                 <button class="btn-sm"
                                     wire:click="resetPassword({{ $user->id }})"
                                     wire:confirm="Send a password reset email to {{ $user->name }}?">
@@ -185,10 +212,10 @@
                                     Retry NUBAN
                                 </button>
                                 @endif
+                                @endif
                             </div>
                             @endif
                         </td>
-                        @endif
                     </tr>
                 @endforeach
             </tbody>
@@ -198,4 +225,38 @@
         @endif
     @endif
 </div>
+
+{{-- ── Edit Modal ── --}}
+@if($showEditModal)
+<div class="modal-backdrop" wire:click.self="closeEdit">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div class="modal-title">Edit Parent</div>
+            <button class="modal-close" wire:click="closeEdit">✕</button>
+        </div>
+        <div class="modal-body">
+            <div>
+                <div class="field-label">Full Name</div>
+                <input type="text" class="field-input" wire:model="editName" placeholder="e.g. Mrs Olawumi Joda">
+                @error('editName') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+            <div>
+                <div class="field-label">Email Address</div>
+                <input type="email" class="field-input" wire:model="editEmail" placeholder="e.g. parent@email.com">
+                @error('editEmail') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+            <div>
+                <div class="field-label">Phone Number</div>
+                <input type="text" class="field-input" wire:model="editPhone" placeholder="e.g. 08012345678">
+                @error('editPhone') <div class="field-error">{{ $message }}</div> @enderror
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" wire:click="closeEdit">Cancel</button>
+            <button class="btn-primary" wire:click="saveEdit">Save Changes</button>
+        </div>
+    </div>
+</div>
+@endif
+
 </div>
