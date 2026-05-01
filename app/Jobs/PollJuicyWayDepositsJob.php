@@ -153,7 +153,8 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         // ProcessJuicyWayDepositJob records when it handles deposit.received.
         // Using the numeric bank reference (deposit['reference']) caused double
         // payments because the webhook path uses the UUID and they never matched.
-        if (FeePayment::where('reference', $depositId)->exists()) {
+        // Use LIKE to catch both the base reference and any "-inv-{id}" suffixed splits
+        if (FeePayment::where('reference', 'like', $depositId . '%')->exists()) {
             return false; // already processed by webhook or previous poll
         }
 
@@ -222,7 +223,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     'JuicyWay Transfer',
-                    reference:  $depositId,
+                    reference:  $depositId . '-inv-' . $invoice->id,
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );

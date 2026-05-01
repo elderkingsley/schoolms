@@ -1,5 +1,5 @@
 <?php
-// Deploy to: app/Jobs/ProcessJuicyWayDepositJob.php
+// Deploy to: /var/www/schoolms/app/Jobs/ProcessJuicyWayDepositJob.php
 
 namespace App\Jobs;
 
@@ -24,20 +24,11 @@ use Illuminate\Support\Facades\Log;
  * Handles the `deposit.received` webhook event from JuicyWay.
  * Fired when a parent makes a bank transfer to their assigned NUBAN.
  *
- * This is the real-time path. PollJuicyWayDepositsJob is the fallback
- * safety net that runs every minute — if this job succeeds, the poll job
- * will find the reference already in fee_payments and skip it (idempotency).
- *
- * The deposit payload shape (payload['data']) mirrors the object returned
- * by GET /deposits — same fields, same structure.
- *
- * Flow:
- *   1. Extract account number and amount from payload
- *   2. Find matching parent by juicyway_account_number
- *   3. Apply payment to unpaid invoices FIFO via FeeService
- *   4. Notify PayGrid via POST /api/inflows
- *   5. Email parent a payment confirmation
- *   6. Mark webhook event as processed
+ * Reference strategy (IMPORTANT):
+ *   A single deposit may be split across multiple children's invoices.
+ *   fee_payments.reference has a UNIQUE constraint, so each allocation
+ *   gets a suffixed reference: "{depositId}-inv-{invoiceId}".
+ *   The idempotency check uses LIKE "{depositId}%" to catch all splits.
  */
 class ProcessJuicyWayDepositJob implements ShouldQueue
 {
@@ -56,22 +47,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
     {
         $deposit = $this->payload['data'] ?? [];
 
-        // ── Extract fields from deposit.received payload ───────────────────
-        // deposit.received has a DIFFERENT structure from GET /deposits.
-        //
-        // GET /deposits shape (used by PollJuicyWayDepositsJob):
-        //   data.payment_method.account_number — credited NUBAN
-        //   data.reference                     — unique reference
-        //   data.sender_name                   — originator name
-        //   data.created_at                    — timestamp
-        //   data.status / data.type            — 'settled' / 'credit'
-        //
-        // deposit.received webhook shape (this job):
-        //   data.beneficiary.account_number    — credited NUBAN
-        //   data.id                            — unique deposit ID (use as reference)
-        //   data.sender.details.account_name   — originator name
-        //   data.occurred_at                   — timestamp
-        //   data.amount                        — always a settled credit; no status/type fields
         $accountNumber = $deposit['beneficiary']['account_number']      ?? null;
         $amountKobo    = (int) ($deposit['amount']                       ?? 0);
         $amountNgn     = $amountKobo / 100;
@@ -80,7 +55,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
         $depositId     = $deposit['id']                                  ?? null;
         $depositedAt   = $deposit['occurred_at']                         ?? now()->toISOString();
 
-        // ── Validate required fields ──────────────────────────────────────
         if (! $accountNumber || $amountNgn <= 0 || ! $reference) {
             Log::warning('ProcessJuicyWayDepositJob: missing required fields', [
                 'account'   => $accountNumber,
@@ -91,15 +65,12 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             return;
         }
 
-        // ── Idempotency ───────────────────────────────────────────────────
-        // The poll job runs every minute and will also see this deposit.
-        // Whichever runs first wins — the other finds the reference and skips.
-        if (FeePayment::where('reference', $reference)->exists()) {
-            Log::info("ProcessJuicyWayDepositJob: duplicate reference '{$reference}' — already recorded by poll job or previous attempt.");
+        // Idempotency: check for base reference OR any suffixed split record
+        if (FeePayment::where('reference', 'like', $reference . '%')->exists()) {
+            Log::info("ProcessJuicyWayDepositJob: duplicate reference '{$reference}' — already recorded.");
             return;
         }
 
-        // ── Find parent by NUBAN ──────────────────────────────────────────
         $parent = ParentGuardian::where('juicyway_account_number', $accountNumber)
             ->with(['user', 'students'])
             ->first();
@@ -108,8 +79,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             Log::warning("ProcessJuicyWayDepositJob: no parent found for account {$accountNumber}", [
                 'reference' => $reference,
             ]);
-            // Still notify PayGrid — the account may belong to a PayGrid org
-            // that was forwarded from BudPay's fan-out. PayGrid will handle it.
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
             return;
         }
@@ -121,7 +90,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             return;
         }
 
-        // ── Find unpaid invoices across ALL children FIFO ─────────────────
         $invoices = FeeInvoice::whereIn('student_id', $studentIds)
             ->whereIn('status', ['unpaid', 'partial'])
             ->with(['items', 'payments', 'term.session', 'student'])
@@ -131,7 +99,7 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
         $settledInvoiceIds = [];
 
         if ($invoices->isEmpty()) {
-            Log::info("ProcessJuicyWayDepositJob: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices across any child", [
+            Log::info("ProcessJuicyWayDepositJob: NGN{$amountNgn} received for parent {$parent->id} but no unpaid invoices", [
                 'account'     => $accountNumber,
                 'reference'   => $reference,
                 'student_ids' => $studentIds->toArray(),
@@ -141,12 +109,10 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             return;
         }
 
-        // ── Resolve system actor ──────────────────────────────────────────
         $systemActorId = User::whereIn('user_type', ['super_admin', 'admin'])
             ->orderBy('id')
             ->value('id');
 
-        // ── Apply payment across all children's invoices FIFO ─────────────
         $remaining       = $amountNgn;
         $settledInvoices = [];
 
@@ -163,11 +129,15 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
                 $isLast  = $invoices->last()->id === $invoice->id;
                 $toApply = (float) (string) (($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance));
 
+                // Unique reference per invoice — prevents UNIQUE constraint
+                // violation when a deposit is split across multiple siblings
+                $invoiceRef = $reference . '-inv-' . $invoice->id;
+
                 $feeService->recordPayment(
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     'JuicyWay Transfer',
-                    reference:  $reference,
+                    reference:  $invoiceRef,
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );
@@ -176,22 +146,21 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
                 $settledInvoices[]   = $invoice->fresh();
                 $settledInvoiceIds[] = (string) $invoice->id;
 
-                Log::info("ProcessJuicyWayDepositJob: ₦{$toApply} applied to invoice {$invoice->id}", [
+                Log::info("ProcessJuicyWayDepositJob: NGN{$toApply} applied to invoice {$invoice->id}", [
                     'student'   => $invoice->student_id,
-                    'reference' => $reference,
+                    'reference' => $invoiceRef,
                 ]);
             }
         });
 
-        // ── Notify PayGrid — one call per settled invoice ─────────────────
+        // One PayGrid notification per settled invoice
         foreach ($settledInvoices as $settledInvoice) {
-            $payment = $settledInvoice->payments()
-                ->where('reference', $reference)
-                ->first();
+            $invoiceRef = $reference . '-inv-' . $settledInvoice->id;
+            $payment    = $settledInvoice->payments()->where('reference', $invoiceRef)->first();
             if ($payment) {
                 $this->notifyPayGrid(
                     (float) $payment->amount,
-                    $reference . '-inv-' . $settledInvoice->id,
+                    $invoiceRef,
                     $accountNumber,
                     $senderName,
                     $depositId,
@@ -202,7 +171,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             }
         }
 
-        // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
             $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
@@ -218,10 +186,9 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             }
         }
 
-        // ── Mark webhook event as processed ──────────────────────────────
         $this->markProcessed();
 
-        Log::info("ProcessJuicyWayDepositJob: ₦{$amountNgn} fully processed for parent {$parent->id}", [
+        Log::info("ProcessJuicyWayDepositJob: NGN{$amountNgn} fully processed for parent {$parent->id}", [
             'account'          => $accountNumber,
             'reference'        => $reference,
             'invoices_settled' => count($settledInvoices),
@@ -229,8 +196,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             'sender'           => $senderName,
         ]);
     }
-
-    // ── Notify PayGrid ────────────────────────────────────────────────────────
 
     private function notifyPayGrid(
         float   $amountNgn,
@@ -260,12 +225,8 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             'source'         => 'schoolms',
         ];
 
-        if ($invoiceId) {
-            $payload['invoice_id'] = $invoiceId;
-        }
-        if (! empty($invoiceIds)) {
-            $payload['invoice_ids'] = $invoiceIds;
-        }
+        if ($invoiceId)          $payload['invoice_id']  = $invoiceId;
+        if (! empty($invoiceIds)) $payload['invoice_ids'] = $invoiceIds;
 
         try {
             $response = Http::timeout(10)
@@ -291,8 +252,6 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
             Log::warning('ProcessJuicyWayDepositJob: PayGrid notification exception: ' . $e->getMessage());
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function markProcessed(): void
     {
