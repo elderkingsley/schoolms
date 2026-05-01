@@ -319,7 +319,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         array   $invoiceIds = []
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
-        $apiKey = config('services.paygrid.api_key', '');
+        $apiKey = config('services.paygrid.inflow_secret', '');
 
         if (empty($url) || empty($apiKey)) {
             Log::warning('PollJuicyWayDeposits[SchoolMS]: PAYGRID_API_BASE_URL or PAYGRID_API_KEY not set — skipping PayGrid notification');

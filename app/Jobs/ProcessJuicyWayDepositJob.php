@@ -208,7 +208,7 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
         array   $invoiceIds = []
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
-        $apiKey = config('services.paygrid.api_key', '');
+        $apiKey = config('services.paygrid.inflow_secret', '');
 
         if (empty($url) || empty($apiKey)) {
             Log::warning('ProcessJuicyWayDepositJob: PAYGRID credentials not set — skipping PayGrid notification');
