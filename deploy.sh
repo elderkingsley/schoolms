@@ -57,9 +57,20 @@ $PHP artisan event:cache
 echo "[ 8/9 ] Storage symlink..."
 $PHP artisan storage:link --force 2>/dev/null || true
 
-echo "[ 9/9 ] Restarting queue worker..."
+echo "[ 9/9 ] Restarting queue workers..."
+# Graceful signal first — workers finish their current job then exit cleanly
 $PHP artisan queue:restart
-sudo -n /usr/bin/supervisorctl restart nurtureville-worker:* 2>/dev/null || true
+
+# Hard restart so workers reload the freshly cached config immediately
+# Targets all three worker groups configured in /etc/supervisor/conf.d/nurtureville-worker.conf
+{
+    sudo -n /usr/bin/supervisorctl restart \
+        nurtureville-default:* \
+        nurtureville-payments:* \
+        nurtureville-provisioning:* 2>/dev/null
+} || {
+    echo "  ⚠ Supervisor restart skipped (no sudo NOPASSWD rule). Workers will pick up new config on next --max-time cycle (1 hour)."
+}
 
 echo "[ done ] Bringing app online..."
 $PHP artisan up
