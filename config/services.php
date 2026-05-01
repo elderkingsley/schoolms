@@ -60,6 +60,7 @@ return [
         // Set PAYGRID_API_KEY and PAYGRID_API_BASE_URL in .env.
         'api_key'      => env('PAYGRID_API_KEY', ''),
         'api_base_url' => env('PAYGRID_API_BASE_URL', ''),
+        'inflow_secret' => env('PAYGRID_INFLOW_SECRET', ''),
         // Raw BudPay webhook forward — SchoolMS posts to this URL after processing
         'webhook_url'  => env('PAYGRID_WEBHOOK_URL', ''),
     ],

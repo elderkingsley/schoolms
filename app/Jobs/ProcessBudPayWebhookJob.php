@@ -78,7 +78,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         }
 
         // ── Idempotency ───────────────────────────────────────────────────
-        if (FeePayment::where('reference', $reference)->exists()) {
+        if (FeePayment::where('reference', 'like', $reference . '%')->exists()) {
             Log::info("ProcessBudPayWebhookJob: duplicate reference '{$reference}' — skipping.");
             return;
         }
@@ -153,7 +153,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     'BudPay Transfer',
-                    reference:  $reference,
+                    reference:  $reference . '-inv-' . $invoice->id,
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );
@@ -172,7 +172,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         // ── Notify PayGrid — one call per settled invoice ─────────────────
         foreach ($settledInvoices as $settledInvoice) {
             $payment = $settledInvoice->payments()
-                ->where('reference', $reference)
+                ->where('reference', $reference . '-inv-' . $settledInvoice->id)
                 ->first();
             if ($payment) {
                 $this->notifyPayGrid(
@@ -242,7 +242,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         array   $invoiceIds = []
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
-        $apiKey = config('services.paygrid.inflow_secret', '');
+        $apiKey = config('services.paygrid.inflow_secret');
 
         if (empty($url) || empty($apiKey)) {
             Log::warning('ProcessBudPayWebhookJob: PAYGRID credentials not set — skipping PayGrid notification');
