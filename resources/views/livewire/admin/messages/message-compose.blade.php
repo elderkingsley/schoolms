@@ -229,11 +229,33 @@
         @if($previewing)
             <div class="preview-card">
                 <div class="preview-title">✓ Ready to send</div>
-                <div class="preview-sub">
+                <div class="preview-sub" style="margin-bottom:12px;">
                     This message will go to <strong>{{ $previewCount }}</strong>
                     {{ Str::plural('parent', $previewCount) }}.
-                    Each receives an in-app notification and an email via Brevo.
+                    Each receives an in-app notification and an email via ZeptoMail.
                 </div>
+
+                @if(count($previewParents) > 0)
+                    <div style="border-top:1px solid rgba(21,128,61,0.15);padding-top:10px;max-height:260px;overflow-y:auto;">
+                        @foreach($previewParents as $p)
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(21,128,61,0.08);">
+                                <div>
+                                    <div style="font-size:12px;font-weight:600;color:var(--c-text-1);">{{ $p['name'] }}</div>
+                                    <div style="font-size:11px;color:var(--c-text-3);">
+                                        {{ $p['email'] }}
+                                        @if($p['children'])
+                                            · {{ $p['children'] }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div style="font-size:12px;color:var(--c-text-3);margin-top:6px;">
+                        No parents match this filter.
+                    </div>
+                @endif
             </div>
         @endif
 

@@ -26,8 +26,9 @@ class MessageCompose extends Component
     public array  $parentResults = [];
 
     // Preview
-    public bool $previewing   = false;
-    public int  $previewCount = 0;
+    public bool  $previewing    = false;
+    public int   $previewCount  = 0;
+    public array $previewParents = []; // [{id, name, email, children}]
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ class MessageCompose extends Component
     {
         $this->previewing        = false;
         $this->previewCount      = 0;
+        $this->previewParents    = [];
         $this->selectedParentIds = [];
         $this->parentSearch      = '';
         $this->parentResults     = [];
@@ -142,8 +144,28 @@ class MessageCompose extends Component
     public function preview(): void
     {
         $this->validate();
-        $this->previewCount = $this->resolveCount();
-        $this->previewing   = true;
+
+        if ($this->recipientType === 'individual') {
+            $parents = ParentGuardian::whereIn('id', $this->selectedParentIds)
+                ->with('user', 'students')
+                ->get();
+        } else {
+            $parents = Message::resolveRecipients(
+                $this->recipientType,
+                $this->classId,
+                $this->termId,
+            )->load('user', 'students');
+        }
+
+        $this->previewCount   = $parents->count();
+        $this->previewParents = $parents->map(fn($p) => [
+            'id'       => $p->id,
+            'name'     => $p->user?->name ?? $p->_temp_name ?? 'Unknown',
+            'email'    => $p->user?->email ?? $p->_temp_email ?? '—',
+            'children' => $p->students->pluck('first_name')->join(', '),
+        ])->values()->toArray();
+
+        $this->previewing = true;
     }
 
     public function send(): void
