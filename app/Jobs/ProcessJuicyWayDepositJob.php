@@ -198,60 +198,69 @@ class ProcessJuicyWayDepositJob implements ShouldQueue
     }
 
     private function notifyPayGrid(
-        float   $amountNgn,
-        string  $reference,
-        string  $accountNumber,
-        string  $senderName,
-        ?string $depositId,
-        string  $depositedAt,
-        ?string $invoiceId = null,
-        array   $invoiceIds = []
-    ): void {
-        $url    = config('services.paygrid.api_base_url', '');
-        $apiKey = config('services.paygrid.inflow_secret');
+    float   $amountNgn,
+    string  $reference,
+    string  $accountNumber,
+    string  $senderName,
+    ?string $depositId,
+    string  $depositedAt,
+    ?string $invoiceId = null,
+    array   $invoiceIds = []
+): void {
+    $url    = config('services.paygrid.api_base_url', '');
+    $secret = config('services.paygrid.inflow_secret');
 
-        if (empty($url) || empty($apiKey)) {
-            Log::warning('ProcessJuicyWayDepositJob: PAYGRID credentials not set — skipping PayGrid notification');
-            return;
-        }
-
-        $payload = [
-            'reference'      => $reference,
-            'amount_ngn'     => $amountNgn,
-            'account_number' => $accountNumber,
-            'sender_name'    => $senderName,
-            'deposit_id'     => $depositId,
-            'deposited_at'   => $depositedAt,
-            'source'         => 'schoolms',
-        ];
-
-        if ($invoiceId)          $payload['invoice_id']  = $invoiceId;
-        if (! empty($invoiceIds)) $payload['invoice_ids'] = $invoiceIds;
-
-        try {
-            $response = Http::timeout(10)
-                ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Accept'        => 'application/json',
-                    'Content-Type'  => 'application/json',
-                ])
-                ->post(rtrim($url, '/') . '/api/inflows', $payload);
-
-            if ($response->successful()) {
-                Log::info("ProcessJuicyWayDepositJob: PayGrid notified for ref {$reference}", [
-                    'invoice_id' => $invoiceId,
-                ]);
-            } else {
-                Log::warning('ProcessJuicyWayDepositJob: PayGrid notification failed', [
-                    'status' => $response->status(),
-                    'body'   => substr($response->body(), 0, 300),
-                    'ref'    => $reference,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('ProcessJuicyWayDepositJob: PayGrid notification exception: ' . $e->getMessage());
-        }
+    if (empty($url) || empty($secret)) {
+        Log::warning('ProcessJuicyWayDepositJob: PAYGRID credentials not set — skipping PayGrid notification');
+        return;
     }
+
+    $payload = [
+        'reference'      => $reference,
+        'amount_ngn'     => $amountNgn,
+        'account_number' => $accountNumber,
+        'sender_name'    => $senderName,
+        'deposit_id'     => $depositId,
+        'deposited_at'   => $depositedAt,
+        'source'         => 'schoolms',
+    ];
+
+    if ($invoiceId)          $payload['invoice_id']  = $invoiceId;
+    if (! empty($invoiceIds)) $payload['invoice_ids'] = $invoiceIds;
+
+    // Generate HMAC signature as required by PayGrid's TrustedSystemAuth
+    $timestamp = (string) time();
+    $nonce     = bin2hex(random_bytes(16));
+    $body      = json_encode($payload);
+    $message   = $timestamp . '.' . $nonce . '.' . $body;
+    $signature = hash_hmac('sha256', $message, $secret);
+
+    try {
+        $response = Http::timeout(10)
+            ->withHeaders([
+                'X-PayGrid-Timestamp' => $timestamp,
+                'X-PayGrid-Nonce'     => $nonce,
+                'X-PayGrid-Signature' => $signature,
+                'Accept'              => 'application/json',
+                'Content-Type'        => 'application/json',
+            ])
+            ->post(rtrim($url, '/') . '/api/inflows', $payload);
+
+        if ($response->successful()) {
+            Log::info("ProcessJuicyWayDepositJob: PayGrid notified for ref {$reference}", [
+                'invoice_id' => $invoiceId,
+            ]);
+        } else {
+            Log::warning('ProcessJuicyWayDepositJob: PayGrid notification failed', [
+                'status' => $response->status(),
+                'body'   => substr($response->body(), 0, 300),
+                'ref'    => $reference,
+            ]);
+        }
+    } catch (\Throwable $e) {
+        Log::warning('ProcessJuicyWayDepositJob: PayGrid notification exception: ' . $e->getMessage());
+    }
+}
 
     private function markProcessed(): void
     {
