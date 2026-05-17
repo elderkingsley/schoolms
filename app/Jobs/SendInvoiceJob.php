@@ -5,6 +5,7 @@ namespace App\Jobs;
 
 use App\Models\FeeInvoice;
 use App\Notifications\FeeInvoiceNotification;
+use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,12 +41,19 @@ class SendInvoiceJob implements ShouldQueue
 
     public function __construct(public FeeInvoice $invoice) {}
 
-    public function handle(): void
+    public function handle(ParentCreditService $parentCreditService): void
     {
         $invoice = $this->invoice->load([
             'student.parents.user',
             'items.feeItem',
             'term.session',  // null for miscellaneous invoices — handled gracefully
+        ]);
+
+        $parentCreditService->applyAvailableCreditsToInvoice($invoice);
+        $invoice->refresh()->load([
+            'student.parents.user',
+            'items.feeItem',
+            'term.session',
         ]);
 
         $parents = $invoice->student->parents->filter(fn($p) => $p->user !== null);

@@ -7,6 +7,7 @@ use App\Models\FeePayment;
 use App\Models\ParentGuardian;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\FeeService;
+use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -47,7 +48,7 @@ class ProcessBudPayWebhookJob implements ShouldQueue
         private readonly string $logId,
     ) {}
 
-    public function handle(FeeService $feeService): void
+    public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
     {
         $data      = $this->payload['data']            ?? [];
         $reference = $data['reference']                ?? null;
@@ -141,13 +142,14 @@ class ProcessBudPayWebhookJob implements ShouldQueue
             $reference, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
-                if ($remaining <= 0) break;
+                if ($remaining <= 0) {
+                    break;
+                }
 
                 $balance = (float) (string) $invoice->balance;
                 if ($balance <= 0) continue;
 
-                $isLast  = $invoices->last()->id === $invoice->id;
-                $toApply = (float) (string) (($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance));
+                $toApply = (float) (string) min($remaining, $balance);
 
                 $feeService->recordPayment(
                     invoice:    $invoice,
@@ -184,6 +186,25 @@ class ProcessBudPayWebhookJob implements ShouldQueue
                     [(string) $settledInvoice->id]
                 );
             }
+        }
+
+        if ($remaining > 0) {
+            $parentCreditService->captureOverpayment(
+                parent: $parent,
+                amount: $remaining,
+                reference: $reference . '-credit',
+                recordedBy: $systemActorId,
+                originInvoice: $settledInvoices[0] ?? null,
+            );
+
+            $this->notifyPayGrid(
+                $remaining,
+                $reference . '-credit',
+                $accountNumber,
+                $senderName,
+                null,
+                []
+            );
         }
 
         // ── Forward raw BudPay payload to PayGrid webhook ─────────────────

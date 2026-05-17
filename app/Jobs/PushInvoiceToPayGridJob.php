@@ -4,6 +4,7 @@
 namespace App\Jobs;
 
 use App\Models\FeeInvoice;
+use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -47,7 +48,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
 
     public function __construct(public readonly FeeInvoice $invoice) {}
 
-    public function handle(): void
+    public function handle(ParentCreditService $parentCreditService): void
     {
         $url    = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
@@ -69,9 +70,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
         $student = $invoice->student;
 
         // Find the first parent with a portal account and a provisioned NUBAN
-        $parent = $student->parents
-            ->filter(fn ($p) => $p->user !== null && ! empty($p->active_account_number))
-            ->first();
+        $parent = $parentCreditService->resolveBillingParent($invoice);
 
         if (! $parent) {
             // No NUBAN provisioned yet. Log and exit cleanly — do not retry.
@@ -99,6 +98,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             'student_name'        => $student->full_name,
             'student_email'       => $parent->user?->email,
             'amount'              => (float) $invoice->total_amount,
+            'credit_applied'      => (float) $invoice->creditApplications()->sum('amount'),
             'term_label'          => $termLabel,
             'account_number'      => $parent->active_account_number,
             'account_numbers'     => $allAccountNumbers,   // NEW: array of all NUBANs

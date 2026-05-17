@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ParentGuardian extends Model
 {
@@ -53,6 +54,11 @@ class ParentGuardian extends Model
         return $this->belongsToMany(Student::class, 'parent_student', 'parent_id', 'student_id')
                     ->withPivot(['relationship', 'is_primary_contact'])
                     ->withTimestamps();
+    }
+
+    public function credits(): HasMany
+    {
+        return $this->hasMany(ParentCredit::class, 'parent_id');
     }
 
     // ── Provider Account Helpers ─────────────────────────────────────────────
@@ -206,5 +212,12 @@ class ParentGuardian extends Model
     public function isWalletFailed(): bool
     {
         return $this->wallet_status === 'failed';
+    }
+
+    public function availableCreditBalance(): float
+    {
+        return (float) $this->credits()
+            ->where('status', 'open')
+            ->sum('balance_amount');
     }
 }

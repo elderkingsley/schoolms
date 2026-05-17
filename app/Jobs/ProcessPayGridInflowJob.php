@@ -8,6 +8,7 @@ use App\Models\FeePayment;
 use App\Models\ParentGuardian;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\FeeService;
+use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,8 +29,7 @@ use Illuminate\Support\Facades\Log;
  *   4. Find all unpaid/partial invoices ordered oldest first
  *   5. Apply the deposit amount across invoices (FIFO):
  *      - Partial payments are recorded as-is (invoice → 'partial')
- *      - Overpayments on the final invoice are recorded in full
- *        (balance will show 0 or negative, acting as a credit)
+ *      - Any excess after all invoices are settled becomes parent credit
  *   6. Send the parent a payment confirmation email
  *
  * Idempotency: the bank transaction `reference` from PayGrid is stored
@@ -46,7 +46,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
     public function __construct(protected array $payload) {}
 
-    public function handle(FeeService $feeService): void
+    public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
     {
         $accountNumber = $this->payload['account_number'] ?? null;
         $amountNgn     = (float) ($this->payload['amount_ngn'] ?? 0);
@@ -62,7 +62,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
         // ── Idempotency check ─────────────────────────────────────────────
         // Use the bank reference as the unique key. PayGrid may fire the
         // webhook more than once if SchoolMS returned 5xx on first attempt.
-        $alreadyRecorded = FeePayment::where('reference', $reference)->exists();
+        $alreadyRecorded = FeePayment::where('reference', 'like', $reference . '%')->exists();
 
         if ($alreadyRecorded) {
             Log::info("ProcessPayGridInflow: reference '{$reference}' already recorded — skipping.");
@@ -120,10 +120,12 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices,
-            $reference, $senderName, $depositId, $feeService, $systemActorId
+            $reference, $feeService, $systemActorId, $parent, $accountNumber
         ) {
             foreach ($invoices as $invoice) {
-                if ($remaining <= 0) break;
+                if ($remaining <= 0) {
+                    break;
+                }
 
                 $balance = (float) (string) $invoice->balance;
 
@@ -131,13 +133,6 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
                 // Amount to apply to this invoice
                 $toApply = min($remaining, $balance);
-
-                // If this is the LAST invoice and we have more money than
-                // the balance (overpayment), record the full remaining amount
-                $isLastInvoice = $invoices->last()->id === $invoice->id;
-                if ($isLastInvoice && $remaining > $balance) {
-                    $toApply = $remaining; // record full amount — creates credit
-                }
 
                 // Derive the payment method from whichever provider's NUBAN matched
                 $paymentMethod = match(true) {
@@ -150,7 +145,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     $paymentMethod,
-                    reference:  $reference,
+                    reference:  $reference . '-inv-' . $invoice->id,
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );
@@ -161,10 +156,25 @@ class ProcessPayGridInflowJob implements ShouldQueue
                 Log::info("ProcessPayGridInflow: ₦{$toApply} applied to invoice {$invoice->id}", [
                     'student'    => $invoice->student_id,
                     'status'     => $invoice->fresh()->status,
-                    'reference'  => $reference,
+                    'reference'  => $reference . '-inv-' . $invoice->id,
                 ]);
             }
         });
+
+        if ($remaining > 0) {
+            $parentCreditService->captureOverpayment(
+                parent: $parent,
+                amount: $remaining,
+                reference: $reference . '-credit',
+                recordedBy: $systemActorId,
+                originInvoice: $settledInvoices[0] ?? null,
+            );
+
+            Log::info("ProcessPayGridInflow: ₦{$remaining} stored as parent credit for parent {$parent->id}", [
+                'reference' => $reference,
+                'account_number' => $accountNumber,
+            ]);
+        }
 
         // ── Send payment confirmation email to parent ─────────────────────
         if ($parent->user && ! empty($settledInvoices)) {

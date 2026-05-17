@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Add 'JuicyWay Transfer' to the fee_payments.method enum.
@@ -13,6 +14,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("
             ALTER TABLE fee_payments
             MODIFY COLUMN method
@@ -23,6 +28,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("
             ALTER TABLE fee_payments
             MODIFY COLUMN method

@@ -38,6 +38,28 @@ Route::get('/', fn() => redirect()->route('login'));
 
 // ── Force password change + voluntary change — available to ALL authenticated users ──
 Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
+
+        if (in_array($user->user_type, ['teacher', 'teaching_assistant'], true)) {
+            if ($user->parentProfile && $user->parentProfile->students()->where('status', 'active')->exists()) {
+                return redirect()->route('parent.dashboard');
+            }
+        }
+
+        return redirect()->route(match ($user->user_type) {
+            'super_admin', 'admin' => 'admin.dashboard',
+            'teacher', 'teaching_assistant' => 'teacher.dashboard',
+            'accountant' => 'accountant.dashboard',
+            'parent' => 'parent.dashboard',
+            default => 'login',
+        });
+    })->name('dashboard');
+
+    Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [\App\Http\Controllers\ProfileController::class, 'destroy'])->name('profile.destroy');
+
     // Forced on first login (used by guest-layout controller)
     Route::get('/password/change',  [\App\Http\Controllers\ChangePasswordController::class, 'show'])
         ->name('password.change');

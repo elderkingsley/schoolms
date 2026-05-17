@@ -166,7 +166,7 @@ class FeeService
         string     $reference = '',
         ?int       $recordedBy = null,
         string     $source = 'manual'
-    ): void {
+    ): ?FeePayment {
         // Resolve who recorded the payment.
         // Automated sources pass $recordedBy explicitly so we never need
         // auth()->id() in a queue worker context (where auth is null).
@@ -186,7 +186,7 @@ class FeeService
         $prefix = $source === 'automation' ? 'AUTO-' : 'RCP-';
 
         try {
-            FeePayment::create([
+            $payment = FeePayment::create([
                 'fee_invoice_id' => $invoice->id,
                 'amount'         => $amount,
                 'method'         => $method,
@@ -199,9 +199,11 @@ class FeeService
             // Duplicate reference — another process already recorded this payment.
             // This is the database-level idempotency guard. Log and return safely.
             \Illuminate\Support\Facades\Log::info("FeeService: duplicate payment reference '{$reference}' rejected by DB constraint — skipping.");
-            return;
+            return null;
         }
 
         $invoice->recalculateTotal();
+
+        return $payment;
     }
 }

@@ -34,6 +34,7 @@ class FeeInvoice extends Model
 
     public function payments(): HasMany  { return $this->hasMany(FeePayment::class); }
     public function items(): HasMany     { return $this->hasMany(FeeInvoiceItem::class); }
+    public function creditApplications(): HasMany { return $this->hasMany(ParentCreditApplication::class); }
 
     // ── Scopes ────────────────────────────────────────────────────────────────
 

@@ -4,16 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Add 'BudPay Transfer' and 'Korapay Transfer' to the fee_payments.method enum.
- *
- * The column was originally:
- *   enum('Cash','Bank Transfer','POS','JuicyWay Transfer')
- *
- * We extend it to include the two new automated payment providers.
- * MySQL ALTER TABLE MODIFY is used directly — Laravel's enum() helper
- * rewrites the full enum definition so we must list all existing values too.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -31,7 +21,8 @@ return new class extends Migration
                 'POS',
                 'JuicyWay Transfer',
                 'BudPay Transfer',
-                'Korapay Transfer'
+                'Korapay Transfer',
+                'Parent Credit'
             ) NOT NULL DEFAULT 'Cash'
         ");
     }
@@ -49,7 +40,9 @@ return new class extends Migration
                 'Cash',
                 'Bank Transfer',
                 'POS',
-                'JuicyWay Transfer'
+                'JuicyWay Transfer',
+                'BudPay Transfer',
+                'Korapay Transfer'
             ) NOT NULL DEFAULT 'Cash'
         ");
     }

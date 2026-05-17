@@ -7,6 +7,7 @@ use App\Models\FeePayment;
 use App\Models\ParentGuardian;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\FeeService;
+use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -50,7 +51,7 @@ class ProcessKorapayWebhookJob implements ShouldQueue
         private readonly string $logId,
     ) {}
 
-    public function handle(FeeService $feeService): void
+    public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
     {
         $data      = $this->payload['data'] ?? [];
         $reference = $data['reference']     ?? null;
@@ -75,7 +76,7 @@ class ProcessKorapayWebhookJob implements ShouldQueue
         }
 
         // ── Idempotency ───────────────────────────────────────────────────
-        if (FeePayment::where('reference', $reference)->exists()) {
+        if (FeePayment::where('reference', 'like', $reference . '%')->exists()) {
             Log::info("ProcessKorapayWebhookJob: duplicate reference '{$reference}' — skipping.");
             return;
         }
@@ -124,41 +125,77 @@ class ProcessKorapayWebhookJob implements ShouldQueue
         // ── Apply payment FIFO ────────────────────────────────────────────
         $remaining       = $amountNgn;
         $settledInvoices = [];
+        $settledInvoiceIds = [];
 
         DB::transaction(function () use (
-            $invoices, &$remaining, &$settledInvoices,
+            $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
             $reference, $feeService, $systemActorId, $student
         ) {
             foreach ($invoices as $invoice) {
-                if ($remaining <= 0) break;
+                if ($remaining <= 0) {
+                    break;
+                }
 
                 $balance = (float) (string) $invoice->balance;
                 if ($balance <= 0) continue;
 
-                $isLast  = $invoices->last()->id === $invoice->id;
-                $toApply = (float) (string) (($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance));
+                $toApply = (float) (string) min($remaining, $balance);
 
                 $feeService->recordPayment(
                     invoice:    $invoice,
                     amount:     $toApply,
                     method:     'Korapay Transfer',
-                    reference:  $reference,
+                    reference:  $reference . '-inv-' . $invoice->id,
                     recordedBy: $systemActorId,
                     source:     'automation',
                 );
 
                 $remaining -= $toApply;
                 $settledInvoices[] = $invoice->fresh();
+                $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("ProcessKorapayWebhookJob: ₦{$toApply} applied to invoice {$invoice->id}", [
                     'student'   => $student->id,
-                    'reference' => $reference,
+                    'reference' => $reference . '-inv-' . $invoice->id,
                 ]);
             }
         });
 
-        // ── Notify PayGrid ────────────────────────────────────────────────
-        $this->notifyPayGrid($amountNgn, $reference, $accountNumber ?? $accountReference, $senderName);
+        foreach ($settledInvoices as $settledInvoice) {
+            $payment = $settledInvoice->payments()
+                ->where('reference', $reference . '-inv-' . $settledInvoice->id)
+                ->first();
+
+            if ($payment) {
+                $this->notifyPayGrid(
+                    (float) $payment->amount,
+                    $reference . '-inv-' . $settledInvoice->id,
+                    $accountNumber ?? $accountReference,
+                    $senderName,
+                    (string) $settledInvoice->id,
+                    [(string) $settledInvoice->id]
+                );
+            }
+        }
+
+        if ($remaining > 0) {
+            $parentCreditService->captureOverpayment(
+                parent: $parent,
+                amount: $remaining,
+                reference: $reference . '-credit',
+                recordedBy: $systemActorId,
+                originInvoice: $settledInvoices[0] ?? null,
+            );
+
+            $this->notifyPayGrid(
+                $remaining,
+                $reference . '-credit',
+                $accountNumber ?? $accountReference,
+                $senderName,
+                null,
+                []
+            );
+        }
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
@@ -187,10 +224,12 @@ class ProcessKorapayWebhookJob implements ShouldQueue
     }
 
     private function notifyPayGrid(
-        float   $amountNgn,
-        string  $reference,
-        string  $accountNumber,
-        string  $senderName,
+        float $amountNgn,
+        string $reference,
+        string $accountNumber,
+        string $senderName,
+        ?string $invoiceId = null,
+        array $invoiceIds = []
     ): void {
         $url    = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
@@ -207,14 +246,16 @@ class ProcessKorapayWebhookJob implements ShouldQueue
                     'Accept'        => 'application/json',
                     'Content-Type'  => 'application/json',
                 ])
-                ->post(rtrim($url, '/') . '/api/inflows', [
-                    'reference'      => $reference,
-                    'amount_ngn'     => $amountNgn,
+                ->post(rtrim($url, '/') . '/api/inflows', array_filter([
+                    'reference' => $reference,
+                    'amount_ngn' => $amountNgn,
                     'account_number' => $accountNumber,
-                    'sender_name'    => $senderName,
-                    'deposited_at'   => now()->toISOString(),
-                    'source'         => 'schoolms',
-                ]);
+                    'sender_name' => $senderName,
+                    'deposited_at' => now()->toISOString(),
+                    'source' => 'schoolms',
+                    'invoice_id' => $invoiceId,
+                    'invoice_ids' => $invoiceIds ?: null,
+                ], fn ($value) => $value !== null));
 
             if ($response->successful()) {
                 Log::info("ProcessKorapayWebhookJob: PayGrid notified for ref {$reference}");

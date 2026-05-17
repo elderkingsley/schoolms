@@ -8,6 +8,7 @@ use App\Models\ParentGuardian;
 use App\Models\User;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\FeeService;
+use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -46,7 +47,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
     public int $tries   = 1;
     public int $timeout = 55; // must finish within 1-minute window
 
-    public function handle(FeeService $feeService): void
+    public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
     {
         // Exit silently if JuicyWay is not the active provider.
         // This means the scheduler entry never needs to be commented out —
@@ -112,7 +113,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
             foreach ($deposits as $deposit) {
                 $processed++;
-                $wasPosted = $this->processDeposit($deposit, $knownAccounts, $feeService);
+                $wasPosted = $this->processDeposit($deposit, $knownAccounts, $feeService, $parentCreditService);
                 if ($wasPosted) $posted++;
             }
 
@@ -129,7 +130,8 @@ class PollJuicyWayDepositsJob implements ShouldQueue
     private function processDeposit(
         array      $deposit,
         \Illuminate\Support\Collection $knownAccounts,
-        FeeService $feeService
+        FeeService $feeService,
+        ParentCreditService $parentCreditService
     ): bool {
         // Only settled credit deposits
         if (($deposit['status'] ?? '') !== 'settled') return false;
@@ -211,13 +213,14 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             $depositId, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
-                if ($remaining <= 0) break;
+                if ($remaining <= 0) {
+                    break;
+                }
 
                 $balance = (float) (string) $invoice->balance;
                 if ($balance <= 0) continue;
 
-                $isLast  = $invoices->last()->id === $invoice->id;
-                $toApply = (float) (string) (($isLast && $remaining > $balance) ? $remaining : min($remaining, $balance));
+                $toApply = (float) (string) min($remaining, $balance);
 
                 $feeService->recordPayment(
                     invoice:    $invoice,
@@ -262,6 +265,27 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                     [(string) $settledInvoice->id]
                 );
             }
+        }
+
+        if ($remaining > 0) {
+            $parentCreditService->captureOverpayment(
+                parent: $parent,
+                amount: $remaining,
+                reference: $depositId . '-credit',
+                recordedBy: $systemActorId,
+                originInvoice: $settledInvoices[0] ?? null,
+            );
+
+            $this->notifyPayGrid(
+                $remaining,
+                $depositId . '-credit',
+                $accountNumber,
+                $senderName,
+                $depositId,
+                $depositedAt,
+                null,
+                []
+            );
         }
 
         // ── Email the parent ───────────────────────────────────────────────
