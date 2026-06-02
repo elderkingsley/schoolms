@@ -14,9 +14,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * PollJuicyWayDepositsJob — SchoolMS edition
@@ -44,7 +46,8 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries   = 1;
+    public int $tries = 1;
+
     public int $timeout = 55; // must finish within 1-minute window
 
     public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
@@ -52,15 +55,16 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         // Exit silently if JuicyWay is not the active provider.
         // This means the scheduler entry never needs to be commented out —
         // switching providers in School Settings automatically disables this job.
-        if (\App\Models\ParentGuardian::getActiveWalletProvider() !== 'juicyway') {
+        if (ParentGuardian::getActiveWalletProvider() !== 'juicyway') {
             return;
         }
 
-        $apiKey  = config('services.juicyway.api_key', '');
+        $apiKey = config('services.juicyway.api_key', '');
         $baseUrl = config('services.juicyway.base_url', 'https://api.spendjuice.com');
 
         if (empty($apiKey)) {
             Log::warning('PollJuicyWayDeposits[SchoolMS]: JUICYWAY_API_KEY not set — skipping');
+
             return;
         }
 
@@ -72,19 +76,20 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         if ($knownAccounts->isEmpty()) {
             Log::info('PollJuicyWayDeposits[SchoolMS]: no provisioned accounts yet — skipping');
+
             return;
         }
 
         $processed = 0;
-        $posted    = 0;
-        $after     = null;
+        $posted = 0;
+        $after = null;
 
         do {
-            $url      = rtrim($baseUrl, '/') . '/deposits?limit=15' . ($after ? "&after={$after}" : '');
+            $url = rtrim($baseUrl, '/').'/deposits?limit=15'.($after ? "&after={$after}" : '');
             $response = Http::timeout(15)
                 ->withHeaders([
                     'Authorization' => $apiKey,
-                    'Accept'        => 'application/json',
+                    'Accept' => 'application/json',
                 ])
                 ->get($url);
 
@@ -96,29 +101,34 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                 // This ensures missed deposits are picked up on next attempt.
                 if ($status === 401) {
                     throw new \RuntimeException(
-                        "JuicyWay API returned 401 — possible intermittent auth issue. Will retry."
+                        'JuicyWay API returned 401 — possible intermittent auth issue. Will retry.'
                     );
                 }
 
                 Log::error('PollJuicyWayDeposits[SchoolMS]: API error', [
                     'status' => $status,
-                    'body'   => substr($response->body(), 0, 300),
+                    'body' => substr($response->body(), 0, 300),
                 ]);
+
                 return;
             }
 
-            $body     = $response->json();
+            $body = $response->json();
             $deposits = $body['data'] ?? [];
-            $after    = $body['pagination']['after'] ?? null;
+            $after = $body['pagination']['after'] ?? null;
 
             foreach ($deposits as $deposit) {
                 $processed++;
                 $wasPosted = $this->processDeposit($deposit, $knownAccounts, $feeService, $parentCreditService);
-                if ($wasPosted) $posted++;
+                if ($wasPosted) {
+                    $posted++;
+                }
             }
 
             // Stop paginating once we find a page with no new deposits
-            if ($posted === 0 && $after) break;
+            if ($posted === 0 && $after) {
+                break;
+            }
 
         } while ($after !== null);
 
@@ -128,27 +138,35 @@ class PollJuicyWayDepositsJob implements ShouldQueue
     }
 
     private function processDeposit(
-        array      $deposit,
-        \Illuminate\Support\Collection $knownAccounts,
+        array $deposit,
+        Collection $knownAccounts,
         FeeService $feeService,
         ParentCreditService $parentCreditService
     ): bool {
         // Only settled credit deposits
-        if (($deposit['status'] ?? '') !== 'settled') return false;
-        if (($deposit['type']   ?? '') !== 'credit')  return false;
+        if (($deposit['status'] ?? '') !== 'settled') {
+            return false;
+        }
+        if (($deposit['type'] ?? '') !== 'credit') {
+            return false;
+        }
 
         $accountNumber = $deposit['payment_method']['account_number'] ?? null;
-        $amountKobo    = (int) ($deposit['amount'] ?? 0);
-        $amountNgn     = $amountKobo / 100;
-        $depositId     = $deposit['id']         ?? null;  // UUID — used as idempotency key
-        $reference     = $deposit['reference']  ?? $depositId; // bank ref — falls back to id
-        $senderName    = $deposit['sender_name'] ?? 'Unknown Sender';
-        $depositedAt   = $deposit['created_at'] ?? now()->toISOString();
+        $amountKobo = (int) ($deposit['amount'] ?? 0);
+        $amountNgn = $amountKobo / 100;
+        $depositId = $deposit['id'] ?? null;  // UUID — used as idempotency key
+        $reference = $deposit['reference'] ?? $depositId; // bank ref — falls back to id
+        $senderName = $deposit['sender_name'] ?? 'Unknown Sender';
+        $depositedAt = $deposit['created_at'] ?? now()->toISOString();
 
-        if (! $accountNumber || $amountNgn <= 0 || ! $depositId) return false;
+        if (! $accountNumber || $amountNgn <= 0 || ! $depositId) {
+            return false;
+        }
 
         // Only process accounts we know about — skip all other PayGrid customers
-        if (! isset($knownAccounts[$accountNumber])) return false;
+        if (! isset($knownAccounts[$accountNumber])) {
+            return false;
+        }
 
         // ── Idempotency ───────────────────────────────────────────────────
         // Use depositId (UUID) as the canonical key — this is the same value
@@ -156,7 +174,7 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         // Using the numeric bank reference (deposit['reference']) caused double
         // payments because the webhook path uses the UUID and they never matched.
         // Use LIKE to catch both the base reference and any "-inv-{id}" suffixed splits
-        if (FeePayment::where('reference', 'like', $depositId . '%')->exists()) {
+        if (FeePayment::where('reference', 'like', $depositId.'%')->exists()) {
             return false; // already processed by webhook or previous poll
         }
 
@@ -167,12 +185,14 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         if (! $parent || ! $parent->user) {
             Log::warning("PollJuicyWayDeposits[SchoolMS]: no parent/user for account {$accountNumber}");
+
             return false;
         }
 
         $studentIds = $parent->students->pluck('id');
         if ($studentIds->isEmpty()) {
             Log::warning("PollJuicyWayDeposits[SchoolMS]: parent {$parent->id} has no linked students");
+
             return false;
         }
 
@@ -190,22 +210,23 @@ class PollJuicyWayDepositsJob implements ShouldQueue
 
         if ($invoices->isEmpty()) {
             Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices across any child", [
-                'account'     => $accountNumber,
-                'ref'         => $depositId,
+                'account' => $accountNumber,
+                'ref' => $depositId,
                 'student_ids' => $studentIds->toArray(),
             ]);
             $this->notifyPayGrid($amountNgn, $depositId, $accountNumber, $senderName, $depositId, $depositedAt, null, []);
+
             return true;
         }
 
         // ── Resolve system actor for audit trail ────────────────────────────
-        $systemActorId = \App\Models\User::where('user_type', 'super_admin')
+        $systemActorId = User::where('user_type', 'super_admin')
             ->orWhere('user_type', 'admin')
             ->orderBy('id')
             ->value('id');
 
         // ── Apply deposit across all children's invoices (FIFO) ──────────────
-        $remaining       = $amountNgn;
+        $remaining = $amountNgn;
         $settledInvoices = [];
 
         DB::transaction(function () use (
@@ -218,26 +239,28 @@ class PollJuicyWayDepositsJob implements ShouldQueue
                 }
 
                 $balance = (float) (string) $invoice->balance;
-                if ($balance <= 0) continue;
+                if ($balance <= 0) {
+                    continue;
+                }
 
                 $toApply = (float) (string) min($remaining, $balance);
 
                 $feeService->recordPayment(
-                    invoice:    $invoice,
-                    amount:     $toApply,
-                    method:     'JuicyWay Transfer',
-                    reference:  $depositId . '-inv-' . $invoice->id,
+                    invoice: $invoice,
+                    amount: $toApply,
+                    method: 'JuicyWay Transfer',
+                    reference: $depositId.'-inv-'.$invoice->id,
                     recordedBy: $systemActorId,
-                    source:     'automation',
+                    source: 'automation',
                 );
 
                 $remaining -= $toApply;
-                $settledInvoices[]   = $invoice->fresh();
+                $settledInvoices[] = $invoice->fresh();
                 $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$toApply} applied to invoice {$invoice->id}", [
-                    'student'   => $invoice->student_id,
-                    'status'    => $invoice->fresh()->status,
+                    'student' => $invoice->student_id,
+                    'status' => $invoice->fresh()->status,
                     'reference' => $depositId,
                 ]);
             }
@@ -251,12 +274,12 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         // caused overpayment on one child and missed payment on another.
         foreach ($settledInvoices as $settledInvoice) {
             $payment = $settledInvoice->payments()
-                ->where('reference', $depositId . '-inv-' . $settledInvoice->id)
+                ->where('reference', $depositId.'-inv-'.$settledInvoice->id)
                 ->first();
             if ($payment) {
                 $this->notifyPayGrid(
                     (float) $payment->amount,
-                    $depositId . '-inv-' . $settledInvoice->id,
+                    $depositId.'-inv-'.$settledInvoice->id,
                     $accountNumber,
                     $senderName,
                     $depositId,
@@ -271,14 +294,14 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             $parentCreditService->captureOverpayment(
                 parent: $parent,
                 amount: $remaining,
-                reference: $depositId . '-credit',
+                reference: $depositId.'-credit',
                 recordedBy: $systemActorId,
                 originInvoice: $settledInvoices[0] ?? null,
             );
 
             $this->notifyPayGrid(
                 $remaining,
-                $depositId . '-credit',
+                $depositId.'-credit',
                 $accountNumber,
                 $senderName,
                 $depositId,
@@ -294,10 +317,10 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
                 $parent->user->notify(new PaymentReceivedNotification(
-                    student:         $firstStudent,
-                    amountPaid:      $amountNgn,
-                    senderName:      $senderName,
-                    reference:       $depositId,
+                    student: $firstStudent,
+                    amountPaid: $amountNgn,
+                    senderName: $senderName,
+                    reference: $depositId,
                     settledInvoices: $settledInvoices,
                 ));
             } catch (\Throwable $e) {
@@ -306,11 +329,11 @@ class PollJuicyWayDepositsJob implements ShouldQueue
         }
 
         Log::info("PollJuicyWayDeposits[SchoolMS]: ₦{$amountNgn} fully processed for parent {$parent->id}", [
-            'account'          => $accountNumber,
-            'reference'        => $depositId,
+            'account' => $accountNumber,
+            'reference' => $depositId,
             'invoices_settled' => count($settledInvoices),
-            'invoice_ids'      => $settledInvoiceIds,
-            'sender'           => $senderName,
+            'invoice_ids' => $settledInvoiceIds,
+            'sender' => $senderName,
         ]);
 
         return true;
@@ -323,42 +346,37 @@ class PollJuicyWayDepositsJob implements ShouldQueue
      * Fire-and-forget: failure is logged but never affects SchoolMS payment recording.
      * PayGrid uses the same `reference` as its idempotency key, so safe to retry.
      *
-     * @param float       $amountNgn
-     * @param string      $reference
-     * @param string      $accountNumber
-     * @param string      $senderName
-     * @param string|null $depositId
-     * @param string      $depositedAt
-     * @param string|null $invoiceId      Primary SchoolMS invoice ID that was settled
-     * @param array       $invoiceIds     All SchoolMS invoice IDs that were settled
+     * @param  string|null  $invoiceId  Primary SchoolMS invoice ID that was settled
+     * @param  array  $invoiceIds  All SchoolMS invoice IDs that were settled
      */
     private function notifyPayGrid(
-        float   $amountNgn,
-        string  $reference,
-        string  $accountNumber,
-        string  $senderName,
+        float $amountNgn,
+        string $reference,
+        string $accountNumber,
+        string $senderName,
         ?string $depositId,
-        string  $depositedAt,
+        string $depositedAt,
         ?string $invoiceId = null,
-        array   $invoiceIds = []
+        array $invoiceIds = []
     ): void {
-        $url    = config('services.paygrid.api_base_url', '');
-        $apiKey = config('services.paygrid.inflow_secret');
+        $url = config('services.paygrid.api_base_url', '');
+        $secret = config('services.paygrid.inflow_secret');
 
-        if (empty($url) || empty($apiKey)) {
-            Log::warning('PollJuicyWayDeposits[SchoolMS]: PAYGRID_API_BASE_URL or PAYGRID_API_KEY not set — skipping PayGrid notification');
+        if (empty($url) || empty($secret)) {
+            Log::warning('PollJuicyWayDeposits[SchoolMS]: PAYGRID_API_BASE_URL or PAYGRID_INFLOW_SECRET not set — skipping PayGrid notification');
+
             return;
         }
 
         $payload = [
-            'reference'      => $reference,
-            'amount_ngn'     => $amountNgn,
+            'reference' => $reference,
+            'amount_ngn' => $amountNgn,
             'account_number' => $accountNumber,
-            'account_label'  => $senderName,
-            'sender_name'    => $senderName,
-            'deposit_id'     => $depositId,
-            'deposited_at'   => $depositedAt,
-            'source'         => 'schoolms',
+            'account_label' => $senderName,
+            'sender_name' => $senderName,
+            'deposit_id' => $depositId,
+            'deposited_at' => $depositedAt,
+            'source' => 'schoolms',
         ];
 
         // Add invoice ID(s) for stronger matching in PayGrid
@@ -369,24 +387,31 @@ class PollJuicyWayDepositsJob implements ShouldQueue
             $payload['invoice_ids'] = $invoiceIds;
         }
 
+        $timestamp = (string) time();
+        $nonce = bin2hex(random_bytes(16));
+        $body = json_encode($payload);
+        $signature = hash_hmac('sha256', $timestamp.'.'.$nonce.'.'.$body, $secret);
+
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Accept'        => 'application/json',
-                    'Content-Type'  => 'application/json',
+                    'X-PayGrid-Timestamp' => $timestamp,
+                    'X-PayGrid-Nonce' => $nonce,
+                    'X-PayGrid-Signature' => $signature,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])
-                ->post(rtrim($url, '/') . '/api/inflows', $payload);
+                ->post(rtrim($url, '/').'/api/inflows', $payload);
 
             if ($response->successful()) {
                 Log::info("PollJuicyWayDeposits[SchoolMS]: PayGrid notified for ref {$reference}", [
                     'invoice_id' => $invoiceId,
                 ]);
             } else {
-                Log::warning("PollJuicyWayDeposits[SchoolMS]: PayGrid notification failed", [
+                Log::warning('PollJuicyWayDeposits[SchoolMS]: PayGrid notification failed', [
                     'status' => $response->status(),
-                    'body'   => substr($response->body(), 0, 300),
-                    'ref'    => $reference,
+                    'body' => substr($response->body(), 0, 300),
+                    'ref' => $reference,
                 ]);
             }
         } catch (\Throwable $e) {
@@ -402,29 +427,29 @@ class PollJuicyWayDepositsJob implements ShouldQueue
      */
     public function failed(\Throwable $e): void
     {
-        Log::critical('PollJuicyWayDepositsJob: permanently failed — ' . $e->getMessage());
+        Log::critical('PollJuicyWayDepositsJob: permanently failed — '.$e->getMessage());
 
         try {
-            $admins = \App\Models\User::whereIn('user_type', ['super_admin', 'admin'])
+            $admins = User::whereIn('user_type', ['super_admin', 'admin'])
                 ->where('is_active', true)
                 ->get();
 
             foreach ($admins as $admin) {
-                \Illuminate\Support\Facades\Mail::raw(
-                    "ALERT: The automated school fees payment detection job has permanently failed.\n\n" .
-                    "Error: " . $e->getMessage() . "\n\n" .
-                    "This means student fee payments made via bank transfer may NOT be " .
-                    "automatically recorded until this is resolved.\n\n" .
-                    "Please check the queue logs and restart the payments worker:\n" .
-                    "sudo supervisorctl restart nurtureville-payments:*\n\n" .
-                    "Time: " . now()->format('d M Y, g:ia') . " (Africa/Lagos)",
-                    fn($message) => $message
+                Mail::raw(
+                    "ALERT: The automated school fees payment detection job has permanently failed.\n\n".
+                    'Error: '.$e->getMessage()."\n\n".
+                    'This means student fee payments made via bank transfer may NOT be '.
+                    "automatically recorded until this is resolved.\n\n".
+                    "Please check the queue logs and restart the payments worker:\n".
+                    "sudo supervisorctl restart nurtureville-payments:*\n\n".
+                    'Time: '.now()->format('d M Y, g:ia').' (Africa/Lagos)',
+                    fn ($message) => $message
                         ->to($admin->email)
                         ->subject('⚠️ URGENT: Payment Detection Job Failed — Nurtureville SchoolMS')
                 );
             }
         } catch (\Throwable $mailError) {
-            Log::error('PollJuicyWayDepositsJob: failed to send failure alert — ' . $mailError->getMessage());
+            Log::error('PollJuicyWayDepositsJob: failed to send failure alert — '.$mailError->getMessage());
         }
     }
 }
