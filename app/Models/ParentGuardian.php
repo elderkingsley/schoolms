@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ParentGuardian extends Model
 {
@@ -52,8 +54,8 @@ class ParentGuardian extends Model
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(Student::class, 'parent_student', 'parent_id', 'student_id')
-                    ->withPivot(['relationship', 'is_primary_contact'])
-                    ->withTimestamps();
+            ->withPivot(['relationship', 'is_primary_contact'])
+            ->withTimestamps();
     }
 
     public function credits(): HasMany
@@ -84,10 +86,10 @@ class ParentGuardian extends Model
      */
     public function hasProviderAccount(string $provider): bool
     {
-        return match($provider) {
+        return match ($provider) {
             'juicyway' => $this->hasJuicyWayAccount(),
-            'budpay'   => $this->hasBudPayAccount(),
-            default    => false,
+            'budpay' => $this->hasBudPayAccount(),
+            default => false,
         };
     }
 
@@ -123,6 +125,7 @@ class ParentGuardian extends Model
     public function hasVirtualAccount(): bool
     {
         $provider = self::getActiveWalletProvider();
+
         return $this->hasProviderAccount($provider);
     }
 
@@ -171,6 +174,7 @@ class ParentGuardian extends Model
         if (! empty($this->budpay_account_number)) {
             return $this->budpay_bank_name;
         }
+
         return $this->korapay_bank_name;
     }
 
@@ -219,5 +223,38 @@ class ParentGuardian extends Model
         return (float) $this->credits()
             ->where('status', 'open')
             ->sum('balance_amount');
+    }
+
+    public function familyStudentIdsForBilling(): Collection
+    {
+        $directStudentIds = $this->students()
+            ->pluck('students.id')
+            ->unique()
+            ->values();
+
+        if ($directStudentIds->isEmpty()) {
+            return collect();
+        }
+
+        $familyParentIds = DB::table('parent_student')
+            ->whereIn('student_id', $directStudentIds)
+            ->pluck('parent_id')
+            ->unique()
+            ->values();
+
+        return DB::table('parent_student')
+            ->whereIn('parent_id', $familyParentIds)
+            ->pluck('student_id')
+            ->unique()
+            ->values();
+    }
+
+    public function isBillingParentForAnyLinkedStudent(): bool
+    {
+        $this->loadMissing('students');
+
+        return $this->students->contains(
+            fn (Student $student) => $student->billingParent()?->id === $this->id
+        );
     }
 }

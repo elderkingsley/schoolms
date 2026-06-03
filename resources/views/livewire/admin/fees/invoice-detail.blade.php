@@ -414,9 +414,7 @@
 
         {{-- ── Virtual Account Status ── --}}
         @php
-            $primaryParent = $invoice->student->parents
-                ->filter(fn($p) => $p->user !== null)
-                ->first();
+            $primaryParent = $invoice->student->billingParent();
             $hasAnyAccount = $primaryParent && !empty($primaryParent->active_account_number);
         @endphp
         <div class="panel">

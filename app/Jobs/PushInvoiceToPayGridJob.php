@@ -1,4 +1,5 @@
 <?php
+
 // Deploy to: /var/www/schoolms/app/Jobs/PushInvoiceToPayGridJob.php
 
 namespace App\Jobs;
@@ -8,6 +9,7 @@ use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
@@ -42,21 +44,24 @@ class PushInvoiceToPayGridJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int   $tries   = 5;
-    public int   $timeout = 30;
-    public array $backoff  = [30, 60, 120, 300, 600];
+    public int $tries = 5;
+
+    public int $timeout = 30;
+
+    public array $backoff = [30, 60, 120, 300, 600];
 
     public function __construct(public readonly FeeInvoice $invoice) {}
 
     public function handle(ParentCreditService $parentCreditService): void
     {
-        $url    = config('services.paygrid.api_base_url', '');
+        $url = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
 
         if (empty($url) || empty($apiKey)) {
             Log::warning('PushInvoiceToPayGridJob: PAYGRID_API_BASE_URL or PAYGRID_API_KEY not set — skipping.', [
                 'invoice_id' => $this->invoice->id,
             ]);
+
             return;
         }
 
@@ -81,30 +86,26 @@ class PushInvoiceToPayGridJob implements ShouldQueue
                 'invoice_id' => $invoice->id,
                 'student_id' => $student->id,
             ]);
+
             return;
         }
 
-        // Collect ALL virtual account numbers for this parent
-        $allAccountNumbers = array_values(array_filter([
-            $parent->juicyway_account_number,
-            $parent->budpay_account_number,
-            $parent->korapay_account_number,
-        ]));
+        $allAccountNumbers = $student->billingAccountNumbers();
 
         $termLabel = $invoice->label();
 
         $payload = [
             'schoolms_invoice_id' => (string) $invoice->id,
-            'student_name'        => $student->full_name,
-            'student_email'       => $parent->user?->email,
-            'amount'              => (float) $invoice->total_amount,
-            'credit_applied'      => (float) $invoice->creditApplications()->sum('amount'),
-            'term_label'          => $termLabel,
-            'account_number'      => $parent->active_account_number,
-            'account_numbers'     => $allAccountNumbers,   // NEW: array of all NUBANs
-            'due_date'            => now()->addDays(30)->toDateString(),
-            'items'               => $invoice->items->map(fn ($item) => [
-                'name'   => $item->item_name,
+            'student_name' => $student->full_name,
+            'student_email' => $parent->user?->email,
+            'amount' => (float) $invoice->total_amount,
+            'credit_applied' => (float) $invoice->creditApplications()->sum('amount'),
+            'term_label' => $termLabel,
+            'account_number' => $parent->active_account_number,
+            'account_numbers' => $allAccountNumbers,   // NEW: array of all NUBANs
+            'due_date' => now()->addDays(30)->toDateString(),
+            'items' => $invoice->items->map(fn ($item) => [
+                'name' => $item->item_name,
                 'amount' => (float) $item->amount,
             ])->toArray(),
         ];
@@ -112,24 +113,25 @@ class PushInvoiceToPayGridJob implements ShouldQueue
         try {
             $response = Http::timeout(15)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Accept'        => 'application/json',
-                    'Content-Type'  => 'application/json',
+                    'Authorization' => 'Bearer '.$apiKey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])
-                ->post(rtrim($url, '/') . '/api/school-invoices', $payload);
+                ->post(rtrim($url, '/').'/api/school-invoices', $payload);
 
             $status = $response->status();
-            $body   = $response->json();
+            $body = $response->json();
 
             if ($response->successful()) {
                 $outcome = $body['status'] ?? 'unknown';
                 Log::info("PushInvoiceToPayGridJob: invoice {$invoice->id} → PayGrid [{$outcome}]", [
                     'paygrid_invoice_id' => $body['invoice_id'] ?? null,
-                    'student'            => $student->full_name,
-                    'amount'             => $payload['amount'],
-                    'account_number'     => $payload['account_number'],
-                    'all_accounts'       => $allAccountNumbers,
+                    'student' => $student->full_name,
+                    'amount' => $payload['amount'],
+                    'account_number' => $payload['account_number'],
+                    'all_accounts' => $allAccountNumbers,
                 ]);
+
                 return;
             }
 
@@ -137,20 +139,21 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             if ($status === 422) {
                 Log::error('PushInvoiceToPayGridJob: PayGrid rejected payload (422) — will not retry.', [
                     'invoice_id' => $invoice->id,
-                    'errors'     => $body,
+                    'errors' => $body,
                 ]);
-                $this->fail(new \RuntimeException('PayGrid validation error: ' . json_encode($body)));
+                $this->fail(new \RuntimeException('PayGrid validation error: '.json_encode($body)));
+
                 return;
             }
 
             // 5xx / other — throw so the queue retries with backoff
             throw new \RuntimeException(
-                "PayGrid returned HTTP {$status}: " . substr($response->body(), 0, 200)
+                "PayGrid returned HTTP {$status}: ".substr($response->body(), 0, 200)
             );
 
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             // Network error — throw so queue retries with backoff
-            throw new \RuntimeException('PushInvoiceToPayGridJob: network error — ' . $e->getMessage());
+            throw new \RuntimeException('PushInvoiceToPayGridJob: network error — '.$e->getMessage());
         }
     }
 
@@ -164,7 +167,7 @@ class PushInvoiceToPayGridJob implements ShouldQueue
         Log::critical('PushInvoiceToPayGridJob: permanently failed — invoice will not be auto-matched in PayGrid.', [
             'invoice_id' => $this->invoice->id,
             'student_id' => $this->invoice->student_id,
-            'error'      => $e->getMessage(),
+            'error' => $e->getMessage(),
         ]);
     }
 }

@@ -448,7 +448,7 @@
             </svg>
             School Fees Payment Account
             @php
-                $paymentParent = $student->parents->filter(fn($p) => $p->user !== null)->first();
+                $paymentParent = $student->billingParent();
             @endphp
             @if($paymentParent && $paymentParent->hasVirtualAccount())
                 <span style="margin-left:auto;background:rgba(21,128,61,0.08);color:#15803D;font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;">Active</span>

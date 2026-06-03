@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class Student extends Model
 {
@@ -16,7 +19,7 @@ class Student extends Model
 
     protected $casts = [
         'date_of_birth' => 'date',
-        'approved_at'   => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     public function getFullNameAttribute(): string
@@ -32,7 +35,7 @@ class Student extends Model
             'student_id',
             'parent_id'
         )->withPivot(['relationship', 'is_primary_contact'])
-         ->withTimestamps();
+            ->withTimestamps();
     }
 
     public function enrolments(): HasMany
@@ -50,10 +53,86 @@ class Student extends Model
         return $this->hasMany(FeeInvoice::class);
     }
 
-    public function currentEnrolment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function currentEnrolment(): HasOne
     {
         $activeSession = AcademicSession::current();
+
         return $this->hasOne(Enrolment::class)
-                    ->where('academic_session_id', optional($activeSession)->id);
+            ->where('academic_session_id', optional($activeSession)->id);
+    }
+
+    /**
+     * All parent records that belong to this student's billing family.
+     *
+     * A family is treated as every parent linked to this student and every
+     * parent linked to those parents' other children. This keeps siblings on
+     * one deterministic virtual account even if their parent relation order
+     * differs.
+     */
+    public function familyParentsForBilling(): Collection
+    {
+        $directParentIds = $this->parents()
+            ->pluck('parents.id')
+            ->unique()
+            ->values();
+
+        if ($directParentIds->isEmpty()) {
+            return collect();
+        }
+
+        $familyStudentIds = DB::table('parent_student')
+            ->whereIn('parent_id', $directParentIds)
+            ->pluck('student_id')
+            ->unique()
+            ->values();
+
+        return ParentGuardian::query()
+            ->whereHas('students', fn ($query) => $query->whereIn('students.id', $familyStudentIds))
+            ->with('user')
+            ->get()
+            ->unique('id')
+            ->values();
+    }
+
+    public function billingParent(bool $requireAccount = false): ?ParentGuardian
+    {
+        $provider = ParentGuardian::getActiveWalletProvider();
+
+        $parents = $this->familyParentsForBilling()
+            ->filter(fn (ParentGuardian $parent) => $parent->user !== null);
+
+        if ($parents->isEmpty()) {
+            return null;
+        }
+
+        $ranked = $parents->sortBy(function (ParentGuardian $parent) use ($provider) {
+            return sprintf(
+                '%d-%d-%d-%010d',
+                $parent->hasProviderAccount($provider) ? 0 : 1,
+                ! empty($parent->active_account_number) ? 0 : 1,
+                $parent->wallet_status === 'active' ? 0 : 1,
+                $parent->id
+            );
+        })->values();
+
+        if ($requireAccount) {
+            return $ranked->first(fn (ParentGuardian $parent) => ! empty($parent->active_account_number));
+        }
+
+        return $ranked->first();
+    }
+
+    public function billingAccountNumbers(): array
+    {
+        return $this->familyParentsForBilling()
+            ->flatMap(fn (ParentGuardian $parent) => [
+                $parent->juicyway_account_number,
+                $parent->budpay_account_number,
+                $parent->korapay_account_number,
+            ])
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

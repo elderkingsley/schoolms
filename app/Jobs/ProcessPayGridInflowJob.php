@@ -1,4 +1,5 @@
 <?php
+
 // Deploy to: /var/www/schoolms/app/Jobs/ProcessPayGridInflowJob.php
 
 namespace App\Jobs;
@@ -6,6 +7,7 @@ namespace App\Jobs;
 use App\Models\FeeInvoice;
 use App\Models\FeePayment;
 use App\Models\ParentGuardian;
+use App\Models\User;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\FeeService;
 use App\Services\ParentCreditService;
@@ -41,7 +43,8 @@ class ProcessPayGridInflowJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int   $tries   = 3;
+    public int $tries = 3;
+
     public array $backoff = [60, 300, 900];
 
     public function __construct(protected array $payload) {}
@@ -49,23 +52,25 @@ class ProcessPayGridInflowJob implements ShouldQueue
     public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
     {
         $accountNumber = $this->payload['account_number'] ?? null;
-        $amountNgn     = (float) ($this->payload['amount_ngn'] ?? 0);
-        $reference     = $this->payload['reference']      ?? null;
-        $senderName    = $this->payload['sender_name']    ?? 'Unknown';
-        $depositId     = $this->payload['deposit_id']     ?? $reference;
+        $amountNgn = (float) ($this->payload['amount_ngn'] ?? 0);
+        $reference = $this->payload['reference'] ?? null;
+        $senderName = $this->payload['sender_name'] ?? 'Unknown';
+        $depositId = $this->payload['deposit_id'] ?? $reference;
 
         if (! $accountNumber || $amountNgn <= 0 || ! $reference) {
             Log::warning('ProcessPayGridInflow: missing fields — skipping', $this->payload);
+
             return;
         }
 
         // ── Idempotency check ─────────────────────────────────────────────
         // Use the bank reference as the unique key. PayGrid may fire the
         // webhook more than once if SchoolMS returned 5xx on first attempt.
-        $alreadyRecorded = FeePayment::where('reference', 'like', $reference . '%')->exists();
+        $alreadyRecorded = FeePayment::where('reference', 'like', $reference.'%')->exists();
 
         if ($alreadyRecorded) {
             Log::info("ProcessPayGridInflow: reference '{$reference}' already recorded — skipping.");
+
             return;
         }
 
@@ -80,42 +85,46 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
         if (! $parent) {
             Log::warning("ProcessPayGridInflow: no parent found for account {$accountNumber}");
+
             return;
         }
 
-        $student = $parent->students->first();
+        $studentIds = $parent->familyStudentIdsForBilling();
 
-        if (! $student) {
-            Log::warning("ProcessPayGridInflow: parent {$parent->id} has no linked student");
+        if ($studentIds->isEmpty()) {
+            Log::warning("ProcessPayGridInflow: parent {$parent->id} has no linked students");
+
             return;
         }
 
         // ── Resolve system actor for audit trail ─────────────────────────
-        $systemActorId = \App\Models\User::where('user_type', 'super_admin')
+        $systemActorId = User::where('user_type', 'super_admin')
             ->orWhere('user_type', 'admin')
             ->orderBy('id')
             ->value('id');
 
         // ── Find unpaid/partial invoices — oldest first ───────────────────
-        $invoices = FeeInvoice::where('student_id', $student->id)
+        $invoices = FeeInvoice::whereIn('student_id', $studentIds)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->with(['items', 'payments', 'term.session'])
+            ->with(['items', 'payments', 'term.session', 'student'])
             ->orderBy('id', 'asc') // oldest invoice first (FIFO)
             ->get();
 
         if ($invoices->isEmpty()) {
-            Log::info("ProcessPayGridInflow: ₦{$amountNgn} received for student {$student->id} but no unpaid invoices found.", [
+            Log::info("ProcessPayGridInflow: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices found across any child.", [
                 'account_number' => $accountNumber,
-                'reference'      => $reference,
-                'sender'         => $senderName,
+                'reference' => $reference,
+                'sender' => $senderName,
+                'student_ids' => $studentIds->toArray(),
             ]);
+
             // Still log it — money arrived but no invoice to apply to
             // The school bursary will handle this manually
             return;
         }
 
         // ── Apply deposit across invoices (FIFO) ──────────────────────────
-        $remaining       = $amountNgn;
+        $remaining = $amountNgn;
         $settledInvoices = [];
 
         DB::transaction(function () use (
@@ -129,34 +138,36 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
                 $balance = (float) (string) $invoice->balance;
 
-                if ($balance <= 0) continue; // already paid somehow
+                if ($balance <= 0) {
+                    continue;
+                } // already paid somehow
 
                 // Amount to apply to this invoice
                 $toApply = min($remaining, $balance);
 
                 // Derive the payment method from whichever provider's NUBAN matched
-                $paymentMethod = match(true) {
+                $paymentMethod = match (true) {
                     ! empty($parent->korapay_account_number) && $parent->korapay_account_number === $accountNumber => 'Korapay Transfer',
-                    ! empty($parent->budpay_account_number)  && $parent->budpay_account_number  === $accountNumber => 'BudPay Transfer',
+                    ! empty($parent->budpay_account_number) && $parent->budpay_account_number === $accountNumber => 'BudPay Transfer',
                     default => 'JuicyWay Transfer',
                 };
 
                 $feeService->recordPayment(
-                    invoice:    $invoice,
-                    amount:     $toApply,
-                    method:     $paymentMethod,
-                    reference:  $reference . '-inv-' . $invoice->id,
+                    invoice: $invoice,
+                    amount: $toApply,
+                    method: $paymentMethod,
+                    reference: $reference.'-inv-'.$invoice->id,
                     recordedBy: $systemActorId,
-                    source:     'automation',
+                    source: 'automation',
                 );
 
                 $remaining -= $toApply;
                 $settledInvoices[] = $invoice->fresh();
 
                 Log::info("ProcessPayGridInflow: ₦{$toApply} applied to invoice {$invoice->id}", [
-                    'student'    => $invoice->student_id,
-                    'status'     => $invoice->fresh()->status,
-                    'reference'  => $reference . '-inv-' . $invoice->id,
+                    'student' => $invoice->student_id,
+                    'status' => $invoice->fresh()->status,
+                    'reference' => $reference.'-inv-'.$invoice->id,
                 ]);
             }
         });
@@ -165,7 +176,7 @@ class ProcessPayGridInflowJob implements ShouldQueue
             $parentCreditService->captureOverpayment(
                 parent: $parent,
                 amount: $remaining,
-                reference: $reference . '-credit',
+                reference: $reference.'-credit',
                 recordedBy: $systemActorId,
                 originInvoice: $settledInvoices[0] ?? null,
             );
@@ -178,13 +189,14 @@ class ProcessPayGridInflowJob implements ShouldQueue
 
         // ── Send payment confirmation email to parent ─────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
+            $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
                 $parent->user->notify(
                     new PaymentReceivedNotification(
-                        student:         $student,
-                        amountPaid:      $amountNgn,
-                        senderName:      $senderName,
-                        reference:       $reference,
+                        student: $firstStudent,
+                        amountPaid: $amountNgn,
+                        senderName: $senderName,
+                        reference: $reference,
                         settledInvoices: $settledInvoices,
                     )
                 );
@@ -194,17 +206,18 @@ class ProcessPayGridInflowJob implements ShouldQueue
             }
         }
 
-        Log::info("ProcessPayGridInflow: ₦{$amountNgn} fully processed for student {$student->id}", [
-            'account_number'  => $accountNumber,
-            'reference'       => $reference,
-            'invoices_settled'=> count($settledInvoices),
-            'sender'          => $senderName,
+        Log::info("ProcessPayGridInflow: ₦{$amountNgn} fully processed for parent {$parent->id}", [
+            'account_number' => $accountNumber,
+            'reference' => $reference,
+            'invoices_settled' => count($settledInvoices),
+            'student_ids' => $studentIds->toArray(),
+            'sender' => $senderName,
         ]);
     }
 
     public function failed(\Throwable $e): void
     {
         $reference = $this->payload['reference'] ?? 'unknown';
-        Log::critical("ProcessPayGridInflow: permanently failed for reference '{$reference}': " . $e->getMessage());
+        Log::critical("ProcessPayGridInflow: permanently failed for reference '{$reference}': ".$e->getMessage());
     }
 }

@@ -109,6 +109,88 @@ class ParentCreditFlowTest extends TestCase
         Queue::assertPushed(PushInvoiceToPayGridJob::class, 1);
     }
 
+    public function test_siblings_resolve_the_same_billing_account_when_parent_order_differs(): void
+    {
+        $fatherUser = User::factory()->create(['user_type' => 'parent']);
+        $motherUser = User::factory()->create(['user_type' => 'parent']);
+
+        $father = ParentGuardian::create([
+            'user_id' => $fatherUser->id,
+            'budpay_account_number' => '1111111111',
+            'budpay_bank_name' => 'Test Bank',
+            'budpay_bank_code' => '999',
+            'budpay_wallet_status' => 'active',
+        ]);
+
+        $mother = ParentGuardian::create([
+            'user_id' => $motherUser->id,
+            'budpay_account_number' => '2222222222',
+            'budpay_bank_name' => 'Other Bank',
+            'budpay_bank_code' => '998',
+            'budpay_wallet_status' => 'active',
+        ]);
+
+        $firstChild = $this->createStudent('ADM-101', 'First');
+        $secondChild = $this->createStudent('ADM-102', 'Second');
+
+        $firstChild->parents()->attach($father->id, ['relationship' => 'Father', 'is_primary_contact' => true]);
+        $firstChild->parents()->attach($mother->id, ['relationship' => 'Mother', 'is_primary_contact' => false]);
+
+        $secondChild->parents()->attach($mother->id, ['relationship' => 'Mother', 'is_primary_contact' => true]);
+        $secondChild->parents()->attach($father->id, ['relationship' => 'Father', 'is_primary_contact' => false]);
+
+        $this->assertSame('1111111111', $firstChild->billingParent(requireAccount: true)->active_account_number);
+        $this->assertSame('1111111111', $secondChild->billingParent(requireAccount: true)->active_account_number);
+    }
+
+    public function test_process_paygrid_inflow_settles_unpaid_invoices_across_siblings(): void
+    {
+        $admin = User::factory()->create(['user_type' => 'super_admin']);
+        [$parent, $firstChild, $firstInvoice] = $this->createParentStudentInvoiceGraph();
+
+        $secondChild = $this->createStudent('ADM-002', 'Second');
+        $parent->students()->attach($secondChild->id, [
+            'relationship' => 'Guardian',
+            'is_primary_contact' => true,
+        ]);
+        $secondInvoice = $this->createInvoiceForStudent($secondChild);
+
+        Notification::fake();
+
+        app()->call([new ProcessPayGridInflowJob([
+            'account_number' => '0123456789',
+            'amount_ngn' => 160,
+            'reference' => 'PAYGRID-FAMILY-001',
+            'sender_name' => 'Parent One',
+        ]), 'handle']);
+
+        $firstInvoice->refresh();
+        $secondInvoice->refresh();
+
+        $this->assertSame('paid', $firstInvoice->status);
+        $this->assertSame('100.00', (string) $firstInvoice->amount_paid);
+
+        $this->assertSame('partial', $secondInvoice->status);
+        $this->assertSame('60.00', (string) $secondInvoice->amount_paid);
+        $this->assertSame('40.00', (string) $secondInvoice->balance);
+
+        $this->assertDatabaseHas('fee_payments', [
+            'fee_invoice_id' => $firstInvoice->id,
+            'amount' => '100.00',
+            'method' => 'BudPay Transfer',
+            'reference' => 'PAYGRID-FAMILY-001-inv-'.$firstInvoice->id,
+            'recorded_by' => $admin->id,
+        ]);
+
+        $this->assertDatabaseHas('fee_payments', [
+            'fee_invoice_id' => $secondInvoice->id,
+            'amount' => '60.00',
+            'method' => 'BudPay Transfer',
+            'reference' => 'PAYGRID-FAMILY-001-inv-'.$secondInvoice->id,
+            'recorded_by' => $admin->id,
+        ]);
+    }
+
     /**
      * @return array{0: ParentGuardian, 1: Student, 2: FeeInvoice}
      */
@@ -127,26 +209,43 @@ class ParentCreditFlowTest extends TestCase
             'budpay_wallet_status' => 'active',
         ]);
 
-        $student = Student::create([
-            'admission_number' => 'ADM-001',
-            'first_name' => 'Test',
-            'last_name' => 'Student',
-            'gender' => 'Male',
-            'date_of_birth' => '2015-01-01',
-            'status' => 'active',
-        ]);
+        $student = $this->createStudent('ADM-001', 'Test');
 
         $parent->students()->attach($student->id, [
             'relationship' => 'Guardian',
             'is_primary_contact' => true,
         ]);
 
-        $session = AcademicSession::create([
+        $invoice = $this->createInvoiceForStudent($student);
+
+        return [$parent, $student, $invoice];
+    }
+
+    private function createStudent(string $admissionNumber, string $firstName): Student
+    {
+        return Student::create([
+            'admission_number' => $admissionNumber,
+            'first_name' => $firstName,
+            'last_name' => 'Student',
+            'gender' => 'Male',
+            'date_of_birth' => '2015-01-01',
+            'status' => 'active',
+        ]);
+    }
+
+    private function createInvoiceForStudent(Student $student): FeeInvoice
+    {
+        $session = AcademicSession::firstOrCreate([
+            'name' => '2026/2027',
+        ], [
             'name' => '2026/2027',
             'is_active' => true,
         ]);
 
-        $term = Term::create([
+        $term = Term::firstOrCreate([
+            'academic_session_id' => $session->id,
+            'name' => 'First',
+        ], [
             'academic_session_id' => $session->id,
             'name' => 'First',
             'is_active' => true,
@@ -175,6 +274,6 @@ class ParentCreditFlowTest extends TestCase
             'added_by' => 'system',
         ]);
 
-        return [$parent, $student, $invoice];
+        return $invoice;
     }
 }

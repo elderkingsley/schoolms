@@ -14,17 +14,13 @@ class ParentCreditService
 {
     public function __construct(
         private FeeService $feeService
-    ) {
-    }
+    ) {}
 
     public function resolveBillingParent(FeeInvoice $invoice): ?ParentGuardian
     {
         $invoice->loadMissing('student.parents.user');
 
-        return $invoice->student->parents
-            ->filter(fn (ParentGuardian $parent) => $parent->user !== null && ! empty($parent->active_account_number))
-            ->sortByDesc(fn (ParentGuardian $parent) => $parent->availableCreditBalance())
-            ->first();
+        return $invoice->student->billingParent(requireAccount: true);
     }
 
     public function captureOverpayment(

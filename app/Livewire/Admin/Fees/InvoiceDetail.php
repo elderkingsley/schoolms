@@ -94,9 +94,7 @@ class InvoiceDetail extends Component
      */
     public function retryProvisionWallet(): void
     {
-        $parent = $this->invoice->student->parents
-            ->filter(fn ($p) => $p->user !== null)
-            ->first();
+        $parent = $this->invoice->student->billingParent();
 
         if (! $parent) {
             session()->flash('error', 'No parent account found for this student.');

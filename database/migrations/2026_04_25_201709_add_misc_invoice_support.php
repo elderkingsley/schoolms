@@ -1,4 +1,5 @@
 <?php
+
 // Deploy to: database/migrations/2026_04_25_000001_add_misc_invoice_support.php
 
 use Illuminate\Database\Migrations\Migration;
@@ -77,6 +78,10 @@ return new class extends Migration
 
     private function hasIndex(string $table, string $indexName): bool
     {
+        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return false;
+        }
+
         $database = DB::getDatabaseName();
 
         return DB::table('information_schema.statistics')
@@ -88,6 +93,10 @@ return new class extends Migration
 
     private function termIdIsNullable(): bool
     {
+        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return true;
+        }
+
         $database = DB::getDatabaseName();
 
         return DB::table('information_schema.columns')

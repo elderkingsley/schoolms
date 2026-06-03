@@ -150,7 +150,7 @@
 
     // Per-student NUBAN from BudPay/Korapay/JuicyWay takes priority over school-wide bank
     $student       = $invoice->student;
-    $parentWithAccount = $student->parents->first(fn($p) => ! empty($p->active_account_number));
+    $parentWithAccount = $student->billingParent(requireAccount: true);
     if ($parentWithAccount) {
         $bankName      = $parentWithAccount->active_bank_name ?? $bankName;
         $accountName   = $schoolName . ' / ' . $student->full_name;

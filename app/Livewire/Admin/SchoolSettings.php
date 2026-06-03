@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\SchoolSetting;
-use App\Models\ParentGuardian;
 use App\Jobs\ProvisionParentWalletJob;
+use App\Models\ParentGuardian;
+use App\Models\SchoolSetting;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Illuminate\Support\Facades\Log;
 
 /**
  * SchoolSettings — super_admin/admin only.
@@ -24,28 +24,41 @@ class SchoolSettings extends Component
     use WithFileUploads;
 
     // School identity
-    public string  $school_name    = '';
-    public string  $school_tagline = '';
-    public string  $school_address = '';
-    public string  $school_email   = '';
-    public string  $school_phone   = '';
-    public string  $school_website = '';
+    public string $school_name = '';
+
+    public string $school_tagline = '';
+
+    public string $school_address = '';
+
+    public string $school_email = '';
+
+    public string $school_phone = '';
+
+    public string $school_website = '';
 
     // Invoice settings
-    public string  $invoice_bank_name      = '';
-    public string  $invoice_account_name   = '';
-    public string  $invoice_account_number = '';
-    public string  $invoice_payment_note   = '';
+    public string $invoice_bank_name = '';
+
+    public string $invoice_account_name = '';
+
+    public string $invoice_account_number = '';
+
+    public string $invoice_payment_note = '';
 
     // Wallet provider
-    public string  $wallet_provider = 'budpay';
-    public array   $available_providers = ['budpay', 'juicyway'];
-    public bool    $showProviderConfirmModal = false;
+    public string $wallet_provider = 'budpay';
+
+    public array $available_providers = ['budpay', 'juicyway'];
+
+    public bool $showProviderConfirmModal = false;
+
     public ?string $pendingProvider = null;
-    public int     $parentsNeedingProvisioning = 0;
+
+    public int $parentsNeedingProvisioning = 0;
 
     // Logo
     public ?string $current_logo = null;
+
     public $logo; // uploaded file
 
     public function mount(): void
@@ -57,17 +70,17 @@ class SchoolSettings extends Component
 
         $settings = SchoolSetting::allCached();
 
-        $this->school_name    = $settings['school_name']    ?? '';
+        $this->school_name = $settings['school_name'] ?? '';
         $this->school_tagline = $settings['school_tagline'] ?? '';
         $this->school_address = $settings['school_address'] ?? '';
-        $this->school_email   = $settings['school_email']   ?? '';
-        $this->school_phone   = $settings['school_phone']   ?? '';
+        $this->school_email = $settings['school_email'] ?? '';
+        $this->school_phone = $settings['school_phone'] ?? '';
         $this->school_website = $settings['school_website'] ?? '';
 
-        $this->invoice_bank_name      = $settings['invoice_bank_name']      ?? '';
-        $this->invoice_account_name   = $settings['invoice_account_name']   ?? '';
+        $this->invoice_bank_name = $settings['invoice_bank_name'] ?? '';
+        $this->invoice_account_name = $settings['invoice_account_name'] ?? '';
         $this->invoice_account_number = $settings['invoice_account_number'] ?? '';
-        $this->invoice_payment_note   = $settings['invoice_payment_note']   ?? '';
+        $this->invoice_payment_note = $settings['invoice_payment_note'] ?? '';
 
         // Load wallet provider: admin override first, then config default
         $this->wallet_provider = $settings['wallet_provider']
@@ -98,6 +111,7 @@ class SchoolSettings extends Component
     {
         if (! $this->pendingProvider) {
             $this->showProviderConfirmModal = false;
+
             return;
         }
 
@@ -113,7 +127,7 @@ class SchoolSettings extends Component
             'parents_provisioned' => $count,
         ]);
 
-        session()->flash('success', "Wallet provider updated to " . ucfirst($this->pendingProvider) . ". {$count} parent account(s) queued for provisioning.");
+        session()->flash('success', 'Wallet provider updated to '.ucfirst($this->pendingProvider).". {$count} parent account(s) queued for provisioning.");
 
         $this->showProviderConfirmModal = false;
         $this->pendingProvider = null;
@@ -146,8 +160,11 @@ class SchoolSettings extends Component
     protected function countParentsNeedingProvider(string $provider): int
     {
         return ParentGuardian::whereNotNull('user_id')
+            ->with('students')
             ->get()
-            ->filter(fn($parent) => $parent->needsProviderAccount($provider))
+            ->filter(fn ($parent) => $parent->needsProviderAccount($provider)
+                && $parent->isBillingParentForAnyLinkedStudent()
+            )
             ->count();
     }
 
@@ -162,9 +179,10 @@ class SchoolSettings extends Component
         $parents = ParentGuardian::whereNotNull('user_id')
             ->with(['user', 'students'])
             ->get()
-            ->filter(fn($parent) => $parent->needsProviderAccount($provider)
+            ->filter(fn ($parent) => $parent->needsProviderAccount($provider)
                 && $parent->user
                 && $parent->students->isNotEmpty()
+                && $parent->isBillingParentForAnyLinkedStudent()
             );
 
         foreach ($parents as $parent) {
@@ -177,17 +195,17 @@ class SchoolSettings extends Component
     public function save(): void
     {
         $this->validate([
-            'school_name'           => 'required|string|max:100',
-            'school_tagline'        => 'nullable|string|max:150',
-            'school_address'        => 'nullable|string|max:255',
-            'school_email'          => 'nullable|email|max:100',
-            'school_phone'          => 'nullable|string|max:30',
-            'school_website'        => 'nullable|string|max:100',
-            'invoice_bank_name'     => 'nullable|string|max:100',
-            'invoice_account_name'  => 'nullable|string|max:100',
-            'invoice_account_number'=> 'nullable|string|max:20',
-            'invoice_payment_note'  => 'nullable|string|max:300',
-            'logo'                  => 'nullable|image|max:2048', // 2MB max
+            'school_name' => 'required|string|max:100',
+            'school_tagline' => 'nullable|string|max:150',
+            'school_address' => 'nullable|string|max:255',
+            'school_email' => 'nullable|email|max:100',
+            'school_phone' => 'nullable|string|max:30',
+            'school_website' => 'nullable|string|max:100',
+            'invoice_bank_name' => 'nullable|string|max:100',
+            'invoice_account_name' => 'nullable|string|max:100',
+            'invoice_account_number' => 'nullable|string|max:20',
+            'invoice_payment_note' => 'nullable|string|max:300',
+            'logo' => 'nullable|image|max:2048', // 2MB max
         ]);
 
         // Handle logo upload
@@ -204,16 +222,16 @@ class SchoolSettings extends Component
         }
 
         SchoolSetting::setMany([
-            'school_name'            => trim($this->school_name),
-            'school_tagline'         => trim($this->school_tagline),
-            'school_address'         => trim($this->school_address),
-            'school_email'           => trim($this->school_email),
-            'school_phone'           => trim($this->school_phone),
-            'school_website'         => trim($this->school_website),
-            'invoice_bank_name'      => trim($this->invoice_bank_name),
-            'invoice_account_name'   => trim($this->invoice_account_name),
+            'school_name' => trim($this->school_name),
+            'school_tagline' => trim($this->school_tagline),
+            'school_address' => trim($this->school_address),
+            'school_email' => trim($this->school_email),
+            'school_phone' => trim($this->school_phone),
+            'school_website' => trim($this->school_website),
+            'invoice_bank_name' => trim($this->invoice_bank_name),
+            'invoice_account_name' => trim($this->invoice_account_name),
             'invoice_account_number' => trim($this->invoice_account_number),
-            'invoice_payment_note'   => trim($this->invoice_payment_note),
+            'invoice_payment_note' => trim($this->invoice_payment_note),
             // Note: wallet_provider is saved in confirmProviderChange(), not here
         ]);
 

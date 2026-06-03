@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\FeeInvoice;
 use App\Models\FeePayment;
 use App\Models\ParentGuardian;
+use App\Models\User;
 use App\Notifications\PaymentReceivedNotification;
 use App\Services\FeeService;
 use App\Services\ParentCreditService;
@@ -42,42 +43,46 @@ class ProcessKorapayWebhookJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int   $tries   = 3;
-    public int   $timeout = 55;
-    public array $backoff  = [30, 60, 120];
+    public int $tries = 3;
+
+    public int $timeout = 55;
+
+    public array $backoff = [30, 60, 120];
 
     public function __construct(
-        private readonly array  $payload,
+        private readonly array $payload,
         private readonly string $logId,
     ) {}
 
     public function handle(FeeService $feeService, ParentCreditService $parentCreditService): void
     {
-        $data      = $this->payload['data'] ?? [];
-        $reference = $data['reference']     ?? null;
+        $data = $this->payload['data'] ?? [];
+        $reference = $data['reference'] ?? null;
         $amountNgn = (float) ($data['amount'] ?? 0);
 
-        $vbaDetails    = $data['virtual_bank_account_details'] ?? [];
-        $vba           = $vbaDetails['virtual_bank_account']   ?? [];
-        $payerAccount  = $vbaDetails['payer_bank_account']     ?? [];
+        $vbaDetails = $data['virtual_bank_account_details'] ?? [];
+        $vba = $vbaDetails['virtual_bank_account'] ?? [];
+        $payerAccount = $vbaDetails['payer_bank_account'] ?? [];
 
         $accountReference = $vba['account_reference'] ?? null;
-        $accountNumber    = $vba['account_number']    ?? null;
-        $senderName       = $payerAccount['account_name'] ?? 'Unknown Sender';
+        $accountNumber = $vba['account_number'] ?? null;
+        $senderName = $payerAccount['account_name'] ?? 'Unknown Sender';
 
         if (! $reference || $amountNgn <= 0 || ! $accountReference) {
             Log::error('ProcessKorapayWebhookJob: missing required fields', [
-                'reference'         => $reference,
-                'amount'            => $amountNgn,
+                'reference' => $reference,
+                'amount' => $amountNgn,
                 'account_reference' => $accountReference,
-                'log_id'            => $this->logId,
+                'log_id' => $this->logId,
             ]);
+
             return;
         }
 
         // ── Idempotency ───────────────────────────────────────────────────
-        if (FeePayment::where('reference', 'like', $reference . '%')->exists()) {
+        if (FeePayment::where('reference', 'like', $reference.'%')->exists()) {
             Log::info("ProcessKorapayWebhookJob: duplicate reference '{$reference}' — skipping.");
+
             return;
         }
 
@@ -91,45 +96,49 @@ class ProcessKorapayWebhookJob implements ShouldQueue
                 'reference' => $reference,
             ]);
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber ?? $accountReference, $senderName);
+
             return;
         }
 
-        $student = $parent->students->first();
-        if (! $student) {
-            Log::warning("ProcessKorapayWebhookJob: parent {$parent->id} has no linked student");
+        $studentIds = $parent->familyStudentIdsForBilling();
+        if ($studentIds->isEmpty()) {
+            Log::warning("ProcessKorapayWebhookJob: parent {$parent->id} has no linked students");
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber ?? $accountReference, $senderName);
+
             return;
         }
 
-        // ── Find unpaid invoices FIFO ─────────────────────────────────────
-        $invoices = FeeInvoice::where('student_id', $student->id)
+        // ── Find unpaid invoices across all children FIFO ────────────────
+        $invoices = FeeInvoice::whereIn('student_id', $studentIds)
             ->whereIn('status', ['unpaid', 'partial'])
-            ->with(['items', 'payments', 'term.session'])
+            ->with(['items', 'payments', 'term.session', 'student'])
             ->orderBy('id', 'asc')
             ->get();
 
         if ($invoices->isEmpty()) {
-            Log::info("ProcessKorapayWebhookJob: ₦{$amountNgn} received for {$student->full_name} but no unpaid invoices", [
+            Log::info("ProcessKorapayWebhookJob: ₦{$amountNgn} received for parent {$parent->id} but no unpaid invoices across any child", [
                 'reference' => $reference,
+                'student_ids' => $studentIds->toArray(),
             ]);
             $this->notifyPayGrid($amountNgn, $reference, $accountNumber ?? $accountReference, $senderName);
+
             return;
         }
 
         // ── Resolve system actor ──────────────────────────────────────────
-        $systemActorId = \App\Models\User::where('user_type', 'super_admin')
+        $systemActorId = User::where('user_type', 'super_admin')
             ->orWhere('user_type', 'admin')
             ->orderBy('id')
             ->value('id');
 
         // ── Apply payment FIFO ────────────────────────────────────────────
-        $remaining       = $amountNgn;
+        $remaining = $amountNgn;
         $settledInvoices = [];
         $settledInvoiceIds = [];
 
         DB::transaction(function () use (
             $invoices, &$remaining, &$settledInvoices, &$settledInvoiceIds,
-            $reference, $feeService, $systemActorId, $student
+            $reference, $feeService, $systemActorId
         ) {
             foreach ($invoices as $invoice) {
                 if ($remaining <= 0) {
@@ -137,17 +146,19 @@ class ProcessKorapayWebhookJob implements ShouldQueue
                 }
 
                 $balance = (float) (string) $invoice->balance;
-                if ($balance <= 0) continue;
+                if ($balance <= 0) {
+                    continue;
+                }
 
                 $toApply = (float) (string) min($remaining, $balance);
 
                 $feeService->recordPayment(
-                    invoice:    $invoice,
-                    amount:     $toApply,
-                    method:     'Korapay Transfer',
-                    reference:  $reference . '-inv-' . $invoice->id,
+                    invoice: $invoice,
+                    amount: $toApply,
+                    method: 'Korapay Transfer',
+                    reference: $reference.'-inv-'.$invoice->id,
                     recordedBy: $systemActorId,
-                    source:     'automation',
+                    source: 'automation',
                 );
 
                 $remaining -= $toApply;
@@ -155,21 +166,21 @@ class ProcessKorapayWebhookJob implements ShouldQueue
                 $settledInvoiceIds[] = (string) $invoice->id;
 
                 Log::info("ProcessKorapayWebhookJob: ₦{$toApply} applied to invoice {$invoice->id}", [
-                    'student'   => $student->id,
-                    'reference' => $reference . '-inv-' . $invoice->id,
+                    'student' => $invoice->student_id,
+                    'reference' => $reference.'-inv-'.$invoice->id,
                 ]);
             }
         });
 
         foreach ($settledInvoices as $settledInvoice) {
             $payment = $settledInvoice->payments()
-                ->where('reference', $reference . '-inv-' . $settledInvoice->id)
+                ->where('reference', $reference.'-inv-'.$settledInvoice->id)
                 ->first();
 
             if ($payment) {
                 $this->notifyPayGrid(
                     (float) $payment->amount,
-                    $reference . '-inv-' . $settledInvoice->id,
+                    $reference.'-inv-'.$settledInvoice->id,
                     $accountNumber ?? $accountReference,
                     $senderName,
                     (string) $settledInvoice->id,
@@ -182,14 +193,14 @@ class ProcessKorapayWebhookJob implements ShouldQueue
             $parentCreditService->captureOverpayment(
                 parent: $parent,
                 amount: $remaining,
-                reference: $reference . '-credit',
+                reference: $reference.'-credit',
                 recordedBy: $systemActorId,
                 originInvoice: $settledInvoices[0] ?? null,
             );
 
             $this->notifyPayGrid(
                 $remaining,
-                $reference . '-credit',
+                $reference.'-credit',
                 $accountNumber ?? $accountReference,
                 $senderName,
                 null,
@@ -199,12 +210,13 @@ class ProcessKorapayWebhookJob implements ShouldQueue
 
         // ── Email the parent ──────────────────────────────────────────────
         if ($parent->user && ! empty($settledInvoices)) {
+            $firstStudent = $settledInvoices[0]->student ?? $parent->students->first();
             try {
                 $parent->user->notify(new PaymentReceivedNotification(
-                    student:         $student,
-                    amountPaid:      $amountNgn,
-                    senderName:      $senderName,
-                    reference:       $reference,
+                    student: $firstStudent,
+                    amountPaid: $amountNgn,
+                    senderName: $senderName,
+                    reference: $reference,
                     settledInvoices: $settledInvoices,
                 ));
             } catch (\Throwable $e) {
@@ -214,12 +226,13 @@ class ProcessKorapayWebhookJob implements ShouldQueue
 
         DB::table('korapay_webhook_events')->where('id', $this->logId)->update([
             'processed_at' => now(),
-            'updated_at'   => now(),
+            'updated_at' => now(),
         ]);
 
-        Log::info("ProcessKorapayWebhookJob: ₦{$amountNgn} fully processed for student {$student->full_name}", [
-            'reference'        => $reference,
+        Log::info("ProcessKorapayWebhookJob: ₦{$amountNgn} fully processed for parent {$parent->id}", [
+            'reference' => $reference,
             'invoices_settled' => count($settledInvoices),
+            'student_ids' => $studentIds->toArray(),
         ]);
     }
 
@@ -231,22 +244,23 @@ class ProcessKorapayWebhookJob implements ShouldQueue
         ?string $invoiceId = null,
         array $invoiceIds = []
     ): void {
-        $url    = config('services.paygrid.api_base_url', '');
+        $url = config('services.paygrid.api_base_url', '');
         $apiKey = config('services.paygrid.api_key', '');
 
         if (empty($url) || empty($apiKey)) {
             Log::warning('ProcessKorapayWebhookJob: PayGrid credentials not set — skipping');
+
             return;
         }
 
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Accept'        => 'application/json',
-                    'Content-Type'  => 'application/json',
+                    'Authorization' => 'Bearer '.$apiKey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])
-                ->post(rtrim($url, '/') . '/api/inflows', array_filter([
+                ->post(rtrim($url, '/').'/api/inflows', array_filter([
                     'reference' => $reference,
                     'amount_ngn' => $amountNgn,
                     'account_number' => $accountNumber,
@@ -260,9 +274,9 @@ class ProcessKorapayWebhookJob implements ShouldQueue
             if ($response->successful()) {
                 Log::info("ProcessKorapayWebhookJob: PayGrid notified for ref {$reference}");
             } else {
-                Log::warning("ProcessKorapayWebhookJob: PayGrid notification failed", [
+                Log::warning('ProcessKorapayWebhookJob: PayGrid notification failed', [
                     'status' => $response->status(),
-                    'ref'    => $reference,
+                    'ref' => $reference,
                 ]);
             }
         } catch (\Throwable $e) {

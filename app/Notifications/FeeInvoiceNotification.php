@@ -25,19 +25,16 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
 
     public function toMail($notifiable): MailMessage
     {
-        $student     = $this->invoice->student;
+        $student = $this->invoice->student;
         $studentName = $student->full_name;
-        $termLabel   = $this->invoice->label();
-        $total       = '₦' . number_format($this->invoice->total_amount, 0);
-        $balance     = '₦' . number_format($this->invoice->balance, 0);
-        $reference   = $this->invoice->payment_link_reference
-            ?? 'INV-' . $this->invoice->id . ($this->invoice->term_id ? '-T' . $this->invoice->term_id : '-MISC');
+        $termLabel = $this->invoice->label();
+        $total = '₦'.number_format($this->invoice->total_amount, 0);
+        $balance = '₦'.number_format($this->invoice->balance, 0);
+        $reference = $this->invoice->payment_link_reference
+            ?? 'INV-'.$this->invoice->id.($this->invoice->term_id ? '-T'.$this->invoice->term_id : '-MISC');
 
-        // The parent this email is going to — load their virtual account details
-        $parentGuardian = $student->parents
-            ->filter(fn($p) => $p->user !== null && $p->user->email === $notifiable->email)
-            ->first()
-            ?? $student->parents->filter(fn($p) => $p->user !== null)->first();
+        $parentGuardian = $student->billingParent(requireAccount: true)
+            ?? $student->billingParent();
 
         $hasVirtualAccount = $parentGuardian
             && ! empty($parentGuardian->active_account_number);
@@ -51,30 +48,30 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
             ->line('**Fee Breakdown:**');
 
         foreach ($this->feeItems as $item) {
-            $amount   = '₦' . number_format($item->amount, 0);
+            $amount = '₦'.number_format($item->amount, 0);
             $itemName = $item->feeItem?->name ?? $item->item_name ?? 'Fee Item';
             $mail->line("- {$itemName}: {$amount}");
         }
 
         $mail->line('---')
-             ->line("**Balance Outstanding: {$balance}**")
-             ->line('');
+            ->line("**Balance Outstanding: {$balance}**")
+            ->line('');
 
         if ($hasVirtualAccount) {
             // Parent has a dedicated virtual bank account — primary payment method
             $mail
                 ->line('## Pay by Bank Transfer')
                 ->line(
-                    'Transfer directly into your dedicated school fees account. ' .
+                    'Transfer directly into your dedicated school fees account. '.
                     'Your payment will be confirmed automatically — no need to send a receipt.'
                 )
                 ->line('')
-                ->line('**Bank:** ' . $parentGuardian->active_bank_name)
-                ->line('**Account Number:** ' . $parentGuardian->active_account_number)
-                ->line('**Account Name:** ' . $notifiable->name)
+                ->line('**Bank:** '.$parentGuardian->active_bank_name)
+                ->line('**Account Number:** '.$parentGuardian->active_account_number)
+                ->line('**Account Name:** '.$notifiable->name)
                 ->line('')
                 ->line(
-                    'This is your personal school fees account. You can use it for ' .
+                    'This is your personal school fees account. You can use it for '.
                     'all future fee payments — no new account number needed each term.'
                 )
                 ->line('')
@@ -87,13 +84,13 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
             $mail
                 ->line('## How to Pay')
                 ->line(
-                    'Please make payment at the school bursary or by bank transfer. ' .
+                    'Please make payment at the school bursary or by bank transfer. '.
                     'Quote the reference below so the bursary can match your payment.'
                 )
                 ->line("**Payment Reference: {$reference}**")
                 ->line('')
                 ->line(
-                    '_A dedicated bank account for online payment is being set up for you. ' .
+                    '_A dedicated bank account for online payment is being set up for you. '.
                     'You will receive an updated email with bank transfer details shortly._'
                 )
                 ->action('View Invoice in Parent Portal', url('/parent/fees'));
