@@ -95,6 +95,7 @@ Route::middleware(['auth', 'role:super_admin|admin'])
         Route::get('/fees/invoices',               \App\Livewire\Admin\Fees\InvoiceList::class)->name('fees.invoices');
         Route::get('/fees/invoices/{invoice}',     \App\Livewire\Admin\Fees\InvoiceDetail::class)->name('fees.invoices.show');
         Route::get('/fees/invoices/{invoice}/pdf', \App\Http\Controllers\Admin\InvoicePdfController::class)->name('fees.invoices.pdf');
+        Route::get('/payments',                    \App\Livewire\Admin\Fees\PaymentList::class)->name('payments');
 
         // Messages
         Route::get('/messages',         \App\Livewire\Admin\Messages\MessageInbox::class)->name('messages');
