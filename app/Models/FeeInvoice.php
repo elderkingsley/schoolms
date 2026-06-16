@@ -19,33 +19,74 @@ class FeeInvoice extends Model
     ];
 
     protected $casts = [
-        'total_amount'                => 'decimal:2',
-        'amount_paid'                 => 'decimal:2',
-        'balance'                     => 'decimal:2',
-        'sent_at'                     => 'datetime',
-        'payment_link_generated_at'   => 'datetime',
-        'juicyway_payment_processed'  => 'boolean',
+        'total_amount' => 'decimal:2',
+        'amount_paid' => 'decimal:2',
+        'balance' => 'decimal:2',
+        'sent_at' => 'datetime',
+        'payment_link_generated_at' => 'datetime',
+        'juicyway_payment_processed' => 'boolean',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
-    public function student(): BelongsTo { return $this->belongsTo(Student::class); }
-    public function term(): BelongsTo    { return $this->belongsTo(Term::class); }
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class);
+    }
 
-    public function payments(): HasMany  { return $this->hasMany(FeePayment::class); }
-    public function items(): HasMany     { return $this->hasMany(FeeInvoiceItem::class); }
-    public function creditApplications(): HasMany { return $this->hasMany(ParentCreditApplication::class); }
+    public function term(): BelongsTo
+    {
+        return $this->belongsTo(Term::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(FeePayment::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(FeeInvoiceItem::class);
+    }
+
+    public function creditApplications(): HasMany
+    {
+        return $this->hasMany(ParentCreditApplication::class);
+    }
+
+    public function originatingCredits(): HasMany
+    {
+        return $this->hasMany(ParentCredit::class, 'origin_fee_invoice_id');
+    }
 
     // ── Scopes ────────────────────────────────────────────────────────────────
 
-    public function scopeDraft($query)  { return $query->whereNull('sent_at'); }
-    public function scopeSent($query)   { return $query->whereNotNull('sent_at'); }
+    public function scopeDraft($query)
+    {
+        return $query->whereNull('sent_at');
+    }
+
+    public function scopeSent($query)
+    {
+        return $query->whereNotNull('sent_at');
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    public function isDraft(): bool { return $this->sent_at === null; }
-    public function isSent(): bool  { return $this->sent_at !== null; }
-    public function isMiscellaneous(): bool { return $this->invoice_type === 'miscellaneous'; }
+    public function isDraft(): bool
+    {
+        return $this->sent_at === null;
+    }
+
+    public function isSent(): bool
+    {
+        return $this->sent_at !== null;
+    }
+
+    public function isMiscellaneous(): bool
+    {
+        return $this->invoice_type === 'miscellaneous';
+    }
 
     /**
      * Human-readable label for the invoice — used in emails, PDFs, PayGrid payload.
@@ -56,23 +97,57 @@ class FeeInvoice extends Model
         if ($this->isMiscellaneous()) {
             return $this->description ?? 'Miscellaneous Invoice';
         }
-        return optional($this->term)->name . ' — ' . optional($this->term?->session)->name;
+
+        return optional($this->term)->name.' — '.optional($this->term?->session)->name;
     }
 
-    public function hasPaymentLink(): bool { return ! empty($this->payment_link_url); }
+    public function hasPaymentLink(): bool
+    {
+        return ! empty($this->payment_link_url);
+    }
 
-    public function hasPaymentLinkError(): bool { return ! empty($this->payment_link_error); }
+    public function hasPaymentLinkError(): bool
+    {
+        return ! empty($this->payment_link_error);
+    }
+
+    public function availableCreditAmount(): float
+    {
+        if (! $this->exists) {
+            return 0.0;
+        }
+
+        if ($this->relationLoaded('originatingCredits')) {
+            return (float) $this->originatingCredits
+                ->where('status', 'open')
+                ->sum('balance_amount');
+        }
+
+        return (float) $this->originatingCredits()
+            ->where('status', 'open')
+            ->sum('balance_amount');
+    }
+
+    public function displayBalance(): float
+    {
+        return round((float) $this->balance - $this->availableCreditAmount(), 2);
+    }
+
+    public function hasCreditBalance(): bool
+    {
+        return $this->displayBalance() < 0;
+    }
 
     public function recalculateTotal(): void
     {
         $total = $this->items()->sum('amount');
-        $paid  = $this->payments()->sum('amount');
+        $paid = $this->payments()->sum('amount');
 
         $this->update([
             'total_amount' => $total,
-            'amount_paid'  => $paid,
-            'balance'      => max(0, $total - $paid),
-            'status'       => $paid >= $total ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
+            'amount_paid' => $paid,
+            'balance' => max(0, $total - $paid),
+            'status' => $paid >= $total ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid'),
         ]);
     }
 }

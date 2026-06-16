@@ -15,6 +15,7 @@
 .inv-amount-value.total   { color:var(--c-text-1); }
 .inv-amount-value.paid    { color:#15803D; }
 .inv-amount-value.balance { color:var(--c-danger); }
+.inv-amount-value.balance.credit { color:#15803D; }
 
 /* Badges */
 .badge { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:500; }
@@ -226,7 +227,9 @@
             </div>
             <div class="inv-amount-block">
                 <div class="inv-amount-label">Balance</div>
-                <div class="inv-amount-value balance">₦{{ number_format($invoice->balance, 0) }}</div>
+                <div class="inv-amount-value balance {{ $invoice->displayBalance() <= 0 ? 'credit' : '' }}">
+                    {{ $invoice->displayBalance() < 0 ? '-₦' : '₦' }}{{ number_format(abs($invoice->displayBalance()), 0) }}
+                </div>
             </div>
         </div>
     </div>

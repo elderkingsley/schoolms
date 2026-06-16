@@ -29,7 +29,10 @@ class FeeInvoiceNotification extends Notification implements ShouldQueue
         $studentName = $student->full_name;
         $termLabel = $this->invoice->label();
         $total = '₦'.number_format($this->invoice->total_amount, 0);
-        $balance = '₦'.number_format($this->invoice->balance, 0);
+        $displayBalance = method_exists($this->invoice, 'displayBalance')
+            ? $this->invoice->displayBalance()
+            : (float) $this->invoice->balance;
+        $balance = ($displayBalance < 0 ? '-₦' : '₦').number_format(abs($displayBalance), 0);
         $reference = $this->invoice->payment_link_reference
             ?? 'INV-'.$this->invoice->id.($this->invoice->term_id ? '-T'.$this->invoice->term_id : '-MISC');
 

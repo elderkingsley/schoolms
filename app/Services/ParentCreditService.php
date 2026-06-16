@@ -46,6 +46,7 @@ class ParentCreditService
 
             return ParentCredit::create([
                 'parent_id' => $parent->id,
+                'student_id' => $originInvoice?->student_id,
                 'origin_fee_invoice_id' => $originInvoice?->id,
                 'source_reference' => $reference,
                 'total_amount' => $amount,
@@ -79,6 +80,13 @@ class ParentCreditService
 
         $credits = ParentCredit::query()
             ->where('parent_id', $parent->id)
+            ->where(function ($query) use ($invoice) {
+                $query->where('student_id', $invoice->student_id)
+                    ->orWhere(function ($legacy) {
+                        $legacy->whereNull('student_id')
+                            ->whereNull('origin_fee_invoice_id');
+                    });
+            })
             ->where('status', 'open')
             ->where('balance_amount', '>', 0)
             ->orderBy('created_at')

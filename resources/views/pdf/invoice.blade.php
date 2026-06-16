@@ -258,9 +258,9 @@
         <div class="summary-value" style="color:#15803D">NGN {{ number_format($invoice->amount_paid, 2) }}</div>
     </div>
     <hr class="summary-divider">
-    <div class="summary-row balance {{ $invoice->balance <= 0 ? 'cleared' : '' }}">
+    <div class="summary-row balance {{ $invoice->displayBalance() <= 0 ? 'cleared' : '' }}">
         <div class="summary-label">Balance Due</div>
-        <div class="summary-value">NGN {{ number_format($invoice->balance, 2) }}</div>
+        <div class="summary-value">{{ $invoice->displayBalance() < 0 ? '-' : '' }}NGN {{ number_format(abs($invoice->displayBalance()), 2) }}</div>
     </div>
 </div>
 

@@ -671,8 +671,8 @@
                     </div>
                     <div class="inv-row-amount">
                         <div style="color:var(--c-text-3);font-size:10px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Balance</div>
-                        <span style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : '#15803D' }}">
-                            ₦{{ number_format($invoice->balance, 0) }}
+                        <span style="color:{{ $invoice->displayBalance() > 0 ? 'var(--c-danger)' : '#15803D' }}">
+                            {{ $invoice->displayBalance() < 0 ? '-₦' : '₦' }}{{ number_format(abs($invoice->displayBalance()), 0) }}
                         </span>
                     </div>
                     <span class="badge badge-{{ $invoice->status }}" style="flex-shrink:0;">

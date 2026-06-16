@@ -10,6 +10,7 @@ class ParentCredit extends Model
 {
     protected $fillable = [
         'parent_id',
+        'student_id',
         'origin_fee_invoice_id',
         'source_reference',
         'total_amount',
@@ -27,6 +28,11 @@ class ParentCredit extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(ParentGuardian::class, 'parent_id');
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class);
     }
 
     public function originInvoice(): BelongsTo

@@ -102,8 +102,8 @@
                         </td>
                         <td class="right mono">₦{{ number_format($invoice->total_amount, 0) }}</td>
                         <td class="right mono" style="color:#15803D;">₦{{ number_format($invoice->amount_paid, 0) }}</td>
-                        <td class="right mono" style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : '#15803D' }}">
-                            ₦{{ number_format($invoice->balance, 0) }}
+                        <td class="right mono" style="color:{{ $invoice->displayBalance() > 0 ? 'var(--c-danger)' : '#15803D' }}">
+                            {{ $invoice->displayBalance() < 0 ? '-₦' : '₦' }}{{ number_format(abs($invoice->displayBalance()), 0) }}
                         </td>
                         <td>
                             <span class="badge badge-{{ $invoice->status }}">

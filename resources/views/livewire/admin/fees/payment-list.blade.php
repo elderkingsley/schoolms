@@ -149,8 +149,12 @@
                             <td class="mono muted">{{ $payment->reference ?: '—' }}</td>
                             <td class="right amount">₦{{ number_format($payment->amount, 0) }}</td>
                             <td class="right amount">₦{{ number_format($invoice?->amount_paid ?? 0, 0) }}</td>
-                            <td class="right balance {{ (float) ($invoice?->balance ?? 0) <= 0 ? 'settled' : '' }}">
-                                ₦{{ number_format($invoice?->balance ?? 0, 0) }}
+                            <td class="right balance {{ ! $invoice || $invoice->displayBalance() <= 0 ? 'settled' : '' }}">
+                                @if($invoice)
+                                    {{ $invoice->displayBalance() < 0 ? '-₦' : '₦' }}{{ number_format(abs($invoice->displayBalance()), 0) }}
+                                @else
+                                    ₦0
+                                @endif
                             </td>
                             <td onclick="event.stopPropagation()">
                                 @if($invoice)

@@ -52,12 +52,15 @@ class ParentCreditFlowTest extends TestCase
 
         $this->assertDatabaseHas('parent_credits', [
             'parent_id' => $parent->id,
+            'student_id' => $student->id,
             'origin_fee_invoice_id' => $invoice->id,
             'source_reference' => 'PAYGRID-OVER-001-credit',
             'total_amount' => '40.00',
             'balance_amount' => '40.00',
             'status' => 'open',
         ]);
+
+        $this->assertSame(-40.0, $invoice->displayBalance());
     }
 
     public function test_send_invoice_job_applies_parent_credit_before_queuing_paygrid_push(): void
@@ -188,6 +191,48 @@ class ParentCreditFlowTest extends TestCase
             'method' => 'BudPay Transfer',
             'reference' => 'PAYGRID-FAMILY-001-inv-'.$secondInvoice->id,
             'recorded_by' => $admin->id,
+        ]);
+    }
+
+    public function test_student_scoped_credit_is_not_applied_to_sibling_invoice(): void
+    {
+        $admin = User::factory()->create(['user_type' => 'super_admin']);
+        [$parent, $firstChild, $firstInvoice] = $this->createParentStudentInvoiceGraph();
+
+        $secondChild = $this->createStudent('ADM-002', 'Second');
+        $parent->students()->attach($secondChild->id, [
+            'relationship' => 'Guardian',
+            'is_primary_contact' => true,
+        ]);
+        $secondInvoice = $this->createInvoiceForStudent($secondChild);
+
+        $credit = $parent->credits()->create([
+            'student_id' => $firstChild->id,
+            'origin_fee_invoice_id' => $firstInvoice->id,
+            'source_reference' => 'first-child-credit-001',
+            'total_amount' => 30,
+            'balance_amount' => 30,
+            'status' => 'open',
+            'notes' => 'Existing first child credit',
+            'created_by' => $admin->id,
+        ]);
+
+        Queue::fake();
+        Notification::fake();
+
+        app()->call([new SendInvoiceJob($secondInvoice), 'handle']);
+
+        $secondInvoice->refresh();
+        $credit->refresh();
+
+        $this->assertSame('unpaid', $secondInvoice->status);
+        $this->assertSame('0.00', (string) $secondInvoice->amount_paid);
+        $this->assertSame('100.00', (string) $secondInvoice->balance);
+        $this->assertSame('open', $credit->status);
+        $this->assertSame('30.00', (string) $credit->balance_amount);
+        $this->assertDatabaseMissing('parent_credit_applications', [
+            'parent_credit_id' => $credit->id,
+            'fee_invoice_id' => $secondInvoice->id,
         ]);
     }
 

@@ -225,6 +225,14 @@ class ParentGuardian extends Model
             ->sum('balance_amount');
     }
 
+    public function availableCreditBalanceForStudent(int $studentId): float
+    {
+        return (float) $this->credits()
+            ->where('student_id', $studentId)
+            ->where('status', 'open')
+            ->sum('balance_amount');
+    }
+
     public function familyStudentIdsForBilling(): Collection
     {
         $directStudentIds = $this->students()

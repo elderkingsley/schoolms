@@ -134,8 +134,8 @@
                 </div>
                 <div class="amount-cell">
                     <div class="amount-label">Balance</div>
-                    <div class="amount-value" style="color:{{ $invoice->balance > 0 ? 'var(--c-danger)' : 'var(--c-success)' }}">
-                        ₦{{ number_format($invoice->balance, 0) }}
+                    <div class="amount-value" style="color:{{ $invoice->displayBalance() > 0 ? 'var(--c-danger)' : 'var(--c-success)' }}">
+                        {{ $invoice->displayBalance() < 0 ? '-₦' : '₦' }}{{ number_format(abs($invoice->displayBalance()), 0) }}
                     </div>
                 </div>
             </div>

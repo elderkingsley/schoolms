@@ -113,7 +113,7 @@
                     <div class="fee-pill fee-{{ $feeStatus }}">
                         <span class="fee-pill-dot"></span>
                         @if($feeStatus === 'paid') Fees Paid
-                        @elseif($feeStatus === 'partial') Part Paid — ₦{{ number_format($invoice->balance, 0) }} left
+                        @elseif($feeStatus === 'partial') Part Paid — {{ $invoice->displayBalance() < 0 ? '-₦' : '₦' }}{{ number_format(abs($invoice->displayBalance()), 0) }} left
                         @else ₦{{ number_format($invoice->total_amount, 0) }} outstanding
                         @endif
                     </div>
