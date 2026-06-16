@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Admin\Fees\PaymentList;
 use App\Models\AcademicSession;
 use App\Models\FeeInvoice;
 use App\Models\FeePayment;
@@ -10,6 +11,7 @@ use App\Models\Term;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class AdminPaymentListTest extends TestCase
@@ -38,6 +40,11 @@ class AdminPaymentListTest extends TestCase
             'recorded_by' => $admin->id,
             'paid_at' => now()->subDay(),
         ]);
+        $olderInvoice->update([
+            'amount_paid' => 7500,
+            'balance' => 12500,
+            'status' => 'partial',
+        ]);
 
         FeePayment::create([
             'fee_invoice_id' => $newerInvoice->id,
@@ -48,15 +55,36 @@ class AdminPaymentListTest extends TestCase
             'recorded_by' => $admin->id,
             'paid_at' => now(),
         ]);
+        $newerInvoice->update([
+            'amount_paid' => 20000,
+            'balance' => 0,
+            'status' => 'paid',
+        ]);
 
         $this->actingAs($admin)
             ->get(route('admin.payments'))
             ->assertOk()
             ->assertSee('Payments')
+            ->assertSee('Fully Paid')
+            ->assertSee('Part Payment')
             ->assertSee('₦20,000')
+            ->assertSee('₦12,500')
             ->assertSee('RCP-NEWER-001')
             ->assertSee(route('admin.fees.invoices.show', $newerInvoice), false)
-            ->assertSeeInOrder(['Newer Student', 'Older Student']);
+            ->assertSeeInOrder(['Newer Student', 'Older Student'])
+            ->assertDontSee('Recorded By');
+
+        Livewire::actingAs($admin)
+            ->test(PaymentList::class)
+            ->set('filterPaymentStatus', 'paid')
+            ->assertSee('RCP-NEWER-001')
+            ->assertDontSee('RCP-OLDER-001');
+
+        Livewire::actingAs($admin)
+            ->test(PaymentList::class)
+            ->set('filterPaymentStatus', 'partial')
+            ->assertSee('RCP-OLDER-001')
+            ->assertDontSee('RCP-NEWER-001');
     }
 
     private function createInvoiceForStudent(string $admissionNumber, string $firstName): FeeInvoice

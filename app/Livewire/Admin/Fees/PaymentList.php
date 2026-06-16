@@ -17,6 +17,8 @@ class PaymentList extends Component
 
     public string $filterTerm = '';
 
+    public string $filterPaymentStatus = '';
+
     public string $dateFrom = '';
 
     public string $dateTo = '';
@@ -36,6 +38,11 @@ class PaymentList extends Component
         $this->resetPage();
     }
 
+    public function updatedFilterPaymentStatus(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedDateFrom(): void
     {
         $this->resetPage();
@@ -48,7 +55,7 @@ class PaymentList extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterMethod', 'filterTerm', 'dateFrom', 'dateTo']);
+        $this->reset(['search', 'filterMethod', 'filterTerm', 'filterPaymentStatus', 'dateFrom', 'dateTo']);
         $this->resetPage();
     }
 
@@ -65,7 +72,7 @@ class PaymentList extends Component
             ->values();
 
         $baseQuery = FeePayment::query()
-            ->with(['invoice.student', 'invoice.term.session', 'recordedBy'])
+            ->with(['invoice.student', 'invoice.term.session'])
             ->when($this->search, function ($query) {
                 $search = trim($this->search);
 
@@ -83,6 +90,7 @@ class PaymentList extends Component
             })
             ->when($this->filterMethod, fn ($query) => $query->where('method', $this->filterMethod))
             ->when($this->filterTerm, fn ($query) => $query->whereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('term_id', $this->filterTerm)))
+            ->when($this->filterPaymentStatus, fn ($query) => $query->whereHas('invoice', fn ($invoiceQuery) => $invoiceQuery->where('status', $this->filterPaymentStatus)))
             ->when($this->dateFrom, fn ($query) => $query->whereDate('paid_at', '>=', $this->dateFrom))
             ->when($this->dateTo, fn ($query) => $query->whereDate('paid_at', '<=', $this->dateTo));
 

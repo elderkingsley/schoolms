@@ -10,7 +10,7 @@
 .summary-value { font-size:22px; font-weight:700; margin-top:5px; font-family:var(--f-mono); letter-spacing:-0.02em; }
 .summary-value.success { color:#15803D; }
 .filters { display:grid; grid-template-columns:1fr; gap:8px; margin-bottom:14px; }
-@media(min-width:760px) { .filters { grid-template-columns:minmax(220px, 1.5fr) repeat(4, minmax(120px, 1fr)) auto; align-items:center; } }
+@media(min-width:900px) { .filters { grid-template-columns:minmax(220px, 1.5fr) repeat(5, minmax(120px, 1fr)) auto; align-items:center; } }
 .search-wrap { position:relative; min-width:0; }
 .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--c-text-3); pointer-events:none; }
 .filter-input, .filter-sel { width:100%; min-height:38px; padding:9px 10px; border:1px solid var(--c-border); border-radius:8px; font-size:12px; font-family:var(--f-sans); background:var(--c-surface); color:var(--c-text-1); outline:none; }
@@ -21,7 +21,7 @@
 .btn-clear:hover { background:var(--c-bg); }
 .panel { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); overflow:hidden; }
 .table-wrap { overflow-x:auto; }
-.data-table { width:100%; border-collapse:collapse; min-width:850px; }
+.data-table { width:100%; border-collapse:collapse; min-width:920px; }
 .data-table th { font-size:10px; font-weight:600; color:var(--c-text-3); text-transform:uppercase; letter-spacing:0.07em; padding:10px 16px; text-align:left; background:var(--c-bg); border-bottom:1px solid var(--c-border); white-space:nowrap; }
 .data-table th.right, .data-table td.right { text-align:right; }
 .data-table td { padding:13px 16px; font-size:13px; border-bottom:1px solid var(--c-border); vertical-align:middle; }
@@ -32,6 +32,8 @@
 .student-adm, .muted { color:var(--c-text-3); }
 .student-adm, .mono { font-family:var(--f-mono); font-size:11px; }
 .amount { font-family:var(--f-mono); font-size:13px; font-weight:700; color:#15803D; }
+.balance { font-family:var(--f-mono); font-size:13px; font-weight:700; color:var(--c-danger); }
+.balance.settled { color:#15803D; }
 .badge { display:inline-flex; align-items:center; padding:4px 8px; border-radius:20px; background:rgba(21,128,61,0.08); color:#15803D; font-size:11px; font-weight:500; white-space:nowrap; }
 .invoice-link { display:inline-flex; align-items:center; gap:5px; color:var(--c-accent); text-decoration:none; font-size:12px; font-weight:600; white-space:nowrap; }
 .invoice-link:hover { text-decoration:underline; }
@@ -79,10 +81,16 @@
         @endforeach
     </select>
 
+    <select wire:model.live="filterPaymentStatus" class="filter-sel" aria-label="Filter by invoice payment status">
+        <option value="">All Payment States</option>
+        <option value="paid">Fully Paid</option>
+        <option value="partial">Part Payment</option>
+    </select>
+
     <input class="filter-input" type="date" wire:model.live="dateFrom" aria-label="Payments from date">
     <input class="filter-input" type="date" wire:model.live="dateTo" aria-label="Payments to date">
 
-    @if($search || $filterTerm || $filterMethod || $dateFrom || $dateTo)
+    @if($search || $filterTerm || $filterMethod || $filterPaymentStatus || $dateFrom || $dateTo)
         <button type="button" class="btn-clear" wire:click="clearFilters">Clear</button>
     @endif
 </div>
@@ -101,8 +109,9 @@
                         <th>Method</th>
                         <th>Receipt</th>
                         <th>Reference</th>
-                        <th>Recorded By</th>
-                        <th class="right">Amount</th>
+                        <th class="right">Payment</th>
+                        <th class="right">Paid</th>
+                        <th class="right">Balance</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -138,8 +147,11 @@
                             <td><span class="badge">{{ $payment->method }}</span></td>
                             <td class="mono">{{ $payment->receipt_number ?: '—' }}</td>
                             <td class="mono muted">{{ $payment->reference ?: '—' }}</td>
-                            <td>{{ $payment->recordedBy?->name ?? 'System' }}</td>
                             <td class="right amount">₦{{ number_format($payment->amount, 0) }}</td>
+                            <td class="right amount">₦{{ number_format($invoice?->amount_paid ?? 0, 0) }}</td>
+                            <td class="right balance {{ (float) ($invoice?->balance ?? 0) <= 0 ? 'settled' : '' }}">
+                                ₦{{ number_format($invoice?->balance ?? 0, 0) }}
+                            </td>
                             <td onclick="event.stopPropagation()">
                                 @if($invoice)
                                     <a class="invoice-link" href="{{ $invoiceUrl }}">

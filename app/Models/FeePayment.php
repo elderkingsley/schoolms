@@ -18,9 +18,4 @@ class FeePayment extends Model
     {
         return $this->belongsTo(FeeInvoice::class, 'fee_invoice_id');
     }
-
-    public function recordedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'recorded_by');
-    }
 }
