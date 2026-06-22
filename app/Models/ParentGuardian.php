@@ -178,6 +178,29 @@ class ParentGuardian extends Model
         return $this->korapay_bank_name;
     }
 
+    public function getActiveBankCodeAttribute(): ?string
+    {
+        $provider = self::getActiveWalletProvider();
+
+        if ($provider === 'juicyway' && $this->hasJuicyWayAccount()) {
+            return $this->juicyway_bank_code;
+        }
+
+        if ($provider === 'budpay' && $this->hasBudPayAccount()) {
+            return $this->budpay_bank_code;
+        }
+
+        if (! empty($this->juicyway_account_number)) {
+            return $this->juicyway_bank_code;
+        }
+
+        if (! empty($this->budpay_account_number)) {
+            return $this->budpay_bank_code;
+        }
+
+        return $this->korapay_bank_code;
+    }
+
     /**
      * The account reference used to match Korapay webhooks.
      * Only set for Korapay accounts.

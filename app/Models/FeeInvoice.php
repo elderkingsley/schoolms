@@ -54,6 +54,11 @@ class FeeInvoice extends Model
         return $this->hasMany(ParentCreditApplication::class);
     }
 
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(FeeInvoiceAdjustment::class);
+    }
+
     public function originatingCredits(): HasMany
     {
         return $this->hasMany(ParentCredit::class, 'origin_fee_invoice_id');

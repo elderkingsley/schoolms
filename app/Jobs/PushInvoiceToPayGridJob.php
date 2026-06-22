@@ -5,6 +5,7 @@
 namespace App\Jobs;
 
 use App\Models\FeeInvoice;
+use App\Models\ParentGuardian;
 use App\Services\ParentCreditService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -103,6 +104,9 @@ class PushInvoiceToPayGridJob implements ShouldQueue
             'term_label' => $termLabel,
             'account_number' => $parent->active_account_number,
             'account_numbers' => $allAccountNumbers,   // NEW: array of all NUBANs
+            'bank_name' => $parent->active_bank_name,
+            'bank_code' => $parent->active_bank_code,
+            'payment_provider' => ParentGuardian::getActiveWalletProvider(),
             'due_date' => now()->addDays(30)->toDateString(),
             'items' => $invoice->items->map(fn ($item) => [
                 'name' => $item->item_name,

@@ -3,13 +3,13 @@
 namespace App\Livewire\Admin\Fees;
 
 use App\Jobs\ProvisionParentWalletJob;
-use App\Jobs\PushInvoiceToPayGridJob;
 use App\Jobs\SendInvoiceJob;
 use App\Models\FeeInvoice;
 use App\Models\FeeInvoiceItem;
 use App\Models\FeeItem;
 use App\Models\FeeStructure;
 use App\Services\FeeService;
+use App\Services\InvoiceAdjustmentService;
 use Livewire\Component;
 
 class InvoiceDetail extends Component
@@ -66,14 +66,9 @@ class InvoiceDetail extends Component
         $this->invoice->load('items.feeItem', 'payments');
     }
 
-    /**
-     * An invoice can be edited (items added/removed) if no payments have been
-     * made against it. Once any payment is recorded the line items are locked
-     * because removing them would distort the payment history.
-     */
     public function canEdit(): bool
     {
-        return $this->invoice->payments->isEmpty();
+        return true;
     }
 
     /**
@@ -170,8 +165,6 @@ class InvoiceDetail extends Component
 
     public function openAddItem(): void
     {
-        abort_if(! $this->canEdit(), 403, 'Cannot edit an invoice with recorded payments.');
-
         $this->addMode = 'catalogue';
         $this->addItemId = null;
         $this->addItemAmount = '';
@@ -186,7 +179,7 @@ class InvoiceDetail extends Component
      */
     public function updatedAddItemId(?int $value): void
     {
-        if (! $value) {
+        if (! $value || $this->invoice->isMiscellaneous() || ! $this->invoice->term) {
             $this->addItemAmount = '';
 
             return;
@@ -211,10 +204,8 @@ class InvoiceDetail extends Component
             : '';
     }
 
-    public function addItem(): void
+    public function addItem(InvoiceAdjustmentService $adjustments): void
     {
-        abort_if(! $this->canEdit(), 403);
-
         if ($this->addMode === 'catalogue') {
             $this->validate([
                 'addItemId' => 'required|exists:fee_items,id',
@@ -234,12 +225,17 @@ class InvoiceDetail extends Component
 
             $feeItem = FeeItem::findOrFail($this->addItemId);
 
-            FeeInvoiceItem::create([
-                'fee_invoice_id' => $this->invoice->id,
-                'fee_item_id' => $this->addItemId,
+            $adjustments->adjust($this->invoice, 'item_added', function (FeeInvoice $invoice) use ($feeItem): void {
+                FeeInvoiceItem::create([
+                    'fee_invoice_id' => $invoice->id,
+                    'fee_item_id' => $this->addItemId,
+                    'item_name' => $feeItem->name,
+                    'amount' => (float) $this->addItemAmount,
+                    'added_by' => 'admin',
+                ]);
+            }, [
                 'item_name' => $feeItem->name,
                 'amount' => (float) $this->addItemAmount,
-                'added_by' => 'admin',
             ]);
 
         } else {
@@ -249,28 +245,31 @@ class InvoiceDetail extends Component
                 'addItemAmount' => 'required|numeric|min:1',
             ]);
 
-            FeeInvoiceItem::create([
-                'fee_invoice_id' => $this->invoice->id,
-                'fee_item_id' => null,  // no catalogue link
-                'item_name' => $this->addCustomName,
+            $itemName = trim($this->addCustomName);
+
+            $adjustments->adjust($this->invoice, 'item_added', function (FeeInvoice $invoice) use ($itemName): void {
+                FeeInvoiceItem::create([
+                    'fee_invoice_id' => $invoice->id,
+                    'fee_item_id' => null,
+                    'item_name' => $itemName,
+                    'amount' => (float) $this->addItemAmount,
+                    'added_by' => 'admin',
+                ]);
+            }, [
+                'item_name' => $itemName,
                 'amount' => (float) $this->addItemAmount,
-                'added_by' => 'admin',
             ]);
         }
 
-        $this->invoice->recalculateTotal();
-        $this->syncInvoiceToPayGridAfterCommit();
         $this->reload();
         $this->showAddItem = false;
-        session()->flash('success', 'Item added. Invoice total updated.');
+        session()->flash('success', 'Item added. Invoice total updated and communicated if already sent.');
     }
 
     // ── Edit item amount ──────────────────────────────────────────────────────
 
     public function openEditItem(int $itemId): void
     {
-        abort_if(! $this->canEdit(), 403);
-
         $item = FeeInvoiceItem::findOrFail($itemId);
         abort_if($item->fee_invoice_id !== $this->invoice->id, 403);
 
@@ -280,10 +279,8 @@ class InvoiceDetail extends Component
         $this->resetValidation();
     }
 
-    public function saveItemAmount(): void
+    public function saveItemAmount(InvoiceAdjustmentService $adjustments): void
     {
-        abort_if(! $this->canEdit(), 403);
-
         $this->validate([
             'editingItemAmount' => 'required|numeric|min:1',
         ]);
@@ -291,21 +288,27 @@ class InvoiceDetail extends Component
         $item = FeeInvoiceItem::findOrFail($this->editingItemId);
         abort_if($item->fee_invoice_id !== $this->invoice->id, 403);
 
-        $item->update(['amount' => (float) $this->editingItemAmount]);
+        $oldAmount = (float) $item->amount;
+        $newAmount = (float) $this->editingItemAmount;
 
-        $this->invoice->recalculateTotal();
-        $this->syncInvoiceToPayGridAfterCommit();
+        $adjustments->adjust($this->invoice, 'item_amount_changed', function () use ($item, $newAmount): void {
+            $item->update(['amount' => $newAmount]);
+        }, [
+            'item_id' => $item->id,
+            'item_name' => $item->item_name,
+            'old_amount' => $oldAmount,
+            'new_amount' => $newAmount,
+        ]);
+
         $this->reload();
         $this->showEditItem = false;
-        session()->flash('success', 'Item amount updated.');
+        session()->flash('success', 'Item amount updated and communicated if already sent.');
     }
 
     // ── Remove item ───────────────────────────────────────────────────────────
 
-    public function removeItem(int $itemId): void
+    public function removeItem(int $itemId, InvoiceAdjustmentService $adjustments): void
     {
-        abort_if(! $this->canEdit(), 403);
-
         $item = FeeInvoiceItem::findOrFail($itemId);
         abort_if($item->fee_invoice_id !== $this->invoice->id, 403);
 
@@ -316,19 +319,19 @@ class InvoiceDetail extends Component
             return;
         }
 
-        $item->delete();
+        $itemName = $item->item_name;
+        $itemAmount = (float) $item->amount;
 
-        $this->invoice->recalculateTotal();
-        $this->syncInvoiceToPayGridAfterCommit();
+        $adjustments->adjust($this->invoice, 'item_removed', function () use ($item): void {
+            $item->delete();
+        }, [
+            'item_id' => $item->id,
+            'item_name' => $itemName,
+            'amount' => $itemAmount,
+        ]);
+
         $this->reload();
-        session()->flash('success', 'Item removed. Invoice total updated.');
-    }
-
-    private function syncInvoiceToPayGridAfterCommit(): void
-    {
-        if ($this->invoice->sent_at) {
-            PushInvoiceToPayGridJob::dispatch($this->invoice->fresh())->afterCommit();
-        }
+        session()->flash('success', 'Item removed. Invoice total updated and communicated if already sent.');
     }
 
     // ── Delete invoice ────────────────────────────────────────────────────────

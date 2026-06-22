@@ -123,15 +123,14 @@
     All Invoices
 </a>
 
-{{-- Edit lock warning --}}
-@if(! $this->canEdit())
+{{-- Adjustment notice --}}
+@if($invoice->payments->isNotEmpty())
     <div class="lock-banner">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-            <rect x="3" y="7" width="10" height="8" rx="1.5"/>
-            <path d="M5 7V5a3 3 0 0 1 6 0v2"/>
+            <path d="M8 1.5v13M2.5 8h11"/>
+            <circle cx="8" cy="8" r="6"/>
         </svg>
-        Fee items are locked because payments have been recorded against this invoice.
-        Remove all payments first to re-enable editing.
+        Payments have already been recorded. Any fee item change will be saved as an invoice adjustment, parents will receive an updated invoice, and PayGrid will be resynced.
     </div>
 @endif
 
