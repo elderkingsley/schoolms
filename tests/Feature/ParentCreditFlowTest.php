@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessBudPayWebhookJob;
 use App\Jobs\ProcessPayGridInflowJob;
 use App\Jobs\PushInvoiceToPayGridJob;
 use App\Jobs\SendInvoiceJob;
@@ -14,6 +15,8 @@ use App\Models\Student;
 use App\Models\Term;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -192,6 +195,70 @@ class ParentCreditFlowTest extends TestCase
             'reference' => 'PAYGRID-FAMILY-001-inv-'.$secondInvoice->id,
             'recorded_by' => $admin->id,
         ]);
+    }
+
+    public function test_process_budpay_webhook_signs_paygrid_notifications(): void
+    {
+        User::factory()->create(['user_type' => 'super_admin']);
+        [$parent, $student, $invoice] = $this->createParentStudentInvoiceGraph();
+
+        config([
+            'services.paygrid.api_base_url' => 'https://paygrid.test',
+            'services.paygrid.inflow_secret' => 'shared-inflow-secret',
+            'services.paygrid.webhook_url' => 'https://paygrid.test/api/budpay/webhook',
+            'services.paygrid.webhook_secret' => 'shared-forward-secret',
+        ]);
+
+        Notification::fake();
+        Http::fake([
+            'https://paygrid.test/*' => Http::response(['ok' => true]),
+        ]);
+
+        $payload = [
+            'notify' => 'transaction',
+            'notifyType' => 'successful',
+            'data' => [
+                'type' => 'dedicated_account',
+                'reference' => 'BUDPAY-REF-001',
+                'amount' => '99.50',
+            ],
+            'transferDetails' => [
+                'amount' => '100.00',
+                'craccount' => $parent->budpay_account_number,
+                'originatorname' => 'Parent One',
+            ],
+        ];
+
+        app()->call([new ProcessBudPayWebhookJob($payload, (string) str()->uuid()), 'handle']);
+
+        Http::assertSent(function (Request $request) use ($invoice) {
+            if ((string) $request->url() !== 'https://paygrid.test/api/inflows') {
+                return false;
+            }
+
+            $timestamp = $request->header('X-PayGrid-Timestamp')[0] ?? '';
+            $nonce = $request->header('X-PayGrid-Nonce')[0] ?? '';
+            $signature = $request->header('X-PayGrid-Signature')[0] ?? '';
+
+            return $timestamp !== ''
+                && $nonce !== ''
+                && hash_equals(
+                    hash_hmac('sha256', $timestamp.'.'.$nonce.'.'.$request->body(), 'shared-inflow-secret'),
+                    $signature
+                )
+                && data_get(json_decode($request->body(), true), 'reference') === 'BUDPAY-REF-001-inv-'.$invoice->id;
+        });
+
+        Http::assertSent(function (Request $request) use ($payload) {
+            if ((string) $request->url() !== 'https://paygrid.test/api/budpay/webhook') {
+                return false;
+            }
+
+            $signature = $request->header('X-Webhook-Signature')[0] ?? '';
+
+            return $request->body() === json_encode($payload)
+                && hash_equals(hash_hmac('sha256', $request->body(), 'shared-forward-secret'), $signature);
+        });
     }
 
     public function test_student_scoped_credit_is_not_applied_to_sibling_invoice(): void
